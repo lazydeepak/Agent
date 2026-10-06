@@ -619,6 +619,19 @@ body {
   display: flex !important;
 }
 
+.layout.view-sessions.split-view .relay-bridge,
+.layout.split-view .relay-bridge {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.layout.view-sessions.split-view .bridge-connector,
+.layout.split-view .bridge-connector {
+  justify-content: center;
+  transform: rotate(90deg);
+  margin: 2px 0;
+}
+
 .layout.view-activity {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -734,7 +747,10 @@ body {
   min-width: 0;
 }
 
-.project-pair-head .pair-id {
+.project-pair-head > .pair-id {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
   text-overflow: ellipsis;
 }
 
@@ -793,6 +809,13 @@ body {
   align-items: center;
   gap: 8px;
   min-width: 0;
+  flex: 1 1 auto;
+  max-width: 100%;
+}
+
+.pair-card-title .pair-id {
+  min-width: 0;
+  flex-shrink: 1;
 }
 
 .pair-id {
@@ -990,7 +1013,7 @@ body {
 /* Pair Grid, Metrics & Identity */
 .pair-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 8px 16px;
   margin-bottom: 12px;
 }
@@ -1007,10 +1030,12 @@ body {
   gap: 10px;
   font-size: 12px;
   align-items: baseline;
+  flex-wrap: wrap;
 }
 
 .identity-row .label {
   min-width: 120px;
+  flex-shrink: 0;
   color: var(--text-dim);
   font-size: 11.5px;
 }
@@ -1021,6 +1046,8 @@ body {
   font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   font-size: 11.5px;
   font-variant-numeric: tabular-nums;
+  flex: 1 1 160px;
+  min-width: 0;
 }
 
 .metric {
@@ -1106,7 +1133,7 @@ body {
 
 .validation-checks {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 6px 14px;
   font-size: 12px;
 }
