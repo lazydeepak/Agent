@@ -254,6 +254,7 @@ export function renderWorkerStep(body: HTMLElement): void {
   body.appendChild(apiProtocolField(draft.workerApiProtocol));
   const serverActions = el("div", "field-actions");
   const startServer = el("button", "btn btn-sm");
+  startServer.id = "project-pair-repo-start-server";
   startServer.textContent = "Start OpenCode server";
   startServer.disabled = !draft.workerRepoPath.trim();
   startServer.addEventListener("click", () => void startWorkerServer());
@@ -853,6 +854,10 @@ export function syncWizardControls(): void {
   const last = steps.length - 1;
   back.disabled = wizardStepIndex === 0;
   const step = steps[wizardStepIndex]!;
+  const startServer = document.getElementById("project-pair-repo-start-server") as HTMLButtonElement | null;
+  if (startServer) {
+    startServer.disabled = !wizard.draft.workerRepoPath.trim();
+  }
   const readiness = document.getElementById("wiz-step-readiness");
   if (readiness) updateStepReadiness(readiness, step);
   if (wizardStepIndex === last) {

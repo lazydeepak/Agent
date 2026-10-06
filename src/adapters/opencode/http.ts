@@ -227,10 +227,11 @@ export class OpenCodeHttpClient {
       } catch (error) {
         // If /doc returns HTML but we thought it was legacy, it might be a V2 server
         // with Swagger UI at /doc. Try the V2 health endpoint and re-pin if successful.
-        if (
-          error instanceof OpenCodeUnexpectedResponseError &&
-          error.contentType.includes("text/html")
-        ) {
+        const isUnexpectedHtml =
+          (error instanceof Error && error.name === "OpenCodeUnexpectedResponseError" && (error as any).contentType?.includes("text/html")) ||
+          (error instanceof OpenCodeUnexpectedResponseError && error.contentType.includes("text/html"));
+
+        if (isUnexpectedHtml) {
           const result = await this.requestJson("/api/health");
           this.pinApiProtocol("v2");
           return result;
