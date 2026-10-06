@@ -129,8 +129,8 @@ export function openCodeDesktopStateDirectories(
         ? environment.APPDATA
         : environment.XDG_CONFIG_HOME ?? join(home, ".config");
   if (!appData) return [];
-  return ["ai.opencode.desktop", "ai.opencode.desktop.beta", "ai.opencode.desktop.dev"].map((name) =>
-    join(appData, name)
+  return ["ai.opencode.desktop", "ai.opencode.desktop.beta", "ai.opencode.desktop.dev", "OpenCode", "opencode"].map(
+    (name) => join(appData, name)
   );
 }
 

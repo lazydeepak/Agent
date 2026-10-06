@@ -219,10 +219,24 @@ export class OpenCodeHttpClient {
 
   async health(): Promise<unknown> {
     if ((await this.apiMode()) === "legacy") {
-      return {
-        legacy: true,
-        doc: await this.requestJson("/doc")
-      };
+      try {
+        return {
+          legacy: true,
+          doc: await this.requestJson("/doc")
+        };
+      } catch (error) {
+        // If /doc returns HTML but we thought it was legacy, it might be a V2 server
+        // with Swagger UI at /doc. Try the V2 health endpoint and re-pin if successful.
+        if (
+          error instanceof OpenCodeUnexpectedResponseError &&
+          error.contentType.includes("text/html")
+        ) {
+          const result = await this.requestJson("/api/health");
+          this.pinApiProtocol("v2");
+          return result;
+        }
+        throw error;
+      }
     }
 
     return this.requestJson("/api/health");
@@ -230,7 +244,21 @@ export class OpenCodeHttpClient {
 
   async serverInfo(): Promise<unknown> {
     if ((await this.apiMode()) === "legacy") {
-      return this.requestJson("/doc");
+      try {
+        return await this.requestJson("/doc");
+      } catch (error) {
+        // If /doc returns HTML but we thought it was legacy, it might be a V2 server
+        // with Swagger UI at /doc. Try the V2 server info endpoint and re-pin if successful.
+        if (
+          error instanceof OpenCodeUnexpectedResponseError &&
+          error.contentType.includes("text/html")
+        ) {
+          const result = await this.requestJson("/api/server");
+          this.pinApiProtocol("v2");
+          return result;
+        }
+        throw error;
+      }
     }
 
     return this.requestJson("/api/server");
@@ -511,6 +539,20 @@ export class OpenCodeHttpClient {
     const pathKeys = Object.keys(paths);
     const hasV2Core = pathKeys.some((path) => path.startsWith("/api/session") || path === "/api/health");
     if (!hasV2Core) {
+      // If discovery didn't find V2, try a direct probe for V2 health before defaulting to legacy.
+      // This handles cases where the spec paths (/doc, /openapi.json) are missing or return HTML.
+      try {
+        const v2Health = (await this.requestJson("/api/health", { signal: AbortSignal.timeout(2000) })) as {
+          status?: string;
+        };
+        if (v2Health && (v2Health.status === "ok" || Object.keys(v2Health).length > 0)) {
+          this.pinApiProtocol("v2");
+          return;
+        }
+      } catch {
+        // Not V2 or unreachable
+      }
+
       this.pinApiProtocol("legacy");
       return;
     }

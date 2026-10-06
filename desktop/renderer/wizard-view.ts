@@ -54,8 +54,8 @@ export async function loadWizardDefaults(): Promise<void> {
   if (wizard !== currentWizard) {
     return;
   }
-  if (!wizard.draft.workerEndpoint) {
-    wizard.draft.workerEndpoint = openCodeEndpoint;
+  if (!wizard.draft.workerEndpoint || wizard.draft.workerEndpoint === "http://127.0.0.1:4096") {
+    wizard.draft.workerEndpoint = openCodeEndpoint || wizard.draft.workerEndpoint || "http://127.0.0.1:4096";
   }
   if (!wizard.draft.plannerEndpoint) {
     wizard.draft.plannerEndpoint = chatGptEndpoint;

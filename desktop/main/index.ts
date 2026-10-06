@@ -352,6 +352,11 @@ app.whenReady().then(async () => {
 
   const discoveredOpenCodeUrl = await discoverOpenCodeServerUrl();
   const opencodeBaseUrl = cli.opencodeBaseUrl ?? discoveredOpenCodeUrl;
+  if (discoveredOpenCodeUrl) {
+    console.log(`[desktop] Auto-discovered OpenCode server URL: ${discoveredOpenCodeUrl}`);
+  } else if (!cli.opencodeBaseUrl) {
+    console.log(`[desktop] No OpenCode server auto-discovery found; using default 4096.`);
+  }
 
   const orchestrator = new RuntimeOrchestrator({
     pairs: [],

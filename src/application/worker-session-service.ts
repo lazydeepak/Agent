@@ -148,12 +148,13 @@ export class WorkerSessionService {
   }
 
     getOpenCodeEndpoint(): string {
-    return (
-      this.ctx.options.opencode?.baseUrl ??
-      process.env.AGENT_RELAY_OPENCODE_BASE_URL ??
-      this.firstWorkerServer()?.baseUrl ??
-      "http://127.0.0.1:4096"
-    );
+    const configured = this.ctx.options.opencode?.baseUrl ?? process.env.AGENT_RELAY_OPENCODE_BASE_URL;
+    if (configured) return configured;
+
+    const first = this.firstWorkerServer()?.baseUrl;
+    if (first) return first;
+
+    return "http://127.0.0.1:4096";
   }
 
     getChatGptEndpoint(): string {
