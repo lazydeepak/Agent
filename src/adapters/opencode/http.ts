@@ -547,8 +547,21 @@ export class OpenCodeHttpClient {
     if (this.docPaths) {
       return this.docPaths;
     }
-    const doc = (await this.requestJson("/doc")) as { paths?: Record<string, unknown> };
-    this.docPaths = doc.paths ?? {};
+    // OpenCode traditionally uses /doc for its JSON spec, but recent updates or proxies may
+    // return HTML (Swagger UI) or move the spec. Try common paths before giving up.
+    const discoveryPaths = ["/doc", "/openapi.json", "/api/doc", "/api/openapi.json"];
+    for (const path of discoveryPaths) {
+      try {
+        const doc = (await this.requestJson(path)) as { paths?: Record<string, unknown> };
+        if (doc && typeof doc === "object" && doc.paths) {
+          this.docPaths = doc.paths;
+          return this.docPaths;
+        }
+      } catch (error) {
+        // Fall through to next path or final empty fallback
+      }
+    }
+    this.docPaths = {};
     return this.docPaths;
   }
 

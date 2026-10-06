@@ -8,6 +8,7 @@ import {
 } from "../adapters/chatgpt/project-discovery.js";
 import {
   OpenCodeDesktopStateError,
+  discoverOpenCodeServerUrl,
   scanOpenCodeDesktopActiveSession,
   type OpenCodeDesktopSession
 } from "../adapters/opencode/desktop-state.js";
@@ -188,8 +189,9 @@ export class ProjectPairService {
 
   /** Read-only: groups every OpenCode session by its project directory. */
   async discoverOpenCodeProjects(): Promise<OpenCodeProjectDiscovery[]> {
+    const discoveredUrl = await discoverOpenCodeServerUrl();
     const worker = new LiveOpenCodeAdapter({
-      baseUrl: this.opencodeBaseUrl(),
+      baseUrl: discoveredUrl ?? this.opencodeBaseUrl(),
       fetch: this.options.opencodeFetch
     });
     let sessions: Array<{ repoPath?: string }>;

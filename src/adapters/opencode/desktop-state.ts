@@ -27,6 +27,26 @@ export class OpenCodeDesktopStateError extends Error {
   }
 }
 
+/** Reads OpenCode's persisted server info to find the dynamic port if it's not on the default 4096. */
+export async function discoverOpenCodeServerUrl(
+  options: OpenCodeDesktopScanOptions = {}
+): Promise<string | undefined> {
+  for (const directory of options.stateDirectories ?? openCodeDesktopStateDirectories()) {
+    try {
+      // OpenCode Desktop writes transient server info to server.json when running its local engine.
+      const serverJsonPath = join(directory, "server.json");
+      const raw = await readFile(serverJsonPath, "utf8");
+      const parsed = JSON.parse(raw) as { baseUrl?: string; url?: string; port?: number };
+      const url = parsed.baseUrl ?? parsed.url;
+      if (url && typeof url === "string") return url.endsWith("/") ? url : `${url}/`;
+      if (typeof parsed.port === "number") return `http://127.0.0.1:${parsed.port}/`;
+    } catch {
+      // Continue to next possible directory
+    }
+  }
+  return undefined;
+}
+
 /** Reads OpenCode's persisted recent-tab pointer. It never opens its session database or sidecar credentials. */
 export async function scanOpenCodeDesktopActiveSession(
   options: OpenCodeDesktopScanOptions = {}

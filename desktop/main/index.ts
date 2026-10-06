@@ -8,6 +8,7 @@ import { ProjectPairService, type CreateProjectPairInput } from "../../src/appli
 import { DesktopLifecycle, type DesktopLifecycleState } from "../../src/application/desktop-lifecycle.js";
 import { WorkerProgressService } from "../../src/application/worker-progress.js";
 import { SqliteRelayStore, ensureDbParent, resolveDbPath } from "../../src/persistence/index.js";
+import { discoverOpenCodeServerUrl } from "../../src/adapters/opencode/desktop-state.js";
 import { PairConfigRepository } from "../../src/application/pair-config-repository.js";
 import { RuntimeOrchestrator } from "../../src/runtime/index.js";
 import { RelayEngine } from "../../src/application/relay-engine.js";
@@ -348,13 +349,17 @@ app.whenReady().then(async () => {
   await store.init();
   const configRepo = new PairConfigRepository(cli.configPath);
   const config = await configRepo.load();
+
+  const discoveredOpenCodeUrl = await discoverOpenCodeServerUrl();
+  const opencodeBaseUrl = cli.opencodeBaseUrl ?? discoveredOpenCodeUrl;
+
   const orchestrator = new RuntimeOrchestrator({
     pairs: [],
     store,
     relay: cli.relay,
     recoveryFor: () => ({ policy: "safe" }),
     adapterDefaults: {
-      opencode: cli.opencodeBaseUrl ? { baseUrl: cli.opencodeBaseUrl } : undefined,
+      opencode: opencodeBaseUrl ? { baseUrl: opencodeBaseUrl } : undefined,
       chatgpt: cli.chatgptCdpUrl ? { cdpUrl: cli.chatgptCdpUrl } : undefined,
       liveOpenCode: cli.liveOpenCode,
       liveChatGPT: cli.liveChatGPT
@@ -372,7 +377,7 @@ app.whenReady().then(async () => {
     dbPath: cli.dbPath,
     liveOpenCode: cli.liveOpenCode,
     liveChatGPT: cli.liveChatGPT,
-    opencode: cli.opencodeBaseUrl ? { baseUrl: cli.opencodeBaseUrl } : undefined,
+    opencode: opencodeBaseUrl ? { baseUrl: opencodeBaseUrl } : undefined,
     chatgpt: cli.chatgptCdpUrl ? { cdpUrl: cli.chatgptCdpUrl } : undefined,
     relay: cli.relay,
     recoveryPolicy: "safe",
@@ -380,7 +385,7 @@ app.whenReady().then(async () => {
   });
   projectPairService = new ProjectPairService({
     configPath: projectPairsConfigPath(),
-    opencodeBaseUrl: cli.opencodeBaseUrl,
+    opencodeBaseUrl: opencodeBaseUrl,
     chatgptCdpUrl: cli.chatgptCdpUrl
   });
 
