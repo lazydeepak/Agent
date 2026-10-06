@@ -2027,6 +2027,26 @@ textarea::placeholder {
     overflow: hidden;
   }
 
+  .event-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 8px;
+  }
+
+  .event-time {
+    font-size: 10px;
+    opacity: 0.8;
+  }
+
+  .event-pair {
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .event-type {
+    font-size: 11px;
+  }
+
   .layout {
     grid-template-columns: 1fr !important;
     padding: 10px 12px;
