@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Relay Remote</title>
+<style>
+  body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; padding: 2rem; background: #0d1117; color: #c9d1d9; line-height: 1.5; }
+  h1 { font-size: 1.5rem; margin-bottom: 1.5rem; font-weight: 600; }
+  h2 { font-size: 1.25rem; margin: 1.5rem 0 1rem; font-weight: 600; }
+  .container { max-width: 900px; margin: 0 auto; }
+  .auth-form { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
+  .form-group { margin-bottom: 1rem; }
+  .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem; }
+  .form-group input { width: 100%; padding: 0.5rem 0.75rem; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 0.9rem; box-sizing: border-box; }
+  .form-group input:focus { outline: none; border-color: #58a6ff; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; }
+  .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+  .card-title { font-weight: 600; font-size: 1rem; }
+  .card-meta { font-size: 0.85rem; color: #8b949e; }
+  .btn { padding: 0.5rem 1rem; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; border-radius: 6px; font-size: 0.9rem; cursor: pointer; transition: background 0.15s; }
+  .btn:hover { background: #30363d; }
+  .btn-primary { background: #58a6ff; color: #fff; border-color: #58a6ff; }
+  .btn-primary:hover { background: #79c0ff; }
+  .btn-secondary { background: transparent; border-color: #30363d; }
+  .btn-secondary:hover { background: #21262d; }
+  .btn-danger { background: #da3633; color: #fff; border-color: #da3633; }
+  .btn-danger:hover { background: #f85149; }
+  .timeline { max-height: 400px; overflow-y: auto; font-family: ui-monospace, monospace; font-size: 0.85rem; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; }
+  .timeline-row { padding: 0.5rem 0; border-bottom: 1px solid #21262d; }
+  .timeline-row:last-child { border-bottom: none; }
+  .error { color: #f85149; font-size: 0.9rem; margin-top: 0.5rem; }
+  .success { color: #3fb950; font-size: 0.9rem; margin-top: 0.5rem; }
+  .loading { color: #8b949e; font-size: 0.9rem; margin-top: 0.5rem; }
+  .hidden { display: none; }
+  .badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+  .badge-running { background: rgba(63, 185, 80, 0.15); color: #3fb950; }
+  .badge-stopped { background: rgba(139, 148, 158, 0.15); color: #8b949e; }
+  .badge-error { background: rgba(218, 54, 51, 0.15); color: #f85149; }
+  .header-actions { display: flex; gap: 0.5rem; align-items: center; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Agent Relay — Remote</h1>
+  </div>
+
+  <div id="auth" class="auth-form">
+    <div class="form-group">
+      <label for="token">Authentication Token</label>
+      <input id="token" type="password" placeholder="Enter RELAY_REMOTE_TOKEN" />
+    </div>
+    <button class="btn btn-primary" onclick="connect()">Connect</button>
+    <span id="auth-msg"></span>
+  </div>
+
+  <div id="app" class="hidden">
+    <div class="header-actions" style="margin-bottom: 1rem;">
+      <button class="btn btn-secondary" onclick="refresh()">Refresh</button>
+      <button class="btn btn-danger" onclick="logout()">Logout</button>
+    </div>
+
+    <h2>Projects / Pairs</h2>
+    <div id="project-list"></div>
+
+    <h2>Recent Activity</h2>
+    <div id="timeline" class="timeline"></div>
+  </div>
+</div>
+
+<script>
+let token = sessionStorage.getItem("agent-relay-remote-token") || "dev-token-123";
+const input = document.getElementById("token");
+if (input) input.value = token;
+
+async function connect() {
+  const auth = input?.value.trim() ?? "";
+  if (!auth) {
+    showAuthError("Token required");
+    return;
+  }
+
+  const msgEl = document.getElementById("auth-msg");
+  msgEl.textContent = "Connecting...";
+  msgEl.className = "loading";
+
+  try {
+    const res = await fetch("/api/agent-relay/status", {
+      headers: { Authorization: `Bearer ${auth}` }
+    });
+
+    if (!res.ok) {
+      throw new Error("Authentication failed or service unreachable");
+    }
+
+    sessionStorage.setItem("agent-relay-remote-token", auth);
+    document.getElementById("auth").classList.add("hidden");
+    document.getElementById("app").classList.remove("hidden");
+    await refresh();
+  } catch (e) {
+    showAuthError(e.message || "Connection failed");
+  }
+}
+
+function showAuthError(message) {
+  const msgEl = document.getElementById("auth-msg");
+  msgEl.textContent = message;
+  msgEl.className = "error";
+}
+
+function logout() {
+  sessionStorage.removeItem("agent-relay-remote-token");
+  document.getElementById("app").classList.add("hidden");
+  document.getElementById("auth").classList.remove("hidden");
+  document.getElementById("auth-msg").textContent = "";
+  if (input) input.value = "";
+}
+
+async function refresh() {
+  const timelineEl = document.getElementById("timeline");
+  const listEl = document.getElementById("project-list");
+
+  timelineEl.innerHTML = '<div class="loading">Loading...</div>';
+  listEl.innerHTML = '<div class="loading">Loading...</div>';
+
+  try {
+    const res = await fetch("/api/agent-relay/status", {
+      headers: { Authorization: `Bearer ${sessionStorage.getItem("agent-relay-remote-token") ?? ""}` }
+    });
+
+    if (!res.ok) {
+      throw new Error("Authentication failed");
+    }
+
+    const data = await res.json();
+    render(data);
+  } catch (e) {
+    timelineEl.innerHTML = `<div class="error">Failed to load: ${e.message}</div>`;
+    listEl.innerHTML = `<div class="error">Failed to load: ${e.message}</div>`;
+
+    // If auth failed, show login form
+    if (e.message.includes("Authentication")) {
+      logout();
+      showAuthError("Session expired. Please login again.");
+    }
+  }
+}
+
+function render(status) {
+  const list = document.getElementById("project-list");
+  const timeline = document.getElementById("timeline");
+
+  if (!list || !timeline) return;
+
+  list.innerHTML = "";
+  timeline.innerHTML = "";
+
+  const pairs = status?.pairs ?? [];
+
+  if (pairs.length === 0) {
+    list.innerHTML = '<div class="card" style="text-align: center; color: #8b949e;">No projects or pairs configured</div>';
+  } else {
+    for (const p of pairs) {
+      const card = document.createElement("div");
+      card.className = "card";
+
+      const stateBadge = getStateBadge(p.runtimeState);
+
+      card.innerHTML = `
+        <div class="card-header">
+          <span class="card-title">${escapeHtml(p.pairId)}</span>
+          <span class="badge ${stateBadge.class}">${stateBadge.text}</span>
+        </div>
+        <div class="card-meta">
+          Runtime: ${escapeHtml(p.runtimeState ?? "—")} · Supervisor: ${escapeHtml(p.supervisorState ?? "—")}
+        </div>
+      `;
+      list.appendChild(card);
+    }
+  }
+
+  // Render timeline if available
+  const events = status?.recentEvents ?? [];
+  if (events.length === 0) {
+    timeline.innerHTML = '<div style="text-align: center; color: #8b949e; padding: 1rem;">No recent activity</div>';
+  } else {
+    for (const event of events) {
+      const row = document.createElement("div");
+      row.className = "timeline-row";
+      const time = new Date(event.time).toLocaleTimeString();
+      row.innerHTML = `<span style="color: #8b949e;">${time}</span> · <strong>${escapeHtml(event.pairId ?? "system")}</strong> · ${escapeHtml(event.type)}`;
+      timeline.appendChild(row);
+    }
+  }
+}
+
+function getStateBadge(state) {
+  switch (state) {
+    case "RUNNING":
+      return { class: "badge-running", text: "Running" };
+    case "STOPPED":
+      return { class: "badge-stopped", text: "Stopped" };
+    case "ERROR":
+    case "FAILED":
+      return { class: "badge-error", text: "Error" };
+    default:
+      return { class: "badge-stopped", text: state || "Unknown" };
+  }
+}
+
+function escapeHtml(text) {
+  if (!text) return "";
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Auto-connect if token exists
+if (sessionStorage.getItem("agent-relay-remote-token")) {
+  connect();
+}
+</script>
+</body>
+</html>

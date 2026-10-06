@@ -1,0 +1,22 @@
+{
+  "pairs": [
+    {
+      "pairId": "local-dev",
+      "enabled": true,
+      "worker": {
+        "type": "opencode",
+        "sessionId": "opencode-session-id",
+        "repoPath": "/Users/lazydeepak/dev/agent-relay"
+      },
+      "planner": {
+        "type": "chatgpt-browser",
+        "conversationId": "chatgpt-conversation-id",
+        "conversationUrl": "https://chatgpt.com/c/chatgpt-conversation-id"
+      },
+      "fallbackModel": {
+        "providerID": "anthropic",
+        "id": "claude-3-5-sonnet-20240620"
+      }
+    }
+  ]
+}

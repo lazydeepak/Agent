@@ -1,0 +1,18 @@
+node_modules/
+dist/
+tauri-client/src-tauri/target/
+tauri-client/dist/
+tauri-client/src-tauri/bin/
+
+# Tauri build outputs (scoped; not broad bin/)
+desktop-dist/
+coverage/
+.DS_Store
+.env
+.opencode/
+config/pairs.local.json
+config/projects.local.json
+data/*
+!data/.gitkeep
+logs/*
+!logs/.gitkeep

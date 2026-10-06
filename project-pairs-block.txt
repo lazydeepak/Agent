@@ -1,0 +1,10 @@
+  const stored = readStoredThemePreference();
+  applyThemePreference(stored);
+  if (select) {
+    select.value = stored;
+    select.addEventListener("change", () => {
+      const preference = normalizeThemePreference(select.value);
+      applyThemePreference(preference);
+      storeThemePreference(preference);
+    });
+  }

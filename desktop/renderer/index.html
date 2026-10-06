@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="system">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'"
+    />
+    <title>Agent Relay</title>
+    <meta name="description" content="Pair agent sessions and validate readiness before relaying work between them." />
+    <meta property="og:title" content="Agent Relay" />
+    <meta property="og:description" content="Pair agent sessions and validate readiness before relaying work between them." />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <button id="sidebar-toggle" class="sidebar-toggle-btn btn btn-ghost btn-icon" aria-label="Toggle navigation menu" title="Toggle navigation">☰</button>
+        <span class="brand-name">Agent Relay</span>
+        <span class="config-path hidden" id="config-path"></span>
+        <span class="badge badge-neutral" id="automation-mode">mode: loading</span>
+      </div>
+      <div class="global-actions">
+        <label class="pref-toggle theme-toggle" title="Color theme">
+          <span>Theme</span>
+          <select id="theme-select" aria-label="Color theme">
+            <option value="system">System</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
+        <label class="pref-toggle" title="Bring the worker OpenCode session to the foreground when a session starts">
+          <input id="show-worker-on-start" type="checkbox" />
+          <span>Show worker when started</span>
+        </label>
+        <button id="refresh" class="btn" title="Refresh status">Refresh</button>
+        <button id="start-all" class="btn btn-primary">Start All</button>
+        <button id="stop-all" class="btn btn-danger">Stop All</button>
+      </div>
+    </header>
+
+    <div class="app-workspace">
+      <aside class="sidebar-nav">
+        <div class="sidebar-header">
+          <span class="sidebar-title">Workspace</span>
+        </div>
+        <nav class="sidebar-menu">
+          <button id="nav-all-sessions" class="sidebar-item active">
+            <span class="sidebar-item-icon">◈</span>
+            <span class="sidebar-item-label">Projects</span>
+            <span id="nav-projects-count" class="sidebar-count">0</span>
+          </button>
+          <button id="nav-activity" class="sidebar-item">
+            <span class="sidebar-item-icon">⚡</span>
+            <span class="sidebar-item-label">Live Activity</span>
+            <span id="nav-event-count" class="sidebar-count">0</span>
+          </button>
+          <button id="nav-archive" class="sidebar-item">
+            <span class="sidebar-item-icon">🗄</span>
+            <span class="sidebar-item-label">Archive</span>
+            <span id="nav-archive-count" class="sidebar-count">0</span>
+          </button>
+        </nav>
+        <div class="sidebar-section-divider"></div>
+        <div class="sidebar-header" style="margin-top: 4px;">
+          <span class="sidebar-title">Projects</span>
+        </div>
+        <div id="sidebar-projects-list" class="sidebar-projects-list"></div>
+        <div class="sidebar-section-divider"></div>
+        <div class="sidebar-actions">
+          <button id="add-pair" class="btn btn-primary btn-sm btn-full">+ Add Session</button>
+          <button id="add-project-pair" class="btn btn-ghost btn-sm btn-full">+ Add Project</button>
+        </div>
+      </aside>
+      <div id="sidebar-backdrop" class="sidebar-backdrop hidden"></div>
+
+      <main class="layout">
+        <section class="panel project-pairs-panel" id="project-pairs-panel">
+          <div class="panel-header" id="projects-panel-header">
+            <div>
+              <h2>Projects</h2>
+              <span class="panel-subtitle">Paired autonomous agents and supervised workflows</span>
+            </div>
+            <div class="panel-header-actions">
+              <button id="expand-all" class="btn btn-ghost btn-sm" title="Expand every session card">Expand all</button>
+              <button id="collapse-all" class="btn btn-ghost btn-sm" title="Collapse every session card">Collapse all</button>
+              <button id="toggle-split-view" class="btn btn-ghost btn-sm" title="Toggle side activity stream">Split View</button>
+            </div>
+          </div>
+          <div id="no-project-pairs" class="empty-state hidden">No projects configured</div>
+          <div id="project-pairs-list" class="project-pairs-list"></div>
+
+          <div id="archive-section" class="archive-panel hidden">
+            <div class="panel-header">
+              <div>
+                <h2>Archived Sessions</h2>
+                <span class="panel-subtitle">Archived pairs and preserved ledger records in <code>data/archive/</code></span>
+              </div>
+              <div class="panel-header-actions">
+                <button id="archive-refresh" class="btn btn-ghost btn-sm" title="Rescan data/archive/">Refresh</button>
+              </div>
+            </div>
+            <div id="archive-summary" class="archive-summary"></div>
+            <div id="archive-list" class="archive-list"></div>
+          </div>
+        </section>
+
+        <section class="panel events-panel" id="events-panel">
+          <div class="events-header">
+            <div>
+              <h2>Live Activity</h2>
+              <span class="panel-subtitle">Real-time supervision &amp; relay events</span>
+            </div>
+            <div class="events-controls">
+              <span id="event-count" class="event-count">0 events</span>
+            </div>
+          </div>
+          <div id="events-list" class="events-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <div id="progress-modal" class="modal-overlay hidden">
+      <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="progress-title">
+        <div class="modal-header">
+          <h3 id="progress-title">Worker Progress</h3>
+          <button id="progress-close" class="btn btn-ghost btn-sm" title="Close">×</button>
+        </div>
+        <div id="progress-body" class="modal-body progress-body">
+          <div class="progress-tabs">
+            <button class="progress-tab active" data-tab="live">Live</button>
+            <button class="progress-tab" data-tab="plan">Plan</button>
+            <button class="progress-tab" data-tab="changes">Changes</button>
+            <button class="progress-tab" data-tab="history">History</button>
+          </div>
+          <div id="progress-tab-content" class="progress-tab-content"></div>
+        </div>
+        <div class="modal-footer">
+          <button id="progress-refresh" class="btn">Refresh</button>
+          <div class="modal-footer-spacer"></div>
+          <button id="progress-close-footer" class="btn btn-ghost">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="wizard-modal" class="modal-overlay hidden">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="wizard-title">
+        <div class="modal-header">
+          <h3 id="wizard-title">Add Session</h3>
+          <button id="wizard-close" class="btn btn-ghost btn-sm" title="Cancel">×</button>
+        </div>
+        <div id="wizard-body" class="modal-body"></div>
+        <div class="modal-footer">
+          <button id="wizard-back" class="btn">Back</button>
+          <div class="modal-footer-spacer"></div>
+          <button id="wizard-cancel" class="btn btn-ghost">Cancel</button>
+          <button id="wizard-next" class="btn btn-primary">Next</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="worker-session-modal" class="modal-overlay hidden">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="worker-session-title">
+        <div class="modal-header">
+          <h3 id="worker-session-title">New Worker Session</h3>
+          <button id="worker-session-close" class="btn btn-ghost btn-sm" title="Cancel">×</button>
+        </div>
+        <div class="modal-body">
+          <div id="worker-session-name-field" class="field">
+            <label for="worker-session-name">Session name</label>
+            <input id="worker-session-name" type="text" autocomplete="off" />
+          </div>
+          <p id="worker-session-confirmation" class="detail hidden"></p>
+        </div>
+        <div class="modal-footer">
+          <button id="worker-session-cancel" class="btn btn-ghost">Cancel</button>
+          <div class="modal-footer-spacer"></div>
+          <button id="worker-session-confirm" class="btn btn-primary">Continue</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="project-pair-modal" class="modal-overlay hidden">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="project-pair-title">
+        <div class="modal-header">
+          <h3 id="project-pair-title">Add Project</h3>
+          <button id="project-pair-close" class="btn btn-ghost btn-sm" title="Cancel">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="field">
+            <label for="project-pair-name">Project name</label>
+            <input id="project-pair-name" type="text" autocomplete="off" placeholder="Auto-generated when empty" />
+          </div>
+          <div class="field">
+            <label for="project-pair-repo">OpenCode project (repository path)</label>
+            <input id="project-pair-repo" type="text" autocomplete="off" placeholder="/path/to/repo" />
+            <div class="field-actions">
+              <button id="project-pair-repo-detect" class="btn btn-sm">Detect projects</button>
+              <button id="project-pair-repo-start-server" class="btn btn-sm">Start OpenCode server</button>
+              <button id="project-pair-repo-active" class="btn btn-sm">Use active desktop session</button>
+            </div>
+            <select id="project-pair-repo-options" class="hidden" aria-label="Detected OpenCode projects"></select>
+            <span class="hint">The OpenCode desktop project at this repository path.</span>
+          </div>
+          <div class="field">
+            <label for="project-pair-chatgpt">ChatGPT project (slug or project conversation URL)</label>
+            <input id="project-pair-chatgpt" type="text" autocomplete="off" placeholder="g-p-… or https://chatgpt.com/g/…/c/…" />
+            <div class="field-actions">
+              <button id="project-pair-chatgpt-detect" class="btn btn-sm">Detect from open tabs</button>
+              <button id="project-pair-chatgpt-start-browser" class="btn btn-sm">Start automation browser</button>
+            </div>
+            <select id="project-pair-chatgpt-options" class="hidden" aria-label="Detected ChatGPT projects"></select>
+            <span class="hint">The ChatGPT chat project holding this slug.</span>
+          </div>
+          <p id="project-pair-error" class="detail hidden"></p>
+        </div>
+        <div class="modal-footer">
+          <button id="project-pair-cancel" class="btn btn-ghost">Cancel</button>
+          <div class="modal-footer-spacer"></div>
+          <button id="project-pair-create" class="btn btn-primary">Create project</button>
+        </div>
+      </div>
+    </div>
+
+    <script defer src="./renderer.js"></script>
+  </body>
+</html>

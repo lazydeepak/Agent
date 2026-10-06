@@ -1,0 +1,47 @@
+{
+  "name": "agent-relay",
+  "productName": "Agent Relay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pair agent sessions and validate readiness before relaying work between them.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "tsx desktop/preview/preview-server.ts",
+    "dev": "tsx desktop/preview/preview-server.ts",
+    "relay": "tsx src/index.ts",
+    "lint": "npm run check",
+    "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
+    "test": "vitest run --exclude 'dist/**'",
+    "desktop:build": "node scripts/build-desktop.mjs",
+    "desktop:check": "tsc -p tsconfig.desktop.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
+    "desktop:dev": "node scripts/ensure-single-instance.mjs && npm run desktop:build && electron desktop-dist/desktop/main/index.js",
+    "desktop:relay": "node scripts/ensure-single-instance.mjs && npm run desktop:build && electron desktop-dist/desktop/main/index.js --relay",
+    "tauri:dev": "cd tauri-client && cargo tauri dev",
+    "tauri:build": "npm run service:bundle && cd tauri-client && cargo tauri build",
+    "tauri:check": "cd tauri-client && cargo tauri info",
+    "service:bundle": "node scripts/service-bundle.mjs",
+    "service:binary": "node scripts/service-binary.mjs",
+    "tauri:prepare-runtime": "node scripts/prepare-tauri-runtime.mjs",
+    "tauri:prepare-sidecar": "node scripts/tauri-prepare-sidecar.mjs",
+    "tauri:ui:build": "node scripts/build-tauri-ui.mjs"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "dependencies": {
+    "playwright-core": "1.63.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "electron": "^44.0.0",
+    "esbuild": "^0.28.2",
+    "postject": "^1.0.0-alpha.6",
+    "tsx": "^4.19.2",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  }
+}

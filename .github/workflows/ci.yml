@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install system dependencies for Electron
+        run: |
+          sudo apt-get update
+          if apt-cache show libasound2t64 >/dev/null 2>&1; then ASOUND_PKG=libasound2t64; else ASOUND_PKG=libasound2; fi
+          sudo apt-get install -y libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 "$ASOUND_PKG" libpango-1.0-0 libcairo2 libxss1
+
+      - name: Start xvfb for Electron
+        run: |
+          sudo apt-get install -y xvfb
+          Xvfb :99 -screen 0 1280x720x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck core and renderer
+        run: npm run check
+
+      - name: Typecheck desktop shell
+        run: npm run desktop:check
+
+      - name: Build desktop bundle
+        run: npm run desktop:build
+
+      - name: Run tests
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+        run: npm test

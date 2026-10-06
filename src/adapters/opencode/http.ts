@@ -1,0 +1,683 @@
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
+import { resolve } from "node:path";
+import type { OpenCodeServerConfig } from "../../types.js";
+import { credentialsAllowed } from "../../util/net.js";
+import type { WorkerQuestion as OpenCodeQuestion } from "../../contracts/worker-question.js";
+
+export interface OpenCodeLocationRef {
+  directory: string;
+  workspaceID?: string;
+}
+
+export interface OpenCodeSessionInfo {
+  id: string;
+  model?: OpenCodeModelRef;
+  slug?: string;
+  directory?: string;
+  projectID?: string;
+  version?: string;
+  title?: string;
+  location?: {
+    directory?: string;
+    workspaceID?: string;
+    project?: {
+      id?: string;
+      directory?: string;
+      canonical?: string;
+    };
+  };
+  subpath?: string;
+  time?: {
+    created?: number;
+    updated?: number;
+    idle?: number;
+    viewed?: number;
+    archived?: number;
+  };
+  metadata?: Record<string, unknown>;
+}
+
+export interface OpenCodeModelRef {
+  providerID: string;
+  id: string;
+}
+
+
+export interface OpenCodeModelInfo extends OpenCodeModelRef {
+  name?: string;
+  enabled?: boolean;
+}
+
+export interface OpenCodeSessionList {
+  data: OpenCodeSessionInfo[];
+  cursor?: {
+    next?: string | null;
+    previous?: string | null;
+  };
+}
+
+export interface OpenCodeMessageInfo {
+  id?: string;
+  info?: {
+    id?: string;
+    role?: string;
+    parentID?: string;
+    parentId?: string;
+    finish?: string;
+    time?: {
+      created?: number;
+      completed?: number;
+    };
+  };
+  parentID?: string;
+  parentId?: string;
+  finish?: string;
+  error?: { message?: string; type?: string } | string;
+  role?: string;
+  type?: string;
+  text?: string;
+  content?: unknown;
+  parts?: unknown;
+  message?: unknown;
+  time?: {
+    created?: number;
+    completed?: number;
+  };
+  metadata?: {
+    time?: {
+      created?: number;
+    };
+  };
+}
+
+export interface OpenCodePromptAdmission {
+  id: string;
+  sessionID: string;
+  timeCreated: number;
+  type: "user";
+  payload: {
+    text: string;
+    files?: unknown[];
+    agents?: unknown[];
+    skills?: unknown[];
+    metadata?: unknown;
+  };
+  delivery?: "queue" | "steer";
+}
+
+export interface OpenCodePromptResult {
+  data?: OpenCodePromptAdmission;
+}
+
+export interface OpenCodePromptInput {
+  id?: string;
+  text: string;
+  delivery?: "queue" | "steer";
+  resume?: boolean;
+  metadata?: unknown;
+  agents?: unknown[];
+  skills?: unknown[];
+}
+
+export interface OpenCodeDurableEvent {
+  id: number | string;
+  durable?: { seq: number };
+  type: string;
+  time?: number;
+  data?: Record<string, unknown>;
+}
+
+export interface OpenCodeHistoryResult {
+  data?: OpenCodeDurableEvent[];
+  hasMore?: boolean;
+}
+
+export interface CreateOpenCodeSessionInput {
+  repoPath: string;
+  title?: string;
+  sessionId?: string;
+}
+
+export interface OpenCodeClientOptions extends OpenCodeServerConfig {
+  fetch?: typeof fetch;
+  signal?: AbortSignal;
+  /**
+   * Permit Basic credentials over plain HTTP to a non-loopback host. Off by default so an
+   * untrusted endpoint can never harvest the configured OpenCode password; callers that build the
+   * client from persisted (operator-authored) configuration opt in explicitly.
+   */
+  allowInsecureAuth?: boolean;
+}
+
+export class OpenCodeHttpError extends Error {
+  constructor(
+    readonly status: number,
+    readonly statusText: string,
+    readonly body: string
+  ) {
+    super(`OpenCode HTTP ${status} ${statusText}${body ? `: ${body}` : ""}`);
+    this.name = "OpenCodeHttpError";
+  }
+}
+
+export class OpenCodeUnexpectedResponseError extends Error {
+  constructor(
+    readonly path: string,
+    readonly contentType: string,
+    readonly body: string
+  ) {
+    super(`OpenCode returned ${contentType || "unknown content"} for ${path}, not JSON.`);
+    this.name = "OpenCodeUnexpectedResponseError";
+  }
+}
+
+export class OpenCodeHttpClient {
+  private readonly baseUrl: string;
+  private readonly fetchImpl: typeof fetch;
+  private readonly authHeader?: string;
+  private readonly usesInjectedFetch: boolean;
+  private signal?: AbortSignal;
+  private mode?: "v2" | "legacy";
+  private messageMode?: "v2" | "legacy";
+  private readMessageMode?: "v2" | "legacy";
+  private activeMode?: "v2" | "legacy";
+  private submitMode?: "v2" | "legacy";
+  private docPaths?: Record<string, unknown>;
+
+  constructor(options: OpenCodeClientOptions = {}) {
+    // Pin reads, writes and activity together; endpoint families may not share history.
+    if (options.apiProtocol) {
+      this.pinApiProtocol(options.apiProtocol);
+    }
+    this.baseUrl = normalizeBaseUrl(options.baseUrl ?? process.env.AGENT_RELAY_OPENCODE_BASE_URL);
+    this.fetchImpl = options.fetch ?? fetch;
+    this.usesInjectedFetch = Boolean(options.fetch);
+    this.signal = options.signal;
+
+    const username = options.username ?? process.env.AGENT_RELAY_OPENCODE_USERNAME;
+    const password =
+      options.password ??
+      (options.passwordEnv ? process.env[options.passwordEnv] : undefined) ??
+      process.env.AGENT_RELAY_OPENCODE_PASSWORD ??
+      process.env.OPENCODE_SERVER_PASSWORD;
+
+    if ((Boolean(username) || Boolean(password)) && credentialsAllowed(this.baseUrl, options.allowInsecureAuth)) {
+      this.authHeader = `Basic ${Buffer.from(`${username ?? "opencode"}:${password ?? ""}`).toString(
+        "base64"
+      )}`;
+    }
+  }
+
+  get url(): string {
+    return this.baseUrl;
+  }
+
+  setAbortSignal(signal: AbortSignal | undefined): void {
+    this.signal = signal;
+  }
+
+  async health(): Promise<unknown> {
+    if ((await this.apiMode()) === "legacy") {
+      return {
+        legacy: true,
+        doc: await this.requestJson("/doc")
+      };
+    }
+
+    return this.requestJson("/api/health");
+  }
+
+  async serverInfo(): Promise<unknown> {
+    if ((await this.apiMode()) === "legacy") {
+      return this.requestJson("/doc");
+    }
+
+    return this.requestJson("/api/server");
+  }
+
+  async listSessions(options: { repoPath?: string; limit?: number } = {}): Promise<OpenCodeSessionList> {
+    if ((await this.apiMode()) === "v2") {
+      const params = new URLSearchParams();
+      params.set("order", "desc");
+      params.set("limit", String(options.limit ?? 50));
+      if (options.repoPath) {
+        params.set("directory", resolve(options.repoPath));
+      }
+      return (await this.requestJson(`/api/session?${params.toString()}`)) as OpenCodeSessionList;
+    }
+
+    const legacyParams = new URLSearchParams();
+    if (options.repoPath) {
+      legacyParams.set("directory", resolve(options.repoPath));
+    }
+    const suffix = legacyParams.size > 0 ? `?${legacyParams.toString()}` : "";
+    const legacySessions = (await this.requestJson(`/session${suffix}`)) as OpenCodeSessionInfo[];
+    return {
+      data: legacySessions.slice(0, options.limit ?? legacySessions.length)
+    };
+  }
+
+  async getSession(sessionId: string): Promise<OpenCodeSessionInfo> {
+    if ((await this.apiMode()) === "v2") {
+      const response = (await this.requestJson(`/api/session/${encodeURIComponent(sessionId)}`)) as {
+        data?: OpenCodeSessionInfo;
+      };
+      if (!response.data) {
+        throw new Error(`OpenCode session ${sessionId} response did not include data.`);
+      }
+      return response.data;
+    }
+
+    return (await this.requestJson(`/session/${encodeURIComponent(sessionId)}`)) as OpenCodeSessionInfo;
+  }
+
+  async listModels(): Promise<OpenCodeModelInfo[]> {
+    if ((await this.apiMode()) !== "v2") return [];
+    const response = (await this.requestJson("/api/model")) as { data?: OpenCodeModelInfo[] };
+    return response.data ?? [];
+  }
+
+  async listQuestions(sessionId: string): Promise<OpenCodeQuestion[]> {
+    if ((await this.apiMode()) === "legacy") {
+      const result = await this.requestJson("/question") as OpenCodeQuestion[];
+      return result.filter(question => question.sessionID === sessionId);
+    }
+    const result = await this.requestJson(`/api/session/${encodeURIComponent(sessionId)}/question`) as { data: OpenCodeQuestion[] };
+    return result.data.filter((question) => question.sessionID === sessionId);
+  }
+
+  async answerQuestion(sessionId: string, requestId: string, answers: string[][]): Promise<void> {
+    if ((await this.apiMode()) === "legacy") {
+      const pending = await this.listQuestions(sessionId);
+      if (!pending.some(question => question.id === requestId)) throw new Error("Question not pending for this session.");
+      await this.requestJson(`/question/${encodeURIComponent(requestId)}/reply`, {
+        method: "POST", body: JSON.stringify({ answers })
+      }, { readOkBody: false });
+      return;
+    }
+    await this.requestJson(`/api/session/${encodeURIComponent(sessionId)}/question/${encodeURIComponent(requestId)}/reply`, {
+      method: "POST", body: JSON.stringify({ answers })
+    }, { readOkBody: false });
+  }
+
+  async switchSessionModel(sessionId: string, model: OpenCodeModelRef): Promise<void> {
+    if ((await this.apiMode()) !== "v2") {
+      throw new Error("The configured OpenCode server does not support session model switching.");
+    }
+    await this.requestJson(`/api/session/${encodeURIComponent(sessionId)}/model`, {
+      method: "POST",
+      body: JSON.stringify({ model })
+    }, { readOkBody: false });
+  }
+
+  async listActiveSessions(): Promise<Record<string, unknown>> {
+    if ((await this.activeApiMode()) === "v2") {
+      const response = (await this.requestJson("/api/session/active")) as { data?: Record<string, unknown> };
+      return response.data ?? {};
+    }
+
+    return (await this.requestJson("/session/status")) as Record<string, unknown>;
+  }
+
+  async listSessionMessages(sessionId: string): Promise<OpenCodeMessageInfo[]> {
+    if ((await this.readMessageApiMode()) === "v2") {
+      const response = (await this.requestJson(
+        `/api/session/${encodeURIComponent(sessionId)}/message?order=desc&limit=100`
+      )) as {
+        data?: OpenCodeMessageInfo[];
+      };
+      return response.data ?? [];
+    }
+
+    return (await this.requestJson(
+      `/session/${encodeURIComponent(sessionId)}/message?limit=100`
+    )) as OpenCodeMessageInfo[];
+  }
+
+  async sendSessionMessage(sessionId: string, text: string): Promise<void> {
+    const body = JSON.stringify({
+      parts: [
+        {
+          type: "text",
+          text
+        }
+      ]
+    });
+
+    const mode = await this.messageApiMode();
+    const v2Path = `/api/session/${encodeURIComponent(sessionId)}/message`;
+    const legacyPath = `/session/${encodeURIComponent(sessionId)}/message`;
+    const path = mode === "v2" ? v2Path : legacyPath;
+
+    try {
+      if (this.usesInjectedFetch) {
+        await this.requestJson(path, { method: "POST", body }, { readOkBody: false });
+        return;
+      }
+      await this.postAndIgnoreSuccessBody(path, body);
+    } catch (error) {
+      if (mode !== "v2" || !legacyWriteFallback(error)) {
+        throw error;
+      }
+      // Some servers expose v2 reads and legacy writes only; fall back and stay on legacy I/O.
+      this.pinApiProtocol("legacy");
+      if (this.usesInjectedFetch) {
+        await this.requestJson(legacyPath, { method: "POST", body }, { readOkBody: false });
+        return;
+      }
+      await this.postAndIgnoreSuccessBody(legacyPath, body);
+    }
+  }
+
+  async submitPrompt(sessionId: string, input: OpenCodePromptInput): Promise<OpenCodePromptAdmission> {
+    const body = JSON.stringify({
+      id: input.id ?? null,
+      prompt: {
+        text: input.text,
+        ...(input.agents ? { agents: input.agents } : {})
+      },
+      ...(input.delivery ? { delivery: input.delivery } : {}),
+      ...(input.resume === undefined ? {} : { resume: input.resume }),
+    });
+
+    if ((await this.submitApiMode()) === "legacy") {
+      await this.sendSessionMessage(sessionId, input.text);
+      return {
+        id: "",
+        sessionID: sessionId,
+        timeCreated: Date.now() / 1000,
+        type: "user",
+        payload: { text: input.text },
+        delivery: input.delivery
+      };
+    }
+
+    const path = `/api/session/${encodeURIComponent(sessionId)}/prompt`;
+    const result = (await this.requestJson(path, {
+      method: "POST",
+      body
+    })) as OpenCodePromptResult;
+
+    if (!result.data || !result.data.id) {
+      throw new OpenCodeUnexpectedResponseError(path, "application/json", JSON.stringify(result).slice(0, 200));
+    }
+    return result.data;
+  }
+
+  async history(sessionId: string, after?: number): Promise<OpenCodeHistoryResult> {
+    if ((await this.apiMode()) === "legacy") {
+      return { data: [], hasMore: false };
+    }
+    const params = new URLSearchParams();
+    params.set("limit", "100");
+    if (after !== undefined) {
+      params.set("after", String(after));
+    }
+    return (await this.requestJson(
+      `/api/session/${encodeURIComponent(sessionId)}/history?${params.toString()}`
+    )) as OpenCodeHistoryResult;
+  }
+
+  async supportsPromptEndpoint(): Promise<boolean> {
+    return (await this.submitApiMode()) === "v2";
+  }
+
+  async isV2Api(): Promise<boolean> {
+    return (await this.apiMode()) === "v2";
+  }
+
+  async selectSession(sessionId: string): Promise<void> {
+    const body = JSON.stringify({ sessionID: sessionId });
+    await this.requestJson("/tui/select-session", {
+      method: "POST",
+      body
+    });
+  }
+
+  async createSession(input: CreateOpenCodeSessionInput): Promise<OpenCodeSessionInfo> {
+    if ((await this.apiMode()) === "v2") {
+      const response = (await this.requestJson("/api/session", {
+        method: "POST",
+        body: JSON.stringify({
+          id: input.sessionId ?? null,
+          title: input.title ?? null,
+          location: {
+            directory: resolve(input.repoPath)
+          },
+          metadata: {
+            createdBy: "agent-relay"
+          }
+        })
+      })) as { data?: OpenCodeSessionInfo };
+
+      if (!response.data) {
+        throw new Error("OpenCode create session response did not include data.");
+      }
+
+      return response.data;
+    }
+
+    return (await this.requestJson("/session", {
+      method: "POST",
+      body: JSON.stringify({
+        id: input.sessionId,
+        title: input.title,
+        directory: resolve(input.repoPath)
+      })
+    })) as OpenCodeSessionInfo;
+  }
+
+  private async apiMode(): Promise<"v2" | "legacy"> {
+    await this.ensureCoherentProtocol();
+    return this.mode ?? "legacy";
+  }
+
+  private async messageApiMode(): Promise<"v2" | "legacy"> {
+    await this.ensureCoherentProtocol();
+    return this.messageMode ?? this.mode ?? "legacy";
+  }
+
+  private async readMessageApiMode(): Promise<"v2" | "legacy"> {
+    await this.ensureCoherentProtocol();
+    return this.readMessageMode ?? this.mode ?? "legacy";
+  }
+
+  private async activeApiMode(): Promise<"v2" | "legacy"> {
+    await this.ensureCoherentProtocol();
+    return this.activeMode ?? this.mode ?? "legacy";
+  }
+
+  private async submitApiMode(): Promise<"v2" | "legacy"> {
+    await this.ensureCoherentProtocol();
+    return this.submitMode ?? this.mode ?? "legacy";
+  }
+
+  private pinApiProtocol(protocol: "v2" | "legacy"): void {
+    this.mode = protocol;
+    this.readMessageMode = protocol;
+    this.messageMode = protocol;
+    this.activeMode = protocol;
+    this.submitMode = protocol;
+  }
+
+  /** OpenCode Desktop and the v2 prompt API share one history; mixed per-route modes diverge. */
+  private async ensureCoherentProtocol(): Promise<void> {
+    const paths = await this.openApiPaths();
+    if (this.mode && this.readMessageMode && this.messageMode && this.activeMode && this.submitMode) {
+      return;
+    }
+
+    const pathKeys = Object.keys(paths);
+    const hasV2Core = pathKeys.some((path) => path.startsWith("/api/session") || path === "/api/health");
+    if (!hasV2Core) {
+      this.pinApiProtocol("legacy");
+      return;
+    }
+
+    // OpenCode's own UI (Desktop and the server's embedded web client) probes /global/health first
+    // and treats a healthy response as legacy, even when v2 is also available. Match that exactly so
+    // both sides read and write the same message store instead of picking v2 whenever it exists.
+    if (Object.hasOwn(paths, "/global/health") && (await this.globalHealthIsLegacy())) {
+      this.pinApiProtocol("legacy");
+      return;
+    }
+
+    if (
+      Object.hasOwn(paths, "/api/session/{sessionID}/prompt") ||
+      Object.hasOwn(paths, "/api/session/{sessionID}/message")
+    ) {
+      this.pinApiProtocol("v2");
+      return;
+    }
+
+    this.pinApiProtocol("v2");
+  }
+
+  private async globalHealthIsLegacy(): Promise<boolean> {
+    try {
+      const result = (await this.requestJson("/global/health")) as { healthy?: boolean };
+      return result?.healthy === true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async openApiPaths(): Promise<Record<string, unknown>> {
+    if (this.docPaths) {
+      return this.docPaths;
+    }
+    const doc = (await this.requestJson("/doc")) as { paths?: Record<string, unknown> };
+    this.docPaths = doc.paths ?? {};
+    return this.docPaths;
+  }
+
+  private async requestJson(
+    path: string,
+    init: RequestInit = {},
+    options: { readOkBody?: boolean } = {}
+  ): Promise<unknown> {
+    const headers = new Headers(init.headers);
+    headers.set("accept", "application/json");
+    if (init.body && !headers.has("content-type")) {
+      headers.set("content-type", "application/json");
+    }
+    if (this.authHeader) {
+      headers.set("authorization", this.authHeader);
+    }
+
+    const signal = init.signal ?? this.signal;
+    const response = await this.fetchImpl(new URL(path, this.baseUrl), {
+      ...init,
+      ...(signal ? { signal } : {}),
+      headers
+    });
+
+    if (response.ok && options.readOkBody === false) {
+      return {};
+    }
+
+    const text = await response.text();
+
+    if (!response.ok) {
+      throw new OpenCodeHttpError(response.status, response.statusText, text);
+    }
+
+    const contentType = response.headers.get("content-type") ?? "";
+    if (text && !contentType.includes("application/json")) {
+      throw new OpenCodeUnexpectedResponseError(path, contentType, text.slice(0, 200));
+    }
+
+    return text ? JSON.parse(text) : {};
+  }
+
+  private async postAndIgnoreSuccessBody(path: string, body: string): Promise<void> {
+    const url = new URL(path, this.baseUrl);
+    const requestImpl = url.protocol === "https:" ? httpsRequest : httpRequest;
+
+    await new Promise<void>((resolveRequest, rejectRequest) => {
+      let settled = false;
+      const request = requestImpl(
+        url,
+        {
+          method: "POST",
+          ...(this.signal ? { signal: this.signal } : {}),
+          headers: {
+            accept: "application/json",
+            "content-type": "application/json",
+            "content-length": Buffer.byteLength(body),
+            ...(this.authHeader ? { authorization: this.authHeader } : {})
+          }
+        },
+        (response) => {
+          if ((response.statusCode ?? 0) >= 200 && (response.statusCode ?? 0) < 300) {
+            let responseBody = "";
+            response.setEncoding("utf8");
+            response.on("data", (chunk: string) => {
+              responseBody += chunk;
+            });
+            response.on("end", () => {
+              settle(resolveRequest);
+            });
+            return;
+          }
+
+          let responseBody = "";
+          response.setEncoding("utf8");
+          response.on("data", (chunk: string) => {
+            responseBody += chunk;
+          });
+          response.on("end", () => {
+            settle(
+              resolveRequest,
+              new OpenCodeHttpError(response.statusCode ?? 0, response.statusMessage ?? "", responseBody)
+            );
+          });
+        }
+      );
+
+      const acceptedTimer = setTimeout(() => {
+        if (!settled) {
+          settle(
+            rejectRequest,
+            new OpenCodeHttpError(0, "Request Timeout", "OpenCode did not complete the request response in time.")
+          );
+        }
+      }, 30_000);
+
+      request.on("error", (error) => {
+        if (!settled) {
+          settle(rejectRequest, error);
+        }
+      });
+      request.end(body);
+
+      function settle(callback: (value?: never) => void, error?: Error): void {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(acceptedTimer);
+        if (error) {
+          rejectRequest(error);
+          return;
+        }
+        callback();
+      }
+    });
+  }
+}
+
+function legacyWriteFallback(error: unknown): boolean {
+  return error instanceof OpenCodeHttpError && (error.status === 404 || error.status === 405 || error.status === 501);
+}
+
+function normalizeBaseUrl(baseUrl?: string): string {
+  if (!baseUrl) {
+    throw new Error(
+      "OpenCode server URL is required. Set worker.server.baseUrl, --opencode-url, or AGENT_RELAY_OPENCODE_BASE_URL."
+    );
+  }
+
+  return baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+}

@@ -1,0 +1,15 @@
+{
+  "projectPairs": [
+    {
+      "projectPairId": "local-dev",
+      "worker": {
+        "repoPath": "/absolute/path/to/repo",
+        "projectId": "optional-opencode-project-id"
+      },
+      "planner": {
+        "projectSlug": "g-p-00000000000000000000000000000000",
+        "projectName": "optional display name"
+      }
+    }
+  ]
+}

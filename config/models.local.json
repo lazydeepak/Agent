@@ -1,0 +1,12 @@
+{
+  "models": [
+    { "provider": "opencode", "id": "zen", "name": "OpenCode Zen (all)", "free": false },
+    { "provider": "local", "id": "model", "name": "Local model", "free": true },
+    { "provider": "openrouter", "id": "autorouter", "name": "OpenRouter AutoRouter", "free": true },
+    { "provider": "openrouter", "id": "thinking-machines/inkling:free", "name": "Inkling Free", "free": true },
+    { "provider": "openrouter", "id": "thinking-machines/inkling:free-small", "name": "Inkling Small Free", "free": true },
+    { "provider": "openrouter", "id": "qwen/qwen-3-235b-a22b:free", "name": "Qwen 3 235B Free", "free": true },
+    { "provider": "openrouter", "id": "meta-llama/llama-4-scout:free", "name": "Llama 4 Scout Free", "free": true },
+    { "provider": "openrouter", "id": "google/gemma-3-27b-it:free", "name": "Gemma 3 27B IT Free", "free": true }
+  ]
+}
