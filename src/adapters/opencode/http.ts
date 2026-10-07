@@ -172,6 +172,17 @@ export class OpenCodeUnexpectedResponseError extends Error {
   }
 }
 
+/**
+ * Detects a non-JSON HTML response structurally so it also holds when the error crosses a
+ * bundled/duplicated class boundary and `instanceof` cannot be trusted.
+ */
+function isUnexpectedHtmlResponse(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { name?: unknown; contentType?: unknown };
+  if (candidate.name !== "OpenCodeUnexpectedResponseError") return false;
+  return typeof candidate.contentType === "string" && candidate.contentType.includes("text/html");
+}
+
 export class OpenCodeHttpClient {
   private readonly baseUrl: string;
   private readonly fetchImpl: typeof fetch;
@@ -227,11 +238,7 @@ export class OpenCodeHttpClient {
       } catch (error) {
         // If /doc returns HTML but we thought it was legacy, it might be a V2 server
         // with Swagger UI at /doc. Try the V2 health endpoint and re-pin if successful.
-        const isUnexpectedHtml =
-          (error instanceof Error && error.name === "OpenCodeUnexpectedResponseError" && (error as any).contentType?.includes("text/html")) ||
-          (error instanceof OpenCodeUnexpectedResponseError && error.contentType.includes("text/html"));
-
-        if (isUnexpectedHtml) {
+        if (isUnexpectedHtmlResponse(error)) {
           const result = await this.requestJson("/api/health");
           this.pinApiProtocol("v2");
           return result;
@@ -250,10 +257,7 @@ export class OpenCodeHttpClient {
       } catch (error) {
         // If /doc returns HTML but we thought it was legacy, it might be a V2 server
         // with Swagger UI at /doc. Try the V2 server info endpoint and re-pin if successful.
-        if (
-          error instanceof OpenCodeUnexpectedResponseError &&
-          error.contentType.includes("text/html")
-        ) {
+        if (isUnexpectedHtmlResponse(error)) {
           const result = await this.requestJson("/api/server");
           this.pinApiProtocol("v2");
           return result;

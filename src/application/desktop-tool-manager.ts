@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, accessSync, constants } from "node:fs";
 import { mkdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, delimiter, join } from "node:path";
@@ -249,7 +249,15 @@ function findOpenCodeExecutable(): string | undefined {
     names.map((name) => join(directory, name))
   );
   const candidates = [configured, ...names.map((name) => join(homedir(), ".opencode", "bin", name)), ...pathCandidates];
-  return candidates.find((candidate): candidate is string => Boolean(candidate && existsSync(candidate)));
+  return candidates.find((candidate): candidate is string => {
+    if (!candidate || !existsSync(candidate)) return false;
+    try {
+      accessSync(candidate, constants.X_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  });
 }
 
 function findChromeExecutable(): string | undefined {
