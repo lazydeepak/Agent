@@ -76,6 +76,9 @@ describe("OpenCodeHttpClient", () => {
         if (url.pathname === "/doc") {
           return jsonResponse({ paths: { "/auth/{providerID}": {}, "/log": {} } });
         }
+        if (url.pathname === "/api/health") {
+          return new Response("not found", { status: 404 });
+        }
 
         return jsonResponse([
           {
@@ -89,7 +92,7 @@ describe("OpenCodeHttpClient", () => {
 
     const sessions = await client.listSessions({ repoPath: "/Users/lazydeepak/dev/kisab" });
 
-    expect(requests).toEqual(["/doc", "/session"]);
+    expect(requests).toEqual(["/doc", "/api/health", "/session"]);
     expect(sessions.data[0]).toMatchObject({
       id: "ses_worker_1",
       directory: "/Users/lazydeepak/dev/kisab"

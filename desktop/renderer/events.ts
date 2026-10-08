@@ -34,10 +34,11 @@ export function renderEvents(): void {
   const count = document.getElementById("event-count");
   const navCount = document.getElementById("nav-event-count");
   if (!list) return;
-  if (count) count.textContent = `${state.events.length} events`;
-  if (navCount) navCount.textContent = String(state.events.length);
+  const filtered = filterEvents(state.events, { filter: state.eventFilter });
+  if (count) count.textContent = `${filtered.length} events`;
+  if (navCount) navCount.textContent = String(filtered.length);
   const fragment = document.createDocumentFragment();
-  for (const event of filterEvents(state.events)) fragment.appendChild(renderEvent(event));
+  for (const event of filtered) fragment.appendChild(renderEvent(event));
   list.replaceChildren(fragment);
 }
 

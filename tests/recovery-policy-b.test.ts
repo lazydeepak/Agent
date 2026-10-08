@@ -78,7 +78,7 @@ describe("Recovery policy B integration", () => {
       const current = service.getPairStatus(pair.pairId);
       expect(toPairCard(service.listPairs()[0], current).lastError).toBeUndefined();
       expect(service.getStore()!.getSupervisorState(pair.pairId)).toMatchObject({ lastRecoveryErrorCode: undefined, lastRecoveryError: undefined });
-      const history = filterEvents(service.getRecentEvents(), pair.pairId);
+      const history = filterEvents(service.getRecentEvents(), { pairId: pair.pairId });
       expect(history.map((event) => event.type)).toEqual(expect.arrayContaining([
         "RECOVERY_EXHAUSTED", "RECOVERY_SUCCEEDED", "SESSION_RECONNECTED", "PAIR_RUNTIME_RECOVERED"
       ]));

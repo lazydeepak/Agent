@@ -898,6 +898,11 @@ document.addEventListener("DOMContentLoaded", () => {
     void refresh();
     void refreshProjectPairs();
   });
+  const eventFilter = document.getElementById("event-filter") as HTMLInputElement | null;
+  eventFilter?.addEventListener("input", () => {
+    state.eventFilter = eventFilter.value;
+    renderEvents();
+  });
   document.getElementById("start-all")?.addEventListener("click", () => {
     void startAll();
   });

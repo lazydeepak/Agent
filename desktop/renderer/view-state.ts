@@ -32,6 +32,7 @@ export interface ViewState {
   workerProgress: Map<string, WorkerProgressDto>;
   workerModels: Map<string, WorkerModelDto[]>;
   activeProgressPair: string | undefined;
+  eventFilter: string;
 }
 
 export const state: ViewState = {
@@ -45,7 +46,8 @@ export const state: ViewState = {
   events: [],
   workerProgress: new Map(),
   workerModels: new Map(),
-  activeProgressPair: undefined
+  activeProgressPair: undefined,
+  eventFilter: ""
 };
 
 /** Discovered worker/planner projects shared by discovery views. */

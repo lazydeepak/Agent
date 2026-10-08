@@ -174,11 +174,21 @@ export function appendEvent(existing: EventRecordDto[], event: EventRecordDto, m
   return next;
 }
 
-export function filterEvents(events: EventRecordDto[], pairId?: string): EventRecordDto[] {
-  if (!pairId) {
-    return events;
+export function filterEvents(events: EventRecordDto[], options: { pairId?: string; filter?: string } = {}): EventRecordDto[] {
+  let filtered = events;
+  if (options.pairId) {
+    filtered = filtered.filter((event) => event.pairId === options.pairId || event.pairId === undefined);
   }
-  return events.filter((event) => event.pairId === pairId || event.pairId === undefined);
+  const term = options.filter?.trim().toLowerCase();
+  if (term) {
+    filtered = filtered.filter((event) => {
+      const pair = (event.pairId ?? event.projectPairId ?? "runtime").toLowerCase();
+      const type = (event.type ?? "").toLowerCase();
+      const reason = (event.reason ?? "").toLowerCase();
+      return pair.includes(term) || type.includes(term) || reason.includes(term);
+    });
+  }
+  return filtered;
 }
 
 export function summarizeStatus(status: StatusSummaryDto): string {

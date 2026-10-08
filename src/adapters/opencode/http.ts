@@ -546,6 +546,7 @@ export class OpenCodeHttpClient {
     if (!hasV2Core) {
       // If discovery didn't find V2, try a direct probe for V2 health before defaulting to legacy.
       // This handles cases where the spec paths (/doc, /openapi.json) are missing or return HTML.
+      let reachedV2Health = false;
       try {
         const v2Health = (await this.requestJson("/api/health", { signal: AbortSignal.timeout(2000) })) as {
           status?: string;
@@ -554,11 +555,18 @@ export class OpenCodeHttpClient {
           this.pinApiProtocol("v2");
           return;
         }
-      } catch {
-        // Not V2 or unreachable
+        reachedV2Health = true;
+      } catch (error) {
+        if (error instanceof OpenCodeHttpError || error instanceof OpenCodeUnexpectedResponseError) {
+          reachedV2Health = true;
+        }
       }
 
-      this.pinApiProtocol("legacy");
+      // Only pin to legacy if we actually reached the server (got paths or a definitive health response).
+      // If the server was unreachable, we don't pin so we can try again on the next request.
+      if (pathKeys.length > 0 || reachedV2Health) {
+        this.pinApiProtocol("legacy");
+      }
       return;
     }
 
@@ -597,19 +605,26 @@ export class OpenCodeHttpClient {
     // OpenCode traditionally uses /doc for its JSON spec, but recent updates or proxies may
     // return HTML (Swagger UI) or move the spec. Try common paths before giving up.
     const discoveryPaths = ["/doc", "/openapi.json", "/api/doc", "/api/openapi.json"];
+    let reached = false;
     for (const path of discoveryPaths) {
       try {
         const doc = (await this.requestJson(path)) as { paths?: Record<string, unknown> };
+        reached = true;
         if (doc && typeof doc === "object" && doc.paths) {
           this.docPaths = doc.paths;
           return this.docPaths;
         }
       } catch (error) {
-        // Fall through to next path or final empty fallback
+        if (error instanceof OpenCodeHttpError || error instanceof OpenCodeUnexpectedResponseError) {
+          reached = true;
+        }
       }
     }
-    this.docPaths = {};
-    return this.docPaths;
+    // Only cache the empty result if we actually reached the server.
+    if (reached) {
+      this.docPaths = {};
+    }
+    return this.docPaths ?? {};
   }
 
   private async requestJson(

@@ -203,7 +203,7 @@ describe("event helpers", () => {
       { time: "t2", type: "GLOBAL", pairId: undefined },
       { time: "t3", type: "PAIR_VALIDATED", pairId: "b-main" }
     ];
-    expect(filterEvents(events, "kisab-main").map((e) => e.type)).toEqual(["PAIR_VALIDATED", "GLOBAL"]);
+    expect(filterEvents(events, { pairId: "kisab-main" }).map((e) => e.type)).toEqual(["PAIR_VALIDATED", "GLOBAL"]);
     expect(filterEvents(events)).toHaveLength(3);
   });
 
