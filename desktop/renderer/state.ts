@@ -185,7 +185,16 @@ export function filterEvents(events: EventRecordDto[], options: { pairId?: strin
       const pair = (event.pairId ?? event.projectPairId ?? "runtime").toLowerCase();
       const type = (event.type ?? "").toLowerCase();
       const reason = (event.reason ?? "").toLowerCase();
-      return pair.includes(term) || type.includes(term) || reason.includes(term);
+      
+      // Search in details if it's a string or has string values
+      let detailsMatch = false;
+      if (event.details) {
+        detailsMatch = Object.values(event.details).some(val => 
+          String(val).toLowerCase().includes(term)
+        );
+      }
+
+      return pair.includes(term) || type.includes(term) || reason.includes(term) || detailsMatch;
     });
   }
   return filtered;

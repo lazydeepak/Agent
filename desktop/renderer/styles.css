@@ -927,6 +927,7 @@ body {
   padding-top: 12px;
   border-top: 1px dashed var(--panel-border);
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 /* Status Badges */
@@ -1079,6 +1080,7 @@ body {
   display: flex;
   gap: 8px;
   margin-top: 10px;
+  flex-wrap: wrap;
 }
 
 .pair-priming {
@@ -1176,8 +1178,8 @@ body {
 
 .event-filter {
   width: 140px;
-  background: var(--surface-dim);
-  border: 1px solid var(--border);
+  background: var(--input-bg);
+  border: 1px solid var(--panel-border);
   color: var(--text);
   padding: 4px 10px;
   border-radius: var(--radius-sm);
@@ -1188,8 +1190,8 @@ body {
 .event-filter:focus {
   width: 220px;
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
 .event-count {
