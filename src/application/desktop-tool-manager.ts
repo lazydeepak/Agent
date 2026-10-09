@@ -79,7 +79,13 @@ export class LocalDesktopToolLauncher implements DesktopToolLauncher {
     }
 
     if (await openCodeEndpointReachable(endpoint)) {
-      return { ok: true, endpoint, alreadyRunning: true, message: `OpenCode is already reachable at ${endpoint}.` };
+      return {
+        ok: true,
+        endpoint,
+        alreadyRunning: true,
+        secured: true,
+        message: `OpenCode is already reachable at ${endpoint}.`
+      };
     }
     if (this.openCode) {
       await stopChild(this.openCode.child);
@@ -110,6 +116,15 @@ export class LocalDesktopToolLauncher implements DesktopToolLauncher {
     } catch (error) {
       await stopChild(child);
       if (this.openCode?.child === child) this.openCode = undefined;
+      // Something is already bound to the endpoint but did not accept our credential. That is a
+      // very different problem from "the server is still starting", and the generic message would
+      // send the operator hunting the wrong cause.
+      if (await endpointAcceptsConnections(endpoint)) {
+        throw new DesktopToolError(
+          "OPENCODE_ENDPOINT_OCCUPIED",
+          `Another OpenCode server already owns ${endpoint} and rejected this launcher's credentials. Stop it, or set AGENT_RELAY_OPENCODE_USERNAME and AGENT_RELAY_OPENCODE_PASSWORD to match the server that is running.`
+        );
+      }
       throw error;
     }
     return {
@@ -310,24 +325,47 @@ async function endpointReachable(url: string): Promise<boolean> {
 }
 
 /**
- * Authenticated reachability probe for the OpenCode server. OpenCode authenticates its `/api/*`
- * surface, so an unauthenticated probe answers 401 and a naive `status < 500` check would report a
- * server that rejects every real request as ready. Only a genuine non-401 response counts.
+ * Authenticated reachability probe for the OpenCode server.
+ *
+ * Only `/api/*` routes count, and only when they answer with a real API response. OpenCode
+ * authenticates its `/api/*` surface, so a 401/403 means "up but not ours". Meanwhile its SPA
+ * catch-all serves unauthenticated HTML on `/doc`, `/global/health` and `/`, so accepting any
+ * non-401 response would report a server that rejects every real call as ready. Requiring a
+ * non-HTML API answer proves both reachability and that the credential was accepted.
  */
+/**
+ * True when something is listening on the endpoint at all, regardless of credentials. Used to tell
+ * "port already owned by another OpenCode server" apart from "our server has not come up yet".
+ */
+async function endpointAcceptsConnections(endpoint: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${endpoint}${endpoint.endsWith("/") ? "" : "/"}`, {
+      signal: AbortSignal.timeout(750)
+    });
+    // Any HTTP answer proves something is bound and serving.
+    return response.status > 0;
+  } catch {
+    return false;
+  }
+}
+
 async function openCodeEndpointReachableAuthenticated(endpoint: string): Promise<boolean> {
   const normalized = endpoint.endsWith("/") ? endpoint.slice(0, -1) : endpoint;
   const password = resolveOpenCodeServerPassword();
   const headers: Record<string, string> = {
     authorization: `Basic ${Buffer.from(`opencode:${password}`).toString("base64")}`
   };
-  for (const path of ["/api/health", "/api/session", "/global/health", "/doc", "/"]) {
+  for (const path of ["/api/health", "/api/session", "/api/config"]) {
     try {
       const response = await fetch(`${normalized}${path}`, {
         signal: AbortSignal.timeout(750),
         headers
       });
       if (response.status === 401 || response.status === 403) continue;
-      if (response.status < 500) return true;
+      if (response.status >= 500) continue;
+      const contentType = response.headers.get("content-type") ?? "";
+      if (contentType.includes("text/html")) continue;
+      return true;
     } catch {
       // Try the next probe path; the server may not implement this one.
     }

@@ -173,6 +173,16 @@ function isUnexpectedHtmlResponse(error: unknown): boolean {
   return typeof candidate.contentType === "string" && candidate.contentType.includes("text/html");
 }
 
+/**
+ * Liveness routes tried in order. `/api/health` covers earlier v2 builds, `/global/health` the 1.x
+ * shape, and `/api/session` is the one route a current OpenCode server always answers with JSON, so
+ * it is the reliable final candidate.
+ */
+const HEALTH_PATHS = ["/api/health", "/global/health", "/api/server", "/api/session"] as const;
+
+/** Informational routes tried in order; same cross-version caveat as {@link HEALTH_PATHS}. */
+const SERVER_INFO_PATHS = ["/api/server", "/api/health", "/api/config"] as const;
+
 export class OpenCodeHttpClient {
   private readonly baseUrl: string;
   private readonly fetchImpl: typeof fetch;
@@ -238,17 +248,34 @@ export class OpenCodeHttpClient {
     }
 
     try {
-      return await this.requestJson("/api/health");
+      return await this.firstReachableJson(HEALTH_PATHS);
     } catch (error) {
-      if (error instanceof OpenCodeHttpError && error.status === 404) {
-        try {
-          return await this.requestJson("/global/health");
-        } catch {
-          // ignore fallback error and throw original
-        }
-      }
       throw error;
     }
+  }
+
+  /**
+   * Probes candidate liveness routes in order and returns the first JSON answer.
+   *
+   * OpenCode does not expose a stable health route across versions: `/api/health` is absent on
+   * 2.0.x (404) and `/global/health` is served by the SPA catch-all there, so a single hard-coded
+   * path reports a healthy server as unreachable. A 404 or a non-JSON answer means "this version
+   * does not have that route" and the probe moves on. A 401/403 is propagated instead, because it
+   * means the server is up and the real problem is authentication.
+   */
+  private async firstReachableJson(paths: readonly string[]): Promise<unknown> {
+    let lastError: unknown;
+    for (const path of paths) {
+      try {
+        return await this.requestJson(path);
+      } catch (error) {
+        if (error instanceof OpenCodeHttpError && (error.status === 401 || error.status === 403)) {
+          throw error;
+        }
+        lastError = error;
+      }
+    }
+    throw lastError ?? new Error(`No health route answered for OpenCode at ${this.baseUrl}.`);
   }
 
   async serverInfo(): Promise<unknown> {
@@ -259,7 +286,7 @@ export class OpenCodeHttpClient {
         // If /doc returns HTML but we thought it was legacy, it might be a V2 server
         // with Swagger UI at /doc. Try the V2 server info endpoint and re-pin if successful.
         if (isUnexpectedHtmlResponse(error)) {
-          const result = await this.requestJson("/api/server");
+          const result = await this.firstReachableJson(SERVER_INFO_PATHS);
           this.pinApiProtocol("v2");
           return result;
         }
@@ -267,11 +294,7 @@ export class OpenCodeHttpClient {
       }
     }
 
-    try {
-      return await this.requestJson("/api/server");
-    } catch {
-      return await this.requestJson("/api/health");
-    }
+    return this.firstReachableJson(SERVER_INFO_PATHS);
   }
 
   async getVersion(): Promise<string | undefined> {

@@ -89,25 +89,90 @@ describe("managed opencode server password handling", () => {
     const launcher = new LocalDesktopToolLauncher();
     vi.mocked(spawn).mockReturnValue(readyChild());
     vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
-    const authHeaders: Array<string | undefined> = [];
-    vi.stubGlobal("fetch", vi.fn(async (_input: URL | RequestInfo, init?: RequestInit) => {
+    const apiProbes: Array<string | undefined> = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
       const headers = new Headers(init?.headers);
-      authHeaders.push(headers.get("authorization") ?? undefined);
+      // Only readiness probes against /api must carry credentials; the separate conflict check
+      // deliberately probes unauthenticated to learn whether anything is bound to the port.
+      if (new URL(String(input)).pathname.startsWith("/api")) {
+        apiProbes.push(headers.get("authorization") ?? undefined);
+      }
       return new Response(JSON.stringify({ _tag: "UnauthorizedError" }), {
         status: 401,
         headers: { "content-type": "application/json" }
       });
     }));
 
-    // The already-running check must fail, so the launcher falls through and starts its own server,
-    // which then also cannot become ready because every probe is rejected.
+    // The already-running check must fail, so the launcher falls through and starts its own server.
+    // This mock keeps a server bound to the port, so the accurate diagnosis is a conflicting server
+    // rather than a timeout -- either way it must not report success.
     await expect(
       launcher.startOpenCode({ repoPath: "/tmp", baseUrl: "http://127.0.0.1:4101" })
-    ).rejects.toMatchObject({ code: "TOOL_START_TIMEOUT" });
+    ).rejects.toMatchObject({ code: "OPENCODE_ENDPOINT_OCCUPIED" });
 
-    expect(authHeaders.length).toBeGreaterThan(0);
-    // Every probe presented credentials; none was satisfied by a bare unauthenticated 401.
-    expect(authHeaders.every((value) => typeof value === "string" && value.startsWith("Basic "))).toBe(true);
+    expect(apiProbes.length).toBeGreaterThan(0);
+    // Every /api probe presented credentials; none was satisfied by a bare unauthenticated 401.
+    expect(apiProbes.every((value) => typeof value === "string" && value.startsWith("Basic "))).toBe(true);
+    await launcher.shutdown();
+  }, 30_000);
+
+  it("ignores the unauthenticated SPA shell when probing readiness", async () => {
+    // OpenCode's SPA catch-all answers /doc, /global/health and / with 200 HTML without any
+    // credential. Accepting those would declare an already-running server usable when every real
+    // API call is rejected. Only a non-HTML answer from an /api route proves the credential works.
+    const launcher = new LocalDesktopToolLauncher();
+    vi.mocked(spawn).mockReturnValue(readyChild());
+    vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+    const apiResponses = new Map<string, Response>();
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const path = new URL(String(input)).pathname;
+      const canned = apiResponses.get(path);
+      if (canned) return canned.clone();
+      // Everything outside /api is the unauthenticated SPA shell.
+      return new Response("<!doctype html><html lang=\"en\"></html>", {
+        status: 200,
+        headers: { "content-type": "text/html" }
+      });
+    }));
+
+    // The SPA answers instantly, but no /api route does, so the launcher must not short-circuit as
+    // "already running"; it spawns its own server and then reports the conflict.
+    await expect(
+      launcher.startOpenCode({ repoPath: "/tmp", baseUrl: "http://127.0.0.1:4102" })
+    ).rejects.toMatchObject({ code: "OPENCODE_ENDPOINT_OCCUPIED" });
+    // Proof it did not accept the SPA shell as an already-running server.
+    expect(spawn).toHaveBeenCalledTimes(1);
+    await launcher.shutdown();
+  }, 30_000);
+
+  it("reports a conflicting server instead of a generic start failure", async () => {
+    // A server that already owns the endpoint but rejects our credential is a distinct problem from
+    // "our server is still starting", and must not be reported as a timeout.
+    const launcher = new LocalDesktopToolLauncher();
+    const child = readyChild();
+    child.once?.("exit", () => {});
+    queueMicrotask(() => child.emit("exit", 1));
+    vi.mocked(spawn).mockReturnValue(child);
+    vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+      // Probe with credentials -> 401 (not ours). Plain shell probe -> 200 HTML (something is bound).
+      if (headers.get("authorization")) {
+        return new Response(JSON.stringify({ _tag: "UnauthorizedError" }), {
+          status: 401,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      void input;
+      return new Response("<!doctype html><html lang=\"en\"></html>", {
+        status: 200,
+        headers: { "content-type": "text/html" }
+      });
+    }));
+
+    await expect(
+      launcher.startOpenCode({ repoPath: "/tmp", baseUrl: "http://127.0.0.1:4103" })
+    ).rejects.toMatchObject({ code: "OPENCODE_ENDPOINT_OCCUPIED" });
     await launcher.shutdown();
   }, 30_000);
 
