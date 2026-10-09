@@ -45,7 +45,7 @@ describe("isValidPairId", () => {
 
 describe("suggestPairId", () => {
   it("creates a valid pair id from a detected session title or repository", () => {
-    expect(suggestPairId("Agent Relay 1", "/repo/ignored")).toBe("agent-relay-1");
+    expect(suggestPairId("Agent 1", "/repo/ignored")).toBe("agent-1");
     expect(suggestPairId(undefined, "/Users/x/My Project")).toBe("my-project");
     expect(suggestPairId("2026 work")).toBe("pair-2026-work");
   });

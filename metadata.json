@@ -1,5 +1,5 @@
 {
-  "name": "Agent Relay",
+  "name": "Agent",
   "description": "High-reliability bidirectional message transport between autonomous agents.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

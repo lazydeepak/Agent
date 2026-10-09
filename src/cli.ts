@@ -806,7 +806,7 @@ async function runBrowserCommand(args: ParsedArgs): Promise<void> {
 
     if (browser.ownership === "external") {
       throw new CliError(
-        `Cannot ${args.subcommand} an externally owned browser for ${pair.pairId}. Agent Relay only reconnects to external browsers and never kills or restarts them.`
+        `Cannot ${args.subcommand} an externally owned browser for ${pair.pairId}. Agent only reconnects to external browsers and never kills or restarts them.`
       );
     }
 
@@ -821,7 +821,7 @@ async function runBrowserCommand(args: ParsedArgs): Promise<void> {
 
     if (!browser.start) {
       throw new CliError(
-        "Agent Relay does not yet launch managed browsers. Use an external browser with --chatgpt-cdp-url instead."
+        "Agent does not yet launch managed browsers. Use an external browser with --chatgpt-cdp-url instead."
       );
     }
     await browser.start();

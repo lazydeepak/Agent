@@ -272,7 +272,7 @@ npm run relay -- browser stop local-dev --config config/pairs.local.json
 What `safe` recovery does:
 
 - **OpenCode**: reconnects to the configured session over HTTP with bounded backoff (`1000, 2000, 5000, 10000, 30000` ms), retries re-auth for bearer/device credentials, and re-verifies the configured session and repo. If the configured session no longer exists it reports `OPENCODE_SESSION_MISSING` intervention; it never binds a different session and never re-sends a pending message.
-- **ChatGPT browser**: reconnects a dropped CDP transport, reopens a closed conversation, and relaunches a *managed* browser (external browsers are never killed or restarted). A signed-out session reports `CHATGPT_AUTH_REQUIRED` intervention; Agent Relay never logs itself into ChatGPT.
+- **ChatGPT browser**: reconnects a dropped CDP transport, reopens a closed conversation, and relaunches a *managed* browser (external browsers are never killed or restarted). A signed-out session reports `CHATGPT_AUTH_REQUIRED` intervention; Agent never logs itself into ChatGPT.
 
 > **Managed-browser audit note**: CLI `browser start|stop` still requires a caller-supplied `ManagedBrowserLens`. The desktop setup wizard separately provides a narrow **Launch automation Chrome** action: it starts a dedicated local Chrome profile with a loopback CDP port, opens ChatGPT for manual sign-in/conversation selection, and owns only that launched process.
 
@@ -339,7 +339,7 @@ Security and architecture boundaries:
 - **Deterministic by default**: with no live flags, `FakeChatGPTBrowserAdapter` + `StaticOpenCodeAdapter` are used exactly as in the CLI, so the dashboard is safe to open without touching live systems.
 - **Live ChatGPT/OpenCode through the same explicit endpoints/config as the CLI.** During desktop setup, the wizard can start `opencode serve` in the selected session repository and launch a dedicated automation Chrome profile. Both actions are explicit, loopback-only, use fixed argument arrays without a shell, and stop only processes started by this desktop instance. Existing external endpoints are reused and never terminated.
 - **Config + persistence**: the dashboard loads the same `PairsConfig` format and persists to the same SQLite store; sensitive values (passwords, cookies, tokens) are never sent to the renderer.
-- **Shutdown**: closing the app stops the Agent Relay runtimes this desktop process started; it never kills an external OpenCode server or external Chrome.
+- **Shutdown**: closing the app stops the Agent runtimes this desktop process started; it never kills an external OpenCode server or external Chrome.
 
 ### M10b - Desktop pair setup wizard
 
@@ -380,7 +380,7 @@ Keys are worker/planner-neutral. The legacy `opencode` / `chatgpt` spellings are
 
 ## Desktop launchers
 
-`start.sh`, `start.command`, and `start.bat` are convenience launchers: they stop Electron processes belonging to this checkout, source `.env` (so `OPENCODE_SERVER_PASSWORD` reaches the managed `opencode serve`), keep the machine awake while Agent Relay runs, and then run `npm run desktop:relay`. They are optional — `npm run desktop:dev` / `npm run desktop:relay` work directly.
+`start.sh`, `start.command`, and `start.bat` are convenience launchers: they stop Electron processes belonging to this checkout, source `.env` (so `OPENCODE_SERVER_PASSWORD` reaches the managed `opencode serve`), keep the machine awake while Agent runs, and then run `npm run desktop:relay`. They are optional — `npm run desktop:dev` / `npm run desktop:relay` work directly.
 
 ## CLI
 
@@ -468,7 +468,7 @@ npm run relay -- browser status local-dev --config config/pairs.local.json
 npm run relay -- browser stop local-dev --config config/pairs.local.json
 ```
 
-> `browser start` is intentionally not implemented: Agent Relay never launches a managed browser
+> `browser start` is intentionally not implemented: Agent never launches a managed browser
 > from the CLI (the command returns “does not yet launch managed browsers”). The desktop shell’s
 > **Launch automation Chrome** action starts a dedicated local Chrome profile with a loopback CDP
 > port and then attaches over CDP only.

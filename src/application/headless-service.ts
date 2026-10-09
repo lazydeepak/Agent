@@ -21,7 +21,7 @@ export interface HeadlessServiceOptions {
 export class HeadlessService {
   private service: DesktopApplicationService | undefined;
   private projectPairService: ProjectPairService | undefined;
-  private remote: { close: () => Promise<void> } | undefined;
+  private remote: { server: import("node:http").Server; close: () => Promise<void> } | undefined;
   private shuttingDown = false;
 
   constructor(private readonly options: HeadlessServiceOptions) {}
@@ -115,6 +115,12 @@ export class HeadlessService {
 
   getProjectPairService(): ProjectPairService | undefined {
     return this.projectPairService;
+  }
+
+  getPort(): number | undefined {
+    if (!this.remote) return undefined;
+    const address = this.remote.server.address();
+    return typeof address === "object" && address ? address.port : this.options.port;
   }
 
   getRemoteClose(): (() => Promise<void>) | undefined {

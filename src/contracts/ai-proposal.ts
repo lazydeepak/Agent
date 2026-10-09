@@ -1,6 +1,6 @@
 /** AI advisor proposal contract — transport-neutral.
  *
- * The model produces a proposal; Agent Relay remains the authority.
+ * The model produces a proposal; Agent remains the authority.
  * A proposal must never include arbitrary tool calls, shell commands,
  * filesystem mutations, paired identity changes, or runtime mutations.
  * Only bounded text answers intended for planner → worker relay.

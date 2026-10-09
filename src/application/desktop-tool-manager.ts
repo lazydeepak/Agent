@@ -89,7 +89,7 @@ export class LocalDesktopToolLauncher implements DesktopToolLauncher {
     if (!executable) {
       throw new DesktopToolError(
         "OPENCODE_EXECUTABLE_NOT_FOUND",
-        "Agent Relay could not find the OpenCode command.",
+        "Agent could not find the OpenCode command.",
         { fallbackCommand: `opencode serve --hostname ${endpointHost(endpoint)} --port ${endpointPort(endpoint)}` }
       );
     }
@@ -131,7 +131,7 @@ export class LocalDesktopToolLauncher implements DesktopToolLauncher {
     }
     const executable = findChromeExecutable();
     if (!executable) {
-      throw new DesktopToolError("CHROME_EXECUTABLE_NOT_FOUND", "Agent Relay could not find Google Chrome.");
+      throw new DesktopToolError("CHROME_EXECUTABLE_NOT_FOUND", "Agent could not find Google Chrome.");
     }
     const profile = join(homedir(), ".agent-relay", "chrome-profile");
     await mkdir(profile, { recursive: true });
@@ -159,7 +159,7 @@ export class LocalDesktopToolLauncher implements DesktopToolLauncher {
   async updateOpenCode(): Promise<ToolActionResult> {
     const executable = findOpenCodeExecutable();
     if (!executable) {
-      throw new DesktopToolError("OPENCODE_EXECUTABLE_NOT_FOUND", "Agent Relay could not find the OpenCode command.");
+      throw new DesktopToolError("OPENCODE_EXECUTABLE_NOT_FOUND", "Agent could not find the OpenCode command.");
     }
     if (this.openCode) await this.stopOpenCode();
     let child = spawn(executable, ["upgrade"], { stdio: "ignore", env: process.env });
@@ -204,7 +204,7 @@ export class LocalDesktopToolLauncher implements DesktopToolLauncher {
 
 /**
  * Resolves the password used to secure a locally launched OpenCode server. Both names are read:
- * `AGENT_RELAY_OPENCODE_PASSWORD` is the Agent Relay spelling, `OPENCODE_SERVER_PASSWORD` is the
+ * `AGENT_RELAY_OPENCODE_PASSWORD` is the Agent spelling, `OPENCODE_SERVER_PASSWORD` is the
  * variable OpenCode itself checks (and therefore the one commonly set in `.env`).
  */
 function resolveOpenCodeServerPassword(): string | undefined {

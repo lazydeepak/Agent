@@ -280,7 +280,7 @@ export function renderPlannerStep(body: HTMLElement): void {
       `This session will be assigned to project "${project.projectPairId}" (Planner Agent project ${project.planner.projectName ?? project.planner.projectSlug}).`
     ));
   }
-  body.appendChild(rowNote("1. Launch the dedicated automation Chrome from Agent Relay."));
+  body.appendChild(rowNote("1. Launch the dedicated automation Chrome from Agent."));
   const browserActions = el("div", "field-actions");
   const launch = el("button", "btn btn-sm");
   launch.textContent = "Launch Planner Agent browser";

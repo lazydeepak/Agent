@@ -1202,7 +1202,7 @@ export class DesktopApplicationService {
     if (!this.store) {
       throw new DesktopApplicationError(
         "STORE_UNAVAILABLE",
-        "Agent Relay could not open its local database. Close other instances, check disk permissions for the database directory, then relaunch."
+        "Agent could not open its local database. Close other instances, check disk permissions for the database directory, then relaunch."
       );
     }
     return this.store;

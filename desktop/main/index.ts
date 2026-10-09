@@ -67,7 +67,7 @@ function requireService(): DesktopApplicationService {
   if (!service) {
     throw new DesktopApplicationError(
       "SERVICE_NOT_READY",
-      "Agent Relay is still starting. Wait for the dashboard to finish loading, then retry."
+      "Agent is still starting. Wait for the dashboard to finish loading, then retry."
     );
   }
   return service;
@@ -91,7 +91,7 @@ function requireProjectPairService(): ProjectPairService {
   if (!projectPairService) {
     throw new DesktopApplicationError(
       "SERVICE_NOT_READY",
-      "Agent Relay is still starting. Wait for the dashboard to finish loading, then retry."
+      "Agent is still starting. Wait for the dashboard to finish loading, then retry."
     );
   }
   return projectPairService;
@@ -105,7 +105,7 @@ function reportFatalErrorOnce(error: DesktopApplicationError): void {
   fatalReported = true;
   try {
     dialog.showErrorBox(
-      "Agent Relay — startup failed",
+      "Agent — startup failed",
       `${error.message}\n\nCode: ${error.code}\nCheck the database directory permissions and relaunch. Operational features are disabled.`
     );
   } catch {
@@ -169,7 +169,7 @@ async function createWindow(): Promise<void> {
     height: 760,
     minWidth: 900,
     minHeight: 600,
-    title: "Agent Relay",
+    title: "Agent",
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#0f141b" : "#eef1f6",
     webPreferences: {
       preload: join(__dirname, "..", "preload", "preload.js"),
@@ -337,7 +337,7 @@ function unregisterOperationalHandlers(): void {
 
 app.whenReady().then(async () => {
   if (!isPrimaryInstance) {
-    process.stderr.write("Agent Relay: another instance is already running; exiting.\n");
+    process.stderr.write("Agent: another instance is already running; exiting.\n");
     app.exit(0);
     return;
   }
@@ -453,7 +453,7 @@ app.on("before-quit", () => {
 });
 
 app.on("window-all-closed", () => {
-  // The dashboard hides to the tray while Agent Relay runtimes keep running.
+  // The dashboard hides to the tray while Agent runtimes keep running.
   // Quitting is only driven by the explicit Quit action or a shutdown signal.
 });
 

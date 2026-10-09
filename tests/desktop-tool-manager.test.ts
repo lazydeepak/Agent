@@ -99,7 +99,7 @@ describe("launcher ownership", () => {
     let fetchCalls = 0;
     vi.stubGlobal("fetch", vi.fn(async () => {
       fetchCalls++;
-      if (fetchCalls === 1) throw new Error("offline");
+      if (fetchCalls <= 4) throw new Error("offline");
       return new Response("{}", { status: 200 });
     }));
 
@@ -125,7 +125,7 @@ describe("launcher ownership", () => {
     let fetchCalls = 0;
     vi.stubGlobal("fetch", vi.fn(async () => {
       fetchCalls++;
-      if (fetchCalls === 1) throw new Error("offline");
+      if (fetchCalls <= 4) throw new Error("offline");
       return new Response("{}", { status: 200 });
     }));
 
@@ -149,7 +149,7 @@ describe("launcher ownership", () => {
     let fetchCalls = 0;
     vi.stubGlobal("fetch", vi.fn(async () => {
       fetchCalls++;
-      if (fetchCalls === 1) throw new Error("offline");
+      if (fetchCalls <= 4) throw new Error("offline");
       return new Response("{}", { status: 200 });
     }));
 
@@ -177,7 +177,7 @@ describe("launcher ownership", () => {
     let fetchCalls = 0;
     vi.stubGlobal("fetch", vi.fn(async () => {
       fetchCalls++;
-      if (fetchCalls <= 1) throw new Error("offline");
+      if (fetchCalls <= 4) throw new Error("offline");
       return new Response("{}", { status: 200 });
     }));
 

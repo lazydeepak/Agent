@@ -7,7 +7,7 @@
 export const ATTENTION_PROTOCOL_VERSION = "1";
 
 export const ATTENTION_PROTOCOL_INSTRUCTION = `
-Agent Relay attention protocol (v${ATTENTION_PROTOCOL_VERSION}):
+Agent attention protocol (v${ATTENTION_PROTOCOL_VERSION}):
 When your response requires planner input, is blocked, or is complete,
 include a bounded attention envelope at the end of your message using exactly this format:
 

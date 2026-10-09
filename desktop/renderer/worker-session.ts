@@ -209,7 +209,7 @@ export async function loadWorkerModels(pairId: string): Promise<void> {
 }
 
 export async function switchWorkerModel(pairId: string, providerId: string, modelId: string, notifyPlanner: boolean): Promise<void> {
-  const notification = notifyPlanner ? " Agent Relay will also post a model-change notice to the paired Planner Agent conversation." : "";
+  const notification = notifyPlanner ? " Agent will also post a model-change notice to the paired Planner Agent conversation." : "";
   const confirmed = window.confirm(`Switch ${pairId} Worker Agent to ${providerId}/${modelId}? This applies from the next worker turn (subsequent prompts).${notification}`);
   if (!confirmed) return;
   const result = await runAction(() => window.desktop.switchWorkerModel(pairId, { providerId, modelId, notifyPlanner }));

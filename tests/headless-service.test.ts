@@ -12,7 +12,7 @@ afterEach(async () => {
   await Promise.all(tempDirs.splice(0).map((path) => rm(path, { force: true, recursive: true })));
 });
 
-async function makeHeadlessService(pairs: unknown[] = [], token = "test-token", port = 18181): Promise<{ service: HeadlessService; configPath: string; dbPath: string; cleanup: () => Promise<void> }> {
+async function makeHeadlessService(pairs: unknown[] = [], token = "test-token", port = 0): Promise<{ service: HeadlessService; configPath: string; dbPath: string; cleanup: () => Promise<void> }> {
   const directory = await mkdtemp(join(tmpdir(), "agent-relay-headless-"));
   tempDirs.push(directory);
   const configPath = join(directory, "pairs.json");
@@ -22,7 +22,7 @@ async function makeHeadlessService(pairs: unknown[] = [], token = "test-token", 
     configPath,
     dbPath,
     token,
-    port: port ?? 0,
+    port,
   });
   return { service: headless, configPath, dbPath, cleanup: () => rm(directory, { force: true, recursive: true }) };
 }
@@ -51,7 +51,7 @@ describe("headless service", () => {
   });
 
   it("defaults to loopback bind", async () => {
-    const { service, cleanup } = await makeHeadlessService([], "test-token", 18182);
+    const { service, cleanup } = await makeHeadlessService([], "test-token");
     try {
       await service.start();
       await service.shutdown();
@@ -61,7 +61,7 @@ describe("headless service", () => {
   });
 
   it("service methods back /status, /timeline, start-project and pause-project", async () => {
-    const { service, cleanup } = await makeHeadlessService([], "test-token", 18183);
+    const { service, cleanup } = await makeHeadlessService([], "test-token");
     try {
       await service.start();
       const svc = service.getService();
@@ -75,10 +75,10 @@ describe("headless service", () => {
   });
 
   it("remote /status and /timeline are served through the HTTP server", async () => {
-    const port = 18184;
-    const { service, cleanup } = await makeHeadlessService([], "test-token", port);
+    const { service, cleanup } = await makeHeadlessService([], "test-token");
     try {
       await service.start();
+      const port = service.getPort();
       const response = await fetch(`http://127.0.0.1:${port}/status`, {
         headers: { authorization: "Bearer test-token" }
       });
@@ -92,10 +92,10 @@ describe("headless service", () => {
   });
 
   it("remote endpoints back service methods: /status, /timeline, /start-project, /pause-project", async () => {
-    const port = 18185;
-    const { service, cleanup } = await makeHeadlessService([], "test-token", port);
+    const { service, cleanup } = await makeHeadlessService([], "test-token");
     try {
       await service.start();
+      const port = service.getPort();
       const baseUrl = `http://127.0.0.1:${port}`;
       const auth = { authorization: "Bearer test-token" };
 
@@ -134,7 +134,7 @@ describe("headless service", () => {
   });
 
   it("unknown operations rejected at contract boundary", async () => {
-    const { service: headlessSvc, cleanup } = await makeHeadlessService([], "test-token", 18192);
+    const { service: headlessSvc, cleanup } = await makeHeadlessService([], "test-token");
     try {
       await headlessSvc.start();
       const adapter = new ControlPlaneAdapter(headlessSvc.getService()!, headlessSvc.getProjectPairService()!);
@@ -145,10 +145,10 @@ describe("headless service", () => {
   });
 
   it("SSE requires authentication", async () => {
-    const port = 18186;
-    const { service, cleanup } = await makeHeadlessService([], "test-token", port);
+    const { service, cleanup } = await makeHeadlessService([], "test-token");
     try {
       await service.start();
+      const port = service.getPort();
       const response = await fetch(`http://127.0.0.1:${port}/events`);
       expect(response.status).toBe(401);
       await service.shutdown();
@@ -158,8 +158,7 @@ describe("headless service", () => {
   });
 
   it("subscribed client receives a safe projected lifecycle event", async () => {
-    const port = 18191;
-    const { service, cleanup } = await makeHeadlessService([], "test-token", port);
+    const { service, cleanup } = await makeHeadlessService([], "test-token");
     try {
       await service.start();
       const adapter = new ControlPlaneAdapter(service.getService()!, service.getProjectPairService()!);
@@ -178,7 +177,7 @@ describe("headless service", () => {
   });
 
   it("sensitive internal event fields are not emitted through projection", async () => {
-    const { service: headlessSvc, cleanup } = await makeHeadlessService([], "test-token", 18194);
+    const { service: headlessSvc, cleanup } = await makeHeadlessService([], "test-token");
     try {
       await headlessSvc.start();
       const adapter = new ControlPlaneAdapter(headlessSvc.getService()!, headlessSvc.getProjectPairService()!);
@@ -195,7 +194,7 @@ describe("headless service", () => {
   });
 
   it("disconnect removes subscription listener", async () => {
-    const { service: headlessSvc, cleanup } = await makeHeadlessService([], "test-token", 18193);
+    const { service: headlessSvc, cleanup } = await makeHeadlessService([], "test-token");
     try {
       await headlessSvc.start();
       const adapter = new ControlPlaneAdapter(headlessSvc.getService()!, headlessSvc.getProjectPairService()!);
@@ -208,10 +207,10 @@ describe("headless service", () => {
   });
 
   it("existing HTTP endpoint compatibility remains intact", async () => {
-    const port = 18188;
-    const { service, cleanup } = await makeHeadlessService([], "test-token", port);
+    const { service, cleanup } = await makeHeadlessService([], "test-token");
     try {
       await service.start();
+      const port = service.getPort();
       const baseUrl = `http://127.0.0.1:${port}`;
       const auth = { authorization: "Bearer test-token" };
       const status = await fetch(`${baseUrl}/status`, { headers: auth });
@@ -225,7 +224,7 @@ describe("headless service", () => {
   });
 
   it("graceful shutdown closes both HTTP server and application service", async () => {
-    const { service, cleanup } = await makeHeadlessService([], "test-token", 18189);
+    const { service, cleanup } = await makeHeadlessService([], "test-token");
     try {
       await service.start();
       await service.shutdown();

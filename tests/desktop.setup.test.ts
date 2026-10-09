@@ -357,7 +357,7 @@ describe("DesktopApplicationService wizard operations", () => {
         }
         if (url.pathname === "/api/session" && method === "POST") {
           created.push({ body: safeJson(init?.body) });
-          return jsonResponse({ data: { id: "ses_new", title: "Agent Relay main-1", location: { directory: "/Users/x/main-1" } } });
+          return jsonResponse({ data: { id: "ses_new", title: "Agent main-1", location: { directory: "/Users/x/main-1" } } });
         }
         return jsonResponse({}, 404);
       }

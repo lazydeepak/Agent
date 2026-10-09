@@ -22,13 +22,13 @@ describe("OpenCode Desktop active session discovery", () => {
       parseOpenCodeDesktopWindowState({
         "tabs.recent": JSON.stringify({ key }),
         "tabs.info": JSON.stringify({
-          [key]: { title: "Agent Relay work", directory: "/Users/dev/agent-relay" }
+          [key]: { title: "Agent work", directory: "/Users/dev/agent" }
         })
       })
     ).toEqual({
       sessionId: "ses_active123",
-      title: "Agent Relay work",
-      repoPath: "/Users/dev/agent-relay"
+      title: "Agent work",
+      repoPath: "/Users/dev/agent"
     });
   });
 

@@ -221,7 +221,7 @@ export class DesktopLifecycle {
       const fatal = toFatalError(
         error,
         "STORE_INIT_FAILED",
-        "Agent Relay could not open its local database. Close other instances, check disk permissions for the database directory, then relaunch"
+        "Agent could not open its local database. Close other instances, check disk permissions for the database directory, then relaunch"
       );
       await this.cleanupOnce();
       this.state = "failed";
@@ -238,7 +238,7 @@ export class DesktopLifecycle {
     if (!isValidStore(store)) {
       const fatal = new DesktopApplicationError(
         "STORE_UNAVAILABLE",
-        "Agent Relay could not open its local database. Close other instances, check disk permissions for the database directory, then relaunch."
+        "Agent could not open its local database. Close other instances, check disk permissions for the database directory, then relaunch."
       );
       await this.cleanupOnce();
       this.state = "failed";
@@ -257,7 +257,7 @@ export class DesktopLifecycle {
       const fatal = toFatalError(
         error,
         "WORKER_PROGRESS_INIT_FAILED",
-        "Agent Relay could not start worker progress tracking. Relaunch the app"
+        "Agent could not start worker progress tracking. Relaunch the app"
       );
       await this.cleanupOnce();
       this.state = "failed";
@@ -277,7 +277,7 @@ export class DesktopLifecycle {
       const fatal = toFatalError(
         error,
         "IPC_REGISTRATION_FAILED",
-        "Agent Relay could not register its dashboard handlers. Relaunch the app"
+        "Agent could not register its dashboard handlers. Relaunch the app"
       );
       await this.cleanupOnce();
       this.state = "failed";
@@ -296,7 +296,7 @@ export class DesktopLifecycle {
       const fatal = toFatalError(
         error,
         "WINDOW_CREATION_FAILED",
-        "Agent Relay could not open its dashboard window. Relaunch the app"
+        "Agent could not open its dashboard window. Relaunch the app"
       );
       await this.cleanupOnce();
       this.state = "failed";

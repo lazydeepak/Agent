@@ -37,16 +37,16 @@ export class ManagedTray {
 
   update(state: ManagedState): void {
     this.state = state;
-    this.tray.setToolTip(`Agent Relay — ${STATE_LABELS[state]}`);
+    this.tray.setToolTip(`Agent — ${STATE_LABELS[state]}`);
     this.tray.setContextMenu(
       Menu.buildFromTemplate([
-        { label: `Agent Relay — ${STATE_LABELS[state]}`, enabled: false },
+        { label: `Agent — ${STATE_LABELS[state]}`, enabled: false },
         { type: "separator" },
         { label: "Open Dashboard", click: () => this.callbacks.onOpenDashboard() },
         { label: "Start All", click: () => this.callbacks.onStartAll() },
         { label: "Stop All", click: () => this.callbacks.onStopAll() },
         { type: "separator" },
-        { label: "Quit Agent Relay", click: () => this.callbacks.onQuit() }
+        { label: "Quit Agent", click: () => this.callbacks.onQuit() }
       ])
     );
   }

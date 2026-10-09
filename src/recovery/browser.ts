@@ -23,12 +23,12 @@ export class ExternalBrowserManager implements BrowserManager {
     return {
       ownership: "external",
       reachable: true,
-      reason: "External browser is not managed by Agent Relay; reconnect-only handling applies."
+      reason: "External browser is not managed by Agent; reconnect-only handling applies."
     };
   }
 
   async reconnect(): Promise<void> {
-    // Agent Relay connects per operation and holds no external browser handle.
+    // Agent connects per operation and holds no external browser handle.
   }
 
   async relaunch(): Promise<void> {

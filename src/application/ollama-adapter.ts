@@ -69,7 +69,7 @@ export class OllamaAdvisorProvider implements AttentionAdvisorProvider {
 }
 
 function buildAdvisorPrompt(input: AttentionAdvisorInput): string {
-  return `Agent Relay AI Advisor Protocol (v1):
+  return `Agent AI Advisor Protocol (v1):
 You receive bounded worker attention metadata (not full repository contents) and must produce a proposal.
 Your proposal must be a bounded text answer only — no tool calls, no shell commands, no file mutations.
 Worker attention kind: ${input.kind}

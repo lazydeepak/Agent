@@ -33,7 +33,7 @@ export async function recoverChatGPT(input: ChatGPTRecoveryInput): Promise<ChatG
     return {
       recovered: false,
       code: "CHATGPT_AUTH_REQUIRED",
-      reason: "ChatGPT browser session requires authentication. Agent Relay will not attempt a login by itself.",
+      reason: "ChatGPT browser session requires authentication. Agent will not attempt a login by itself.",
       intervention: true
     };
   }

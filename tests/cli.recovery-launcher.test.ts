@@ -141,11 +141,13 @@ describe("one-shot CLI ownership", () => {
     child = makeChild();
     const unrefSpy = child.unref as ReturnType<typeof vi.fn>;
     vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
-    vi.mocked(spawn).mockImplementation(() => child);
-    let fetchCalls = 0;
+    let endpointReachable = false;
+    vi.mocked(spawn).mockImplementation(() => {
+      endpointReachable = true;
+      return child;
+    });
     vi.stubGlobal("fetch", vi.fn(async () => {
-      fetchCalls++;
-      if (fetchCalls === 1) throw new Error("offline");
+      if (!endpointReachable) throw new Error("offline");
       return new Response("{}", { status: 200 });
     }));
 
@@ -178,11 +180,13 @@ describe("one-shot CLI ownership", () => {
     child = makeChild();
     const killSpy = child.kill as ReturnType<typeof vi.fn>;
     vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
-    vi.mocked(spawn).mockImplementation(() => child);
-    let fetchCalls = 0;
+    let endpointReachable = false;
+    vi.mocked(spawn).mockImplementation(() => {
+      endpointReachable = true;
+      return child;
+    });
     vi.stubGlobal("fetch", vi.fn(async () => {
-      fetchCalls++;
-      if (fetchCalls === 1) throw new Error("offline");
+      if (!endpointReachable) throw new Error("offline");
       return new Response("{}", { status: 200 });
     }));
 
@@ -213,11 +217,13 @@ describe("one-shot CLI ownership", () => {
     child = makeChild();
     const killSpy = child.kill as ReturnType<typeof vi.fn>;
     vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
-    vi.mocked(spawn).mockImplementation(() => child);
-    let fetchCalls = 0;
+    let endpointReachable2 = false;
+    vi.mocked(spawn).mockImplementation(() => {
+      endpointReachable2 = true;
+      return child;
+    });
     vi.stubGlobal("fetch", vi.fn(async () => {
-      fetchCalls++;
-      if (fetchCalls === 1) throw new Error("offline");
+      if (!endpointReachable2) throw new Error("offline");
       return new Response("{}", { status: 200 });
     }));
 
@@ -368,12 +374,14 @@ describe("platform-specific ownership", () => {
     const launcher = new LocalDesktopToolLauncher();
     child = makeChild();
     const killSpy = child.kill as ReturnType<typeof vi.fn>;
-    vi.mocked(spawn).mockReturnValue(child);
     vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
-    let fetchCalls = 0;
+    let endpointReachable = false;
+    vi.mocked(spawn).mockImplementation(() => {
+      endpointReachable = true;
+      return child;
+    });
     vi.stubGlobal("fetch", vi.fn(async () => {
-      fetchCalls++;
-      if (fetchCalls === 1) throw new Error("offline");
+      if (!endpointReachable) throw new Error("offline");
       return new Response("{}", { status: 200 });
     }));
 

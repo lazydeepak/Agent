@@ -1,6 +1,6 @@
 {
   "name": "agent-relay",
-  "productName": "Agent Relay",
+  "productName": "Agent",
   "version": "0.1.0",
   "private": true,
   "description": "Pair agent sessions and validate readiness before relaying work between them.",

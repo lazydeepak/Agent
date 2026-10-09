@@ -80,11 +80,11 @@ describe("supervise CLI", () => {
     ]);
 
     try {
-      await waitForOutput(output, (stdout) => stdout.includes("relay  worker-to-planner  DELIVERED"), 30_000);
+      await waitForOutput(output, (stdout) => /relay\s+worker-to-planner\s+DELIVERED/.test(stdout), 30_000);
       child.kill("SIGTERM");
       const result = await finished;
       expect(result.status).toBe(0);
-      expect(output.stdout).toContain("relay  worker-to-planner  DELIVERED");
+      expect(output.stdout).toMatch(/relay\s+worker-to-planner\s+DELIVERED/);
     } finally {
       if (child.exitCode === null && child.signalCode === null) {
         child.kill("SIGTERM");

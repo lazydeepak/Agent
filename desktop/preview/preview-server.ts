@@ -119,7 +119,7 @@ async function startServer(): Promise<void> {
   });
 
   server.listen(PORT, HOST, () => {
-    console.log(`[desktop-preview] Agent Relay Electron desktop preview running at http://${HOST}:${PORT}/`);
+    console.log(`[desktop-preview] Agent Electron desktop preview running at http://${HOST}:${PORT}/`);
   });
 }
 

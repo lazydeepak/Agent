@@ -73,7 +73,7 @@ export async function recoverOpenCode(
     return {
       recovered: false,
       code: "OPENCODE_SESSION_MISSING",
-      reason: `Configured OpenCode session ${input.sessionId} no longer exists. Agent Relay refuses to rebind to a replacement session.`
+      reason: `Configured OpenCode session ${input.sessionId} no longer exists. Agent refuses to rebind to a replacement session.`
     };
   }
 
