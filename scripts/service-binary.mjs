@@ -1,3 +1,4 @@
+/** Agent-relay script — Build service binary (bundle to executable). NEXT: build code index. */
 import { execSync } from "node:child_process";
 import { cpSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";

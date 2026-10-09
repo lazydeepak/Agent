@@ -1,3 +1,4 @@
+/** Agent-relay script — Build Tauri UI sidecar (esbuild bundle for sidecar). NEXT: build code index. */
 import { build, context } from "esbuild";
 import { copyFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";

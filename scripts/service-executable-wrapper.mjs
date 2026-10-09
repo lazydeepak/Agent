@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/** Agent-relay script — Standalone headless service executable wrapper. NEXT: build code index. */
 // Standalone Agent Relay headless service executable wrapper.
 // This script runs the bundled service entrypoint.
 // It relies on the Node runtime installed on the target machine,

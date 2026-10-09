@@ -1,3 +1,4 @@
+/** Agent-relay script — Build Electron desktop bundle (esbuild + desktop-dist output). NEXT: build code index. */
 import { execSync } from "node:child_process";
 import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";

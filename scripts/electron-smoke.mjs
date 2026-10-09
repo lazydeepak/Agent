@@ -1,3 +1,4 @@
+/** Agent-relay script — Electron smoke test — starts local server and verifies desktop launch. NEXT: build code index. */
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { mkdtemp, writeFile } from 'node:fs/promises';

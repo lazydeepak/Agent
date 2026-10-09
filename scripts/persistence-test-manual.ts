@@ -1,3 +1,4 @@
+/** Agent-relay script — Manual persistence / SQLite test script. NEXT: build code index. */
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

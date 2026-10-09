@@ -1,3 +1,4 @@
+/** Agent-relay script — Bundle service entrypoint with esbuild. NEXT: build code index. */
 import esbuild from "esbuild";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";

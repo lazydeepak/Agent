@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/** Agent-relay script — Prevent second desktop instance (process-lock check). NEXT: build code index. */
 // Refuses to launch a second Agent Relay dashboard against the same store.
 // The in-app Electron lock is a backstop; a second instance can stall during
 // native startup before app code runs, so the launch path must check first.

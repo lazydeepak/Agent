@@ -1,3 +1,4 @@
+/** Agent-relay script — Prepare Tauri sidecar / native helpers. NEXT: build code index. */
 import { execSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, chmodSync } from "node:fs";
 import { join, dirname } from "node:path";

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/** Agent-relay script — Prepare Tauri runtime / native dependencies. NEXT: build code index. */
 import { execSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, chmodSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
