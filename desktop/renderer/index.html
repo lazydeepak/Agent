@@ -8,9 +8,9 @@
       content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'"
     />
     <title>Agent Relay</title>
-    <meta name="description" content="Pair agent sessions and validate readiness before relaying work between them." />
+    <meta name="description" content="High-reliability bidirectional message transport between autonomous agents." />
     <meta property="og:title" content="Agent Relay" />
-    <meta property="og:description" content="Pair agent sessions and validate readiness before relaying work between them." />
+    <meta property="og:description" content="High-reliability bidirectional message transport between autonomous agents." />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -35,7 +35,7 @@
           <input type="text" id="sidebar-search-input" placeholder="Filter projects…" autocomplete="off" />
         </div>
         <nav class="sidebar-menu">
-          <button id="nav-home" class="sidebar-item">
+          <button id="nav-home" class="sidebar-item active">
             <span class="sidebar-item-icon">⌂</span>
             <span class="sidebar-item-label">Dashboard</span>
           </button>
@@ -87,11 +87,17 @@
       </aside>
       <div id="sidebar-backdrop" class="sidebar-backdrop hidden"></div>
 
-      <main class="layout">
-        <section class="panel dashboard-panel hidden" id="dashboard-panel">
-          <div class="panel-header">
+      <main class="layout view-home">
+        <section class="panel dashboard-panel" id="dashboard-panel">
+          <div class="panel-header dashboard-header">
             <div>
-              <h2>Dashboard</h2>
+              <h2>Operations Dashboard</h2>
+              <p class="dashboard-subtitle">Real-time health monitoring, status tracking, and controls for Worker & Planner agents</p>
+            </div>
+            <div class="panel-header-actions">
+              <button id="dashboard-refresh-btn" class="btn btn-ghost btn-sm" title="Refresh metrics and health">Refresh</button>
+              <button id="dashboard-start-all-btn" class="btn btn-primary btn-sm" title="Start all eligible pairs">Start All</button>
+              <button id="dashboard-stop-all-btn" class="btn btn-danger btn-sm" title="Stop all running pairs">Stop All</button>
             </div>
           </div>
           <div id="dashboard-content" class="dashboard-content">
@@ -114,10 +120,26 @@
               </div>
             </div>
 
+            <!-- Agent Health Monitoring Section -->
+            <div class="dashboard-section dashboard-health-section">
+              <div class="section-header">
+                <div>
+                  <h3>Agent Health & Status Monitoring</h3>
+                  <span class="section-hint">Worker session connectivity, Planner browser state, and one-click initialization</span>
+                </div>
+              </div>
+              <div id="dashboard-agent-health-list" class="dashboard-agent-health-list">
+                <div class="empty-state">No agent pairs configured yet.</div>
+              </div>
+            </div>
+
             <div class="dashboard-main-grid">
               <div class="dashboard-section">
                 <div class="section-header">
-                  <h3>Transport History</h3>
+                  <div>
+                    <h3>Transport History</h3>
+                    <span class="section-hint">Recent relay dispatches and cycle events</span>
+                  </div>
                   <button id="clear-history" class="btn btn-ghost btn-sm" title="Clear all history">Clear</button>
                 </div>
                 <div id="dashboard-history" class="dashboard-history">
@@ -127,7 +149,10 @@
 
               <div class="dashboard-section">
                 <div class="section-header">
-                  <h3>Error Log</h3>
+                  <div>
+                    <h3>Error Log</h3>
+                    <span class="section-hint">Readiness checks, connection failures, and transport exceptions</span>
+                  </div>
                   <button id="clear-errors" class="btn btn-ghost btn-sm" title="Clear error log">Clear</button>
                 </div>
                 <div id="dashboard-errors" class="dashboard-history error-log">
@@ -146,7 +171,7 @@
           </div>
         </section>
 
-        <section class="panel project-pairs-panel" id="project-pairs-panel">
+        <section class="panel project-pairs-panel hidden" id="project-pairs-panel">
           <div class="panel-header" id="projects-panel-header">
             <div>
               <h2>Projects</h2>

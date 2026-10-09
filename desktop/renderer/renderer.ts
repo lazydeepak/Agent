@@ -318,13 +318,14 @@ function renderDashboard(): void {
   const failed = document.getElementById("stat-failed");
   const total = document.getElementById("stat-total");
   const historyContainer = document.getElementById("dashboard-history");
+  const agentHealthContainer = document.getElementById("dashboard-agent-health-list");
   const gettingStarted = document.getElementById("dashboard-getting-started");
 
   const statuses = Array.from(state.statuses.values());
-  const runningCount = statuses.filter(s => s.runtimeState === "RUNNING" || s.runtimeState === "STARTING").length;
-  const healthyCount = statuses.filter(s => s.runtimeState === "RUNNING" && s.supervisorState !== "FAILED" && s.supervisorState !== "STUCK").length;
-  const failedCount = statuses.filter(s => s.runtimeState === "ERROR" || s.supervisorState === "FAILED" || s.supervisorState === "STUCK").length;
-  const totalCount = state.pairs.length;
+  const runningCount = statuses.filter(s => s.runtimeState === "RUNNING" || s.runtimeState === "HEALTHY" || s.runtimeState === "STARTING" || s.supervisorState === "SUPERVISING").length;
+  const healthyCount = statuses.filter(s => (s.runtimeState === "RUNNING" || s.runtimeState === "HEALTHY" || s.supervisorState === "SUPERVISING") && s.supervisorState !== "FAILED" && s.supervisorState !== "STUCK" && s.worker !== "FAIL" && s.planner !== "FAIL").length;
+  const failedCount = statuses.filter(s => s.runtimeState === "ERROR" || s.supervisorState === "FAILED" || s.supervisorState === "STUCK" || s.worker === "FAIL" || s.planner === "FAIL").length;
+  const totalCount = Math.max(state.pairs.length, statuses.length);
 
   if (running) running.textContent = String(runningCount);
   if (healthy) healthy.textContent = String(healthyCount);
@@ -332,7 +333,11 @@ function renderDashboard(): void {
   if (total) total.textContent = String(totalCount);
 
   if (gettingStarted) {
-    gettingStarted.classList.toggle("hidden", state.projectPairs.length > 0);
+    gettingStarted.classList.toggle("hidden", state.projectPairs.length > 0 || state.pairs.length > 0);
+  }
+
+  if (agentHealthContainer) {
+    renderDashboardAgentHealth(agentHealthContainer);
   }
 
   if (historyContainer) {
@@ -349,6 +354,172 @@ function renderDashboard(): void {
       }
     })();
   }
+}
+
+function renderDashboardAgentHealth(container: HTMLElement): void {
+  if (state.pairs.length === 0) {
+    const empty = el("div", "empty-state");
+    empty.textContent = "No agent pairs configured yet. Click '+ Add Session' in the sidebar to create one.";
+    container.replaceChildren(empty);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  for (const pair of state.pairs) {
+    const status = state.statuses.get(pair.pairId);
+    const card = el("div", "dashboard-agent-card");
+
+    // Header: Name, overall status, Action buttons (Start/Pause, Initialize, Timeline)
+    const header = el("div", "dashboard-agent-header");
+    const titleArea = el("div", "dashboard-agent-title");
+    const name = el("span", "dashboard-agent-name");
+    name.textContent = pair.pairId;
+
+    const runtimeStateBadge = el("span", `badge ${
+      (status?.runtimeState === "RUNNING" || status?.runtimeState === "HEALTHY") ? "badge-ok" :
+      status?.runtimeState === "PAUSED" ? "badge-warn" :
+      status?.runtimeState === "ERROR" ? "badge-danger" : "badge-neutral"
+    }`);
+    runtimeStateBadge.textContent = status?.runtimeState || (pair.enabled ? "READY" : "DISABLED");
+
+    titleArea.append(name, runtimeStateBadge);
+
+    const actions = el("div", "dashboard-agent-actions");
+
+    // Start / Pause button
+    const isRunning = status?.runtimeState === "RUNNING" || status?.runtimeState === "HEALTHY" || status?.supervisorState === "SUPERVISING";
+    const toggleBtn = el("button", `btn btn-sm ${isRunning ? "btn-warn" : "btn-primary"}`);
+    toggleBtn.textContent = isRunning ? "Pause" : "Start";
+    toggleBtn.addEventListener("click", async () => {
+      toggleBtn.disabled = true;
+      try {
+        if (isRunning) {
+          await runAction(() => window.desktop.pausePair(pair.pairId));
+          toast(`Pair "${pair.pairId}" paused.`);
+        } else {
+          await runAction(() => window.desktop.startPair(pair.pairId));
+          toast(`Pair "${pair.pairId}" started.`);
+        }
+        await refresh();
+      } finally {
+        toggleBtn.disabled = false;
+      }
+    });
+
+    // Initialize button
+    const initBtn = el("button", "btn btn-sm btn-ghost");
+    initBtn.textContent = "⚡ Initialize";
+    initBtn.title = "Verify server reachability, session binding, and browser connectivity";
+    initBtn.addEventListener("click", async () => {
+      initBtn.disabled = true;
+      initBtn.textContent = "Initializing…";
+      try {
+        const result = await runAction(() => window.desktop.initializePair(pair.pairId));
+        if (result?.status === "READY") {
+          toast(`Pair "${pair.pairId}" initialized: ready for relay.`);
+        } else {
+          toast(`Pair "${pair.pairId}" initialized with warnings.`);
+        }
+        await refresh();
+      } catch (err) {
+        toast(`Initialization error: ${errorMessage(err)}`);
+      } finally {
+        initBtn.disabled = false;
+        initBtn.textContent = "⚡ Initialize";
+      }
+    });
+
+    // Timeline button
+    const timelineBtn = el("button", "btn btn-sm btn-ghost");
+    timelineBtn.textContent = "Timeline";
+    timelineBtn.addEventListener("click", () => {
+      void openTimelineModal(pair.pairId);
+    });
+
+    actions.append(toggleBtn, initBtn, timelineBtn);
+    header.append(titleArea, actions);
+
+    // Body: Worker & Planner peers side-by-side
+    const peersGrid = el("div", "dashboard-agent-peers");
+
+    // Worker Peer Box
+    const workerBox = el("div", "dashboard-peer-box");
+    const workerTop = el("div", "dashboard-peer-top");
+    const workerRole = el("span", "dashboard-peer-role");
+    workerRole.textContent = "Worker Agent";
+
+    const workerStatusArea = el("div", "dashboard-peer-status");
+    const workerHealth = el("span", `badge ${status?.worker === "HEALTHY" || status?.worker === "PASS" ? "badge-ok" : status?.worker === "FAIL" ? "badge-danger" : "badge-neutral"}`);
+    workerHealth.textContent = status?.worker || "HEALTHY";
+
+    const workerActivity = el("span", `activity-badge ${status?.workerActivity === "working" ? "working" : "idle"}`);
+    const workerPulse = el("span", "pulse-circle");
+    const workerActivityLabel = el("span");
+    workerActivityLabel.textContent = status?.workerActivity === "working" ? "Working" : "Idle";
+    workerActivity.append(workerPulse, workerActivityLabel);
+
+    workerStatusArea.append(workerHealth, workerActivity);
+    workerTop.append(workerRole, workerStatusArea);
+
+    const workerSession = el("div", "dashboard-peer-detail");
+    workerSession.textContent = `Session: ${pair.worker.sessionId || "unbound"}`;
+    workerSession.title = pair.worker.sessionId || "";
+
+    const workerRepo = el("div", "dashboard-peer-detail");
+    workerRepo.textContent = `Repo: ${pair.worker.repoPath || "not configured"}`;
+    workerRepo.title = pair.worker.repoPath || "";
+
+    const workerEndpoint = el("div", "dashboard-peer-detail");
+    workerEndpoint.textContent = `Endpoint: ${pair.worker.server?.baseUrl || "http://127.0.0.1:4096/"}`;
+
+    workerBox.append(workerTop, workerSession, workerRepo, workerEndpoint);
+
+    // Planner Peer Box
+    const plannerBox = el("div", "dashboard-peer-box");
+    const plannerTop = el("div", "dashboard-peer-top");
+    const plannerRole = el("span", "dashboard-peer-role");
+    plannerRole.textContent = "Planner Agent";
+
+    const plannerStatusArea = el("div", "dashboard-peer-status");
+    const plannerHealth = el("span", `badge ${status?.planner === "HEALTHY" || status?.planner === "PASS" ? "badge-ok" : status?.planner === "FAIL" ? "badge-danger" : "badge-neutral"}`);
+    plannerHealth.textContent = status?.planner || "HEALTHY";
+
+    const plannerActivity = el("span", `activity-badge ${status?.plannerActivity === "working" ? "working" : "idle"}`);
+    const plannerPulse = el("span", "pulse-circle");
+    const plannerActivityLabel = el("span");
+    plannerActivityLabel.textContent = status?.plannerActivity === "working" ? "Working" : "Idle";
+    plannerActivity.append(plannerPulse, plannerActivityLabel);
+
+    plannerStatusArea.append(plannerHealth, plannerActivity);
+    plannerTop.append(plannerRole, plannerStatusArea);
+
+    const plannerConv = el("div", "dashboard-peer-detail");
+    plannerConv.textContent = `Conv: ${pair.planner.conversationId || "not linked"}`;
+    plannerConv.title = pair.planner.conversationId || "";
+
+    const plannerBrowser = el("div", "dashboard-peer-detail");
+    plannerBrowser.textContent = `CDP: ${pair.planner.browser?.cdpUrl || "http://127.0.0.1:9222/"}`;
+
+    plannerBox.append(plannerTop, plannerConv, plannerBrowser);
+
+    peersGrid.append(workerBox, plannerBox);
+
+    // Footer metadata: Supervisor & recovery
+    const meta = el("div", "dashboard-agent-meta");
+    const supervisor = el("span");
+    supervisor.textContent = `Supervisor: ${status?.supervisorState || "IDLE"}${status?.recovering ? " (Recovering…)" : ""}`;
+
+    const observed = el("span");
+    observed.textContent = `Last observed: ${status?.lastObservedAt ? formatTime(status.lastObservedAt) : "Just now"}`;
+
+    meta.append(supervisor, observed);
+
+    card.append(header, peersGrid, meta);
+    fragment.appendChild(card);
+  }
+
+  container.replaceChildren(fragment);
 }
 
 function renderEventList(container: HTMLElement, events: any[], emptyMessage: string): void {
@@ -1020,17 +1191,26 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("sidebar-search-input")?.addEventListener("input", () => {
     renderSidebarProjects();
   });
+  document.getElementById("dashboard-refresh-btn")?.addEventListener("click", () => {
+    void refresh();
+  });
+  document.getElementById("dashboard-start-all-btn")?.addEventListener("click", () => {
+    void startAll();
+  });
+  document.getElementById("dashboard-stop-all-btn")?.addEventListener("click", () => {
+    void stopAll();
+  });
   document.getElementById("clear-history")?.addEventListener("click", () => {
     void (async () => {
-      if (!window.confirm("Clear all transport history? This cannot be undone.")) return;
       await window.desktop.clearTimeline();
+      toast("Transport history cleared.");
       renderDashboard();
     })();
   });
   document.getElementById("clear-errors")?.addEventListener("click", () => {
     void (async () => {
-      if (!window.confirm("Clear error log? This cannot be undone.")) return;
-      await window.desktop.clearTimeline(); // Reuse clearTimeline for now as it clears the whole log
+      await window.desktop.clearTimeline();
+      toast("Error log cleared.");
       renderDashboard();
     })();
   });

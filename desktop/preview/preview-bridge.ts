@@ -83,6 +83,28 @@ const initialPairs: PairIdentityDto[] = [
         cdpUrl: "http://127.0.0.1:9222/"
       }
     }
+  },
+  {
+    pairId: "agent-relay-worker-sync",
+    enabled: true,
+    localAgentMode: false,
+    projectPairId: "local-dev",
+    worker: {
+      type: "opencode",
+      sessionId: "ses_89b2c34d5e01AgentSync",
+      repoPath: "/Users/lazydeepak/dev/AgentRelay",
+      server: {
+        baseUrl: "http://127.0.0.1:4096/"
+      }
+    },
+    planner: {
+      type: "chatgpt-browser",
+      conversationId: "7bb8e890-8729-94ff-b9ad-00ef4e1e8258",
+      conversationUrl: "https://chatgpt.com/c/7bb8e890-8729-94ff-b9ad-00ef4e1e8258",
+      browser: {
+        cdpUrl: "http://127.0.0.1:9222/"
+      }
+    }
   }
 ];
 
@@ -105,6 +127,26 @@ const initialStatuses = new Map<string, PeerHealthDto>([
     "new-session-2026-09-14t15-40-42-638z",
     {
       pairId: "new-session-2026-09-14t15-40-42-638z",
+      runtimeState: "RUNNING",
+      hasRelayHistory: true,
+      supervisorState: "SUPERVISING",
+      worker: "HEALTHY",
+      planner: "HEALTHY",
+      workerActivity: "working",
+      plannerActivity: "idle",
+      recovering: false,
+      workerObserved: true,
+      plannerObserved: true,
+      lastObservedAt: new Date().toISOString(),
+      paused: false,
+      enabled: true,
+      schedulerMode: "ACTIVE"
+    }
+  ],
+  [
+    "agent-relay-worker-sync",
+    {
+      pairId: "agent-relay-worker-sync",
       runtimeState: "HEALTHY",
       hasRelayHistory: true,
       supervisorState: "SUPERVISING",
@@ -115,7 +157,7 @@ const initialStatuses = new Map<string, PeerHealthDto>([
       recovering: false,
       workerObserved: true,
       plannerObserved: true,
-      lastObservedAt: new Date().toISOString(),
+      lastObservedAt: new Date(Date.now() - 15000).toISOString(),
       paused: false,
       enabled: true,
       schedulerMode: "ACTIVE"
@@ -150,6 +192,36 @@ const initialValidations = new Map<string, ValidationResultDto>([
           name: "planner.conversation",
           status: "PASS",
           reason: "ChatGPT conversation 6aa7e789-7618-83ee-a8fc-99df3d0d7147 loaded"
+        }
+      ]
+    }
+  ],
+  [
+    "agent-relay-worker-sync",
+    {
+      pairId: "agent-relay-worker-sync",
+      status: "READY",
+      validatedAt: new Date(Date.now() - 15000).toISOString(),
+      checks: [
+        {
+          name: "worker.endpoint",
+          status: "PASS",
+          reason: "OpenCode server reachable at http://127.0.0.1:4096/"
+        },
+        {
+          name: "worker.session",
+          status: "PASS",
+          reason: "Session ses_89b2c34d5e01AgentSync active in /Users/lazydeepak/dev/AgentRelay"
+        },
+        {
+          name: "planner.browser",
+          status: "PASS",
+          reason: "CDP loopback endpoint reachable at http://127.0.0.1:9222/"
+        },
+        {
+          name: "planner.conversation",
+          status: "PASS",
+          reason: "ChatGPT conversation 7bb8e890-8729-94ff-b9ad-00ef4e1e8258 loaded"
         }
       ]
     }
