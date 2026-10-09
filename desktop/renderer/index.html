@@ -44,9 +44,14 @@
             <span class="sidebar-item-label">Projects</span>
             <span id="nav-projects-count" class="sidebar-count">0</span>
           </button>
+          <button id="nav-activity" class="sidebar-item">
+            <span class="sidebar-item-icon">◷</span>
+            <span class="sidebar-item-label">Activity</span>
+            <span id="nav-activity-count" class="sidebar-count">0</span>
+          </button>
         </nav>
         <div class="sidebar-section-divider"></div>
-        <div class="sidebar-header" style="margin-top: 4px;">
+        <div class="sidebar-header sidebar-header--mt-4">
           <span class="sidebar-title">Projects</span>
         </div>
         <div id="sidebar-projects-list" class="sidebar-projects-list"></div>
@@ -216,6 +221,46 @@
           </div>
           <div id="no-project-pairs" class="empty-state hidden">No projects configured</div>
           <div id="project-pairs-list" class="project-pairs-list"></div>
+        </section>
+
+        <section class="panel activity-panel hidden" id="activity-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Activity Log</h2>
+              <p class="panel-subtitle">Durable relay, supervisor, and runtime events across every project</p>
+            </div>
+            <div class="panel-header-actions">
+              <button id="activity-follow" class="btn btn-ghost btn-sm" aria-pressed="true" title="Scroll to newest event as it arrives">Following</button>
+              <button id="activity-refresh" class="btn btn-ghost btn-sm" title="Reload events from the activity log">Refresh</button>
+              <button id="activity-clear" class="btn btn-ghost btn-sm" title="Clear the activity log">Clear</button>
+            </div>
+          </div>
+
+          <div class="activity-filters">
+            <div class="field">
+              <label for="activity-scope">Scope</label>
+              <select id="activity-scope" aria-label="Filter events by project or session">
+                <option value="">All projects and sessions</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="activity-level">Level</label>
+              <select id="activity-level" aria-label="Filter events by severity">
+                <option value="all">All events</option>
+                <option value="problems">Problems (errors and warnings)</option>
+                <option value="errors">Errors only</option>
+              </select>
+            </div>
+            <div class="field activity-search-field">
+              <label for="activity-search">Search</label>
+              <input id="activity-search" type="text" autocomplete="off" placeholder="Type or reason…" />
+            </div>
+          </div>
+
+          <div id="activity-summary" class="activity-summary"></div>
+          <div id="activity-list" class="activity-list">
+            <div class="empty-state">No activity recorded yet.</div>
+          </div>
         </section>
       </main>
     </div>

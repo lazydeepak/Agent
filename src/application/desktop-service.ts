@@ -789,7 +789,7 @@ export class DesktopApplicationService {
     const planner: SessionPair["planner"] = {
       type: "chatgpt-browser",
       conversationId: "probe",
-      conversationUrl: options.conversationUrl ?? "https://chatgpt.com/c/probe",
+      conversationUrl: options.conversationUrl ?? "https://chatgpt.com/",
       browser: { cdpUrl }
     };
     const adapter = new LiveChatGPTBrowserAdapter({

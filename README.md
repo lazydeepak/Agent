@@ -34,6 +34,7 @@ To run this application in your local environment:
 - **Deterministic Supervision**: Uses a clear state machine (`READY`, `WORKING`, `WAITING`, `FAILED`) based on peer health and message cycles—no AI judgment.
 - **Relay Ledger**: Every delivery is recorded in a local SQLite database to prevent duplicates and handle crashes gracefully.
 - **Desktop Dashboard**: A modern Electron interface for managing projects, monitoring transport history, and starting/stopping relays.
+- **Activity Log**: A filterable, live-updating view over the durable event stream — scope by project or session, filter by severity, and search by type or reason.
 - **Safe Recovery**: Bounded, deterministic recovery for connectivity failures (reconnects CDP, verifies sessions) without autonomous re-prompting.
 
 ## Session pairs

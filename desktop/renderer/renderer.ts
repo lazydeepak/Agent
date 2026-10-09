@@ -22,6 +22,7 @@ import type {
   WorkerModelSwitchResultDto
 } from "../../src/contracts/desktop.js";
 import { runAction, setRunActionHook, type RunActionErrorHook } from "./actions.js";
+import { noteActivityEvent, openActivityView, wireActivityView } from "./activity-view.js";
 import { launchPlannerForPair } from "./planner.js";
 import { appendPairCard, expandedPairs, setPairCardHooks } from "./pair-card.js";
 import {
@@ -261,7 +262,7 @@ function projectPairPresence(pair: ProjectPairDto): ProjectPairPresence {
   return "idle";
 }
 
-type ViewMode = "sessions" | "home";
+type ViewMode = "sessions" | "home" | "activity";
 let currentView: ViewMode = "home";
 
 function closeMobileSidebar(): void {
@@ -283,8 +284,10 @@ export function setView(view: ViewMode): void {
   closeMobileSidebar();
   const navHome = document.getElementById("nav-home");
   const navAllSessions = document.getElementById("nav-all-sessions");
+  const navActivity = document.getElementById("nav-activity");
   const dashboardPanel = document.getElementById("dashboard-panel");
   const projectPairsPanel = document.getElementById("project-pairs-panel");
+  const activityPanel = document.getElementById("activity-panel");
   const projectsPanelHeader = document.getElementById("projects-panel-header");
   const projectPairsList = document.getElementById("project-pairs-list");
   const noProjectPairs = document.getElementById("no-project-pairs");
@@ -292,15 +295,28 @@ export function setView(view: ViewMode): void {
 
   navHome?.classList.toggle("active", view === "home");
   navAllSessions?.classList.toggle("active", view === "sessions");
+  navActivity?.classList.toggle("active", view === "activity");
+
+  if (view === "activity") {
+    layout?.classList.remove("view-home", "view-sessions");
+    layout?.classList.add("view-activity");
+    dashboardPanel?.classList.add("hidden");
+    projectPairsPanel?.classList.add("hidden");
+    activityPanel?.classList.remove("hidden");
+    void openActivityView();
+    return;
+  }
+
+  activityPanel?.classList.add("hidden");
 
   if (view === "home") {
-    layout?.classList.remove("view-sessions");
+    layout?.classList.remove("view-sessions", "view-activity");
     layout?.classList.add("view-home");
     dashboardPanel?.classList.remove("hidden");
     projectPairsPanel?.classList.add("hidden");
     renderDashboard();
   } else {
-    layout?.classList.remove("view-home");
+    layout?.classList.remove("view-home", "view-activity");
     layout?.classList.add("view-sessions");
     dashboardPanel?.classList.add("hidden");
     projectPairsPanel?.classList.remove("hidden");
@@ -728,8 +744,7 @@ function renderProjectPairCard(pair: ProjectPairDto): HTMLElement {
     body.push(projectActions);
   }
 
-  const projectConfigActions = el("div", "pair-actions-row");
-  projectConfigActions.style.marginTop = "12px";
+  const projectConfigActions = el("div", "pair-actions-row pair-actions-row--mt-12");
   projectConfigActions.appendChild(
     actionButton("View Timeline", "btn-sm", true, () => openTimelineModal(pair.projectPairId))
   );
@@ -1069,6 +1084,7 @@ async function stopAll(): Promise<void> {
 
 function wireEvents(): void {
   window.desktop.onEvent((event) => {
+    noteActivityEvent(event);
     if (event.type.startsWith("RECOVERY_") || event.type === "STATE_CHANGED" || event.type === "PAIR_RUNTIME_RECOVERED") {
       void refresh();
     }
@@ -1275,6 +1291,13 @@ document.addEventListener("DOMContentLoaded", () => {
     setView("sessions");
   });
 
+  document.getElementById("nav-activity")?.addEventListener("click", () => {
+    document.getElementById("sidebar-projects-list")
+      ?.querySelectorAll(".sidebar-project-item")
+      .forEach((el) => el.classList.remove("active-project"));
+    setView("activity");
+  });
+
   const sidebarToggle = document.getElementById("sidebar-toggle");
   const sidebarBackdrop = document.getElementById("sidebar-backdrop");
   sidebarToggle?.addEventListener("click", toggleMobileSidebar);
@@ -1287,6 +1310,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   setView("home");
 
+  wireActivityView();
   wireEvents();
   initGlobalFocusTrap();
   void refresh();
