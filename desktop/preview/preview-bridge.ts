@@ -185,6 +185,18 @@ const initialEvents: EventRecordDto[] = [
     type: "VALIDATION_PASSED",
     pairId: "new-session-2026-09-14t15-40-42-638z",
     reason: "All 4 readiness checks passed"
+  },
+  {
+    time: new Date(Date.now() - 30000).toISOString(),
+    type: "WORKER_ERROR",
+    pairId: "new-session-2026-09-14t15-40-42-638z",
+    reason: "Failed to connect to worker server at http://127.0.0.1:4096/"
+  },
+  {
+    time: new Date(Date.now() - 10000).toISOString(),
+    type: "VALIDATION_FAILED",
+    pairId: "new-session-2026-09-14t15-40-42-638z",
+    reason: "Planner conversation not found"
   }
 ];
 
@@ -542,6 +554,16 @@ export function createPreviewDesktopApi(): Window["desktop"] {
         reason: "All readiness checks passed"
       });
       return result;
+    },
+
+    async initializePair(pairId: string): Promise<ValidationResultDto> {
+      emitEvent({
+        time: new Date().toISOString(),
+        type: "PAIR_INITIALIZING",
+        pairId,
+        reason: "User requested initialization"
+      });
+      return this.validatePair(pairId);
     },
 
     async getValidation(pairId: string): Promise<ValidationResultDto | undefined> {

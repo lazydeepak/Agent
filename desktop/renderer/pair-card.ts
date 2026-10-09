@@ -1,4 +1,4 @@
-import type { PairIdentityDto, PairStartPriming } from "../../src/contracts/desktop.js";
+import type { PairIdentityDto, PairStartPriming, ValidationResultDto } from "../../src/contracts/desktop.js";
 import {
   actionButton,
   buildCard,
@@ -82,7 +82,7 @@ function renderPairCard(card: PairCardModel, pair: PairIdentityDto): HTMLElement
 
   const workerEndpoint = el("div", "bridge-endpoint");
   const workerRole = el("span", "bridge-role");
-  workerRole.textContent = "Worker";
+  workerRole.textContent = "Worker Agent";
   const workerRepo = el("span", "bridge-path");
   workerRepo.textContent = card.repoPath ? (card.repoPath.split("/").slice(-2).join("/") || card.repoPath) : "No repo";
   workerRepo.title = card.repoPath ?? "";
@@ -98,12 +98,12 @@ function renderPairCard(card: PairCardModel, pair: PairIdentityDto): HTMLElement
 
   const plannerEndpoint = el("div", "bridge-endpoint");
   const plannerRole = el("span", "bridge-role");
-  plannerRole.textContent = "Planner";
+  plannerRole.textContent = "Planner Agent";
   const plannerConv = el("span", "bridge-path");
-  plannerConv.textContent = card.conversationId ? `conv_${card.conversationId.slice(0, 12)}` : "ChatGPT";
+  plannerConv.textContent = card.conversationId ? `conv_${card.conversationId.slice(0, 12)}` : "Planner Agent";
   plannerConv.title = card.conversationUrl ?? "";
   const plannerType = el("span", "bridge-id");
-  plannerType.textContent = pair.planner?.browser?.cdpUrl ? "CDP Attached" : "ChatGPT Web";
+  plannerType.textContent = pair.planner?.browser?.cdpUrl ? "CDP Attached" : "Chat Web";
   plannerEndpoint.append(plannerRole, plannerConv, plannerType);
 
   bridge.append(workerEndpoint, connector, plannerEndpoint);
@@ -129,7 +129,7 @@ function renderPairCard(card: PairCardModel, pair: PairIdentityDto): HTMLElement
   if (controls.canStop) {
     actions.appendChild(actionButton("Stop Relay", "btn-sm btn-danger", true, () => stopPair(card.pairId)));
   }
-  actions.appendChild(actionButton("Open worker session", "btn-sm", true, () => openWorkerSession(card.pairId)));
+  actions.appendChild(actionButton("Open Worker Agent", "btn-sm", true, () => openWorkerSession(card.pairId)));
   compact.appendChild(actions);
   body.push(compact);
 
@@ -164,29 +164,34 @@ function renderPairDetails(
   const details = el("div", "pair-card-details");
 
   details.appendChild(buildIdentityBlock([
-    { label: "OpenCode session", value: card.workerSessionId },
+    { label: "Worker Agent session", value: card.workerSessionId },
     { label: "Repo", value: card.repoPath },
-    { label: "ChatGPT conv", value: card.conversationId },
+    { label: "Planner Agent conv", value: card.conversationId },
     { label: "Conversation URL", value: card.conversationUrl }
   ]));
+
+  details.appendChild(renderHealthStatus(card, running));
 
   details.appendChild(renderWorkerModelControl(card, running));
 
   const configActions = el("div", "pair-actions-row");
   configActions.appendChild(
-    actionButton("Launch Chrome", "btn-sm", true, () => launchPlannerForPair(card.pairId, card.cdpEndpoint))
+    actionButton("Launch Planner Agent", "btn-sm", true, () => launchPlannerForPair(card.pairId, card.cdpEndpoint))
   );
   configActions.appendChild(
     actionButton("View Timeline", "btn-sm", true, () => hooks.openTimeline(card.pairId))
   );
   configActions.appendChild(
-    actionButton("Sync OpenCode Desktop", "btn-sm", !running, () => alignWorkerSessionWithOpenCodeDesktop(card.pairId))
+    actionButton("Sync Worker Agent Desktop", "btn-sm", !running, () => alignWorkerSessionWithOpenCodeDesktop(card.pairId))
   );
   configActions.appendChild(
-    actionButton("Rebind Worker", "btn-sm", !running, () => hooks.openWizard("rebind", card.pairId))
+    actionButton("Initialize", "btn-sm", !running, () => initializePair(card.pairId))
   );
   configActions.appendChild(
-    actionButton("New Worker Session", "btn-sm", !running, () => createWorkerSessionForPair(card.pairId))
+    actionButton("Rebind Worker Agent", "btn-sm", !running, () => hooks.openWizard("rebind", card.pairId))
+  );
+  configActions.appendChild(
+    actionButton("New Worker Agent Session", "btn-sm", !running, () => createWorkerSessionForPair(card.pairId))
   );
   configActions.appendChild(
     actionButton("Edit", "btn-sm", !running, () => hooks.openWizard("edit", card.pairId))
@@ -242,5 +247,51 @@ export async function resumePair(pairId: string): Promise<void> {
   const status = await runAction(() => window.desktop.resumePair(pairId));
   if (status) setStatuses(status);
   hooks.rerender();
+}
+
+export async function initializePair(pairId: string): Promise<void> {
+  const result = await runAction(() => window.desktop.initializePair(pairId));
+  if (result) {
+    toast(`Initialization completed: ${result.status}`);
+  }
+  hooks.refreshAll();
+}
+
+function renderHealthStatus(card: PairCardModel, running: boolean): HTMLElement {
+  const container = el("div", "health-status-block");
+  const header = el("div", "sidebar-title");
+  header.textContent = "Agent Health";
+  container.appendChild(header);
+
+  const grid = el("div", "health-grid");
+
+  const workerRow = el("div", "health-row");
+  const workerLabel = el("span", "health-label");
+  workerLabel.textContent = "Worker Agent:";
+  const workerStatus = el("span", `badge badge-sm ${card.workerStatus === "HEALTHY" ? "badge-ok" : "badge-danger"}`);
+  workerStatus.textContent = card.workerStatus;
+  const workerActivity = el("span", "health-activity");
+  workerActivity.textContent = card.workerActivity ? `(${card.workerActivity})` : "";
+  workerRow.append(workerLabel, workerStatus, workerActivity);
+
+  const plannerRow = el("div", "health-row");
+  const plannerLabel = el("span", "health-label");
+  plannerLabel.textContent = "Planner Agent:";
+  const plannerStatus = el("span", `badge badge-sm ${card.plannerStatus === "HEALTHY" ? "badge-ok" : "badge-danger"}`);
+  plannerStatus.textContent = card.plannerStatus;
+  const plannerActivity = el("span", "health-activity");
+  plannerActivity.textContent = card.plannerActivity ? `(${card.plannerActivity})` : "";
+  plannerRow.append(plannerLabel, plannerStatus, plannerActivity);
+
+  grid.append(workerRow, plannerRow);
+  container.appendChild(grid);
+
+  if (card.recovering) {
+    const recoveryMsg = el("div", "detail recovery-info");
+    recoveryMsg.textContent = "⚠ Agent is currently in recovery mode (reconnecting/retrying).";
+    container.appendChild(recoveryMsg);
+  }
+
+  return container;
 }
 

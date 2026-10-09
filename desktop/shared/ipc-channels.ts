@@ -48,6 +48,7 @@ export const IPC_CHANNELS = {
   resumeProject: "desktop:project:resume",
   getTimeline: "desktop:timeline",
   clearTimeline: "desktop:timeline:clear",
+  initializePair: "desktop:pair:initialize",
   listProjectPairs: "desktop:project-pairs:list",
   createProjectPair: "desktop:project-pairs:create",
   removeProjectPair: "desktop:project-pairs:remove",

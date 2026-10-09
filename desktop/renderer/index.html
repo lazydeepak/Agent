@@ -114,13 +114,25 @@
               </div>
             </div>
 
-            <div class="dashboard-section">
-              <div class="section-header">
-                <h3>Transport History</h3>
-                <button id="clear-history" class="btn btn-ghost btn-sm" title="Clear all history">Clear</button>
+            <div class="dashboard-main-grid">
+              <div class="dashboard-section">
+                <div class="section-header">
+                  <h3>Transport History</h3>
+                  <button id="clear-history" class="btn btn-ghost btn-sm" title="Clear all history">Clear</button>
+                </div>
+                <div id="dashboard-history" class="dashboard-history">
+                  <div class="empty-state">No transport activity observed yet.</div>
+                </div>
               </div>
-              <div id="dashboard-history" class="dashboard-history">
-                <div class="empty-state">No transport activity observed yet.</div>
+
+              <div class="dashboard-section">
+                <div class="section-header">
+                  <h3>Error Log</h3>
+                  <button id="clear-errors" class="btn btn-ghost btn-sm" title="Clear error log">Clear</button>
+                </div>
+                <div id="dashboard-errors" class="dashboard-history error-log">
+                  <div class="empty-state">No errors reported recently.</div>
+                </div>
               </div>
             </div>
 
@@ -156,7 +168,7 @@
     <div id="wizard-modal" class="modal-overlay hidden">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="wizard-title">
         <div class="modal-header">
-          <h3 id="wizard-title">Add Session</h3>
+          <h3 id="wizard-title">Add Agent Session</h3>
           <button id="wizard-close" class="btn btn-ghost btn-sm" title="Cancel">×</button>
         </div>
         <div id="wizard-body" class="modal-body"></div>
@@ -172,7 +184,7 @@
     <div id="worker-session-modal" class="modal-overlay hidden">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="worker-session-title">
         <div class="modal-header">
-          <h3 id="worker-session-title">New Worker Session</h3>
+          <h3 id="worker-session-title">New Worker Agent Session</h3>
           <button id="worker-session-close" class="btn btn-ghost btn-sm" title="Cancel">×</button>
         </div>
         <div class="modal-body">
@@ -202,25 +214,25 @@
             <input id="project-pair-name" type="text" autocomplete="off" placeholder="Auto-generated when empty" />
           </div>
           <div class="field">
-            <label for="project-pair-repo">OpenCode project (repository path)</label>
+            <label for="project-pair-repo">Worker Agent project (repository path)</label>
             <input id="project-pair-repo" type="text" autocomplete="off" placeholder="/path/to/repo" />
             <div class="field-actions">
               <button id="project-pair-repo-detect" class="btn btn-sm">Detect projects</button>
-              <button id="project-pair-repo-start-server" class="btn btn-sm">Start OpenCode server</button>
+              <button id="project-pair-repo-start-server" class="btn btn-sm">Start Worker Agent</button>
               <button id="project-pair-repo-active" class="btn btn-sm">Use active desktop session</button>
             </div>
-            <select id="project-pair-repo-options" class="hidden" aria-label="Detected OpenCode projects"></select>
-            <span class="hint">The OpenCode desktop project at this repository path.</span>
+            <select id="project-pair-repo-options" class="hidden" aria-label="Detected Worker Agent projects"></select>
+            <span class="hint">The Worker Agent desktop project at this repository path.</span>
           </div>
           <div class="field">
-            <label for="project-pair-chatgpt">ChatGPT project (slug or project conversation URL)</label>
+            <label for="project-pair-chatgpt">Planner Agent project (slug or conversation URL)</label>
             <input id="project-pair-chatgpt" type="text" autocomplete="off" placeholder="g-p-… or https://chatgpt.com/g/…/c/…" />
             <div class="field-actions">
               <button id="project-pair-chatgpt-detect" class="btn btn-sm">Detect from open tabs</button>
-              <button id="project-pair-chatgpt-start-browser" class="btn btn-sm">Start automation browser</button>
+              <button id="project-pair-chatgpt-start-browser" class="btn btn-sm">Start Planner Agent browser</button>
             </div>
-            <select id="project-pair-chatgpt-options" class="hidden" aria-label="Detected ChatGPT projects"></select>
-            <span class="hint">The ChatGPT chat project holding this slug.</span>
+            <select id="project-pair-chatgpt-options" class="hidden" aria-label="Detected Planner Agent projects"></select>
+            <span class="hint">The Planner Agent chat project holding this slug.</span>
           </div>
           <p id="project-pair-error" class="detail hidden"></p>
         </div>

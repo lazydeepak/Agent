@@ -200,7 +200,7 @@ export function renderWorkerStep(body: HTMLElement): void {
     );
   }
   body.appendChild(
-    textField("worker-session", "OpenCode Session ID", draft.workerSessionId, "Choose or create a session below.")
+    textField("worker-session", "Worker Agent Session ID", draft.workerSessionId, "Choose or create a session below.")
   );
   const repoLocked = draft.projectPairId !== undefined;
   body.appendChild(
@@ -213,10 +213,10 @@ export function renderWorkerStep(body: HTMLElement): void {
     )
   );
 
-  body.appendChild(rowNote("1. Select the active OpenCode Desktop session."));
+  body.appendChild(rowNote("1. Select the active Worker Agent Desktop session."));
   const actions = el("div", "field-actions");
   const scanDesktop = el("button", "btn btn-sm");
-  scanDesktop.textContent = "Scan OpenCode Desktop";
+  scanDesktop.textContent = "Scan Worker Agent Desktop";
   scanDesktop.addEventListener("click", () => {
     void scanDesktopSession(false);
   });
@@ -243,24 +243,24 @@ export function renderWorkerStep(body: HTMLElement): void {
     list.appendChild(sessionItem(session, draft.workerSessionId));
   }
   if (wizard!.sessions.length === 0) {
-    list.appendChild(rowNote("No sessions loaded yet. Scan OpenCode Desktop, discover from a server, or enter an ID."));
+    list.appendChild(rowNote("No sessions loaded yet. Scan Worker Agent Desktop, discover from a server, or enter an ID."));
   }
   body.appendChild(list);
 
-  body.appendChild(rowNote("2. Start the OpenCode connection for the selected repository."));
+  body.appendChild(rowNote("2. Start the Worker Agent connection for the selected repository."));
   body.appendChild(
-    textField("worker-endpoint", "OpenCode endpoint", draft.workerEndpoint, "Used for discovery and readiness.")
+    textField("worker-endpoint", "Worker Agent endpoint", draft.workerEndpoint, "Used for discovery and readiness.")
   );
   body.appendChild(apiProtocolField(draft.workerApiProtocol));
   const serverActions = el("div", "field-actions");
   const startServer = el("button", "btn btn-sm");
   startServer.id = "project-pair-repo-start-server";
-  startServer.textContent = "Start OpenCode server";
+  startServer.textContent = "Start Worker Agent server";
   startServer.disabled = !draft.workerRepoPath.trim();
   startServer.addEventListener("click", () => void startWorkerServer());
   serverActions.appendChild(startServer);
   const updateOpenCode = el("button", "btn btn-sm");
-  updateOpenCode.textContent = "Update OpenCode command";
+  updateOpenCode.textContent = "Update Worker Agent command";
   updateOpenCode.addEventListener("click", () => void updateOpenCodeCommand());
   serverActions.appendChild(updateOpenCode);
   serverActions.appendChild(testButton("worker", "Test connection"));
@@ -277,13 +277,13 @@ export function renderPlannerStep(body: HTMLElement): void {
   const project = selectedProject();
   if (project) {
     body.appendChild(rowNote(
-      `This session will be assigned to project "${project.projectPairId}" (ChatGPT project ${project.planner.projectName ?? project.planner.projectSlug}).`
+      `This session will be assigned to project "${project.projectPairId}" (Planner Agent project ${project.planner.projectName ?? project.planner.projectSlug}).`
     ));
   }
   body.appendChild(rowNote("1. Launch the dedicated automation Chrome from Agent Relay."));
   const browserActions = el("div", "field-actions");
   const launch = el("button", "btn btn-sm");
-  launch.textContent = "Launch automation Chrome";
+  launch.textContent = "Launch Planner Agent browser";
   launch.addEventListener("click", () => void startPlannerBrowser());
   browserActions.appendChild(launch);
   browserActions.appendChild(testButton("planner", "Test browser connection"));
@@ -295,9 +295,9 @@ export function renderPlannerStep(body: HTMLElement): void {
     textField("planner-endpoint", "Chrome automation (CDP) endpoint", draft.plannerEndpoint, "Managed automation browser endpoint.")
   );
 
-  body.appendChild(rowNote("2. In that Chrome window, sign in and open the ChatGPT conversation, then paste its URL below."));
+  body.appendChild(rowNote("2. In that Chrome window, sign in and open the Planner Agent conversation, then paste its URL below."));
   body.appendChild(
-    textField("planner-url", "ChatGPT conversation URL", draft.parsed?.conversationUrl ?? "", "e.g. https://chatgpt.com/c/<id> or /g/<project>/c/<id>")
+    textField("planner-url", "Planner Agent conversation URL", draft.parsed?.conversationUrl ?? "", "e.g. https://chatgpt.com/c/<id> or /g/<project>/c/<id>")
   );
   const parseBtn = el("button", "btn btn-sm");
   parseBtn.textContent = "Parse conversation";
@@ -407,7 +407,7 @@ export function updateStepReadiness(status: HTMLElement, step: WizardStep): void
   status.classList.toggle("result-ok", issues.length === 0);
   status.classList.toggle("result-fail", issues.length > 0);
   status.textContent = issues.length === 0
-    ? `${step === "worker" ? "OpenCode setup" : "ChatGPT setup"} is ready. You can continue.`
+    ? `${step === "worker" ? "Worker Agent setup" : "Planner Agent setup"} is ready. You can continue.`
     : `To continue: ${issues.join(" ")}`;
 }
 
@@ -529,7 +529,7 @@ export function apiProtocolField(value: "auto" | "legacy" | "v2"): HTMLElement {
   select.id = "worker-api-protocol";
   const options: Array<{ value: "auto" | "legacy" | "v2"; label: string }> = [
     { value: "auto", label: "Auto-detect" },
-    { value: "legacy", label: "Legacy (OpenCode Desktop compatible)" },
+    { value: "legacy", label: "Legacy (Worker Agent Desktop compatible)" },
     { value: "v2", label: "v2" }
   ];
   for (const option of options) {
@@ -547,7 +547,7 @@ export function apiProtocolField(value: "auto" | "legacy" | "v2"): HTMLElement {
   });
   const hintEl = el("span", "hint");
   hintEl.textContent =
-    "Pin \"Legacy\" if this session is also opened in OpenCode Desktop, so both sides read and write the same history.";
+    "Pin \"Legacy\" if this session is also opened in Worker Agent Desktop, so both sides read and write the same history.";
   wrap.appendChild(labelEl);
   wrap.appendChild(select);
   wrap.appendChild(hintEl);
@@ -576,7 +576,7 @@ export async function discoverSessions(): Promise<void> {
     wizard.sessions = sessions;
     renderWizard();
     if (sessions.length === 0) {
-      toast("No OpenCode sessions found on that endpoint.", "error");
+      toast("No Worker Agent sessions found on that endpoint.", "error");
     }
   }
 }
@@ -593,7 +593,7 @@ export async function scanDesktopSession(silentFailure: boolean): Promise<void> 
     wizard.validation = undefined;
     wizard.draft.workerEndpointOk = undefined;
     renderWizard();
-    toast(`Detected active OpenCode session ${session.sessionId}.`, "ok");
+    toast(`Detected active Worker Agent session ${session.sessionId}.`, "ok");
   } catch (error) {
     if (!silentFailure && wizard === currentWizard) {
       toast(errorMessage(error));
@@ -608,7 +608,7 @@ export async function createSession(): Promise<void> {
   const currentWizard = wizard;
   const repoPath = currentWizard.draft.workerRepoPath.trim();
   if (!repoPath) {
-    toast("Enter a repo path before creating an OpenCode session.", "error");
+    toast("Enter a repo path before creating a Worker Agent session.", "error");
     return;
   }
   const session = await runAction(() =>
@@ -624,7 +624,7 @@ export async function createSession(): Promise<void> {
     wizard.validation = undefined;
     wizard.draft.workerEndpointOk = undefined;
     renderWizard();
-    toast(`Created OpenCode session ${session.sessionId}.`, "ok");
+    toast(`Created Worker Agent session ${session.sessionId}.`, "ok");
   }
 }
 
@@ -633,7 +633,7 @@ export async function startWorkerServer(): Promise<void> {
   const currentWizard = wizard;
   const repoPath = currentWizard.draft.workerRepoPath.trim();
   if (!repoPath) {
-    toast("Select an OpenCode session first.");
+    toast("Select a Worker Agent session first.");
     return;
   }
   const result = await runAction(() => window.desktop.startWorkerServer({
@@ -806,7 +806,7 @@ export async function doRebind(): Promise<void> {
   const sessionId = rebindSelection(currentWizard.draft);
   const target = currentWizard.draft.targetPairId;
   if (!sessionId || !target) {
-    toast("Choose or type an OpenCode session to rebind to.", "error");
+    toast("Choose or type a Worker Agent session to rebind to.", "error");
     return;
   }
   const saved = await runAction(() => window.desktop.rebindWorker(target, sessionId));
@@ -821,7 +821,7 @@ export async function doRebind(): Promise<void> {
 
 export async function removePair(pairId: string): Promise<void> {
   const confirmed = window.confirm(
-    `Remove pair "${pairId}"?\n\nThis does NOT delete the OpenCode session, the ChatGPT conversation, the browser profile, or relay history.`
+    `Remove pair "${pairId}"?\n\nThis does NOT delete the Worker Agent session, the Planner Agent conversation, the browser profile, or relay history.`
   );
   if (!confirmed) {
     return;

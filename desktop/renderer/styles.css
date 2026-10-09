@@ -568,9 +568,15 @@ body {
 /* Dashboard Styles */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 20px;
   margin-top: 10px;
+}
+
+.dashboard-main-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 24px;
 }
 
 .dashboard-stat {
@@ -719,6 +725,31 @@ body {
   grid-column: 1 / -1;
   width: 100%;
   display: flex;
+}
+
+.layout.view-home {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.layout.view-home #dashboard-panel {
+  grid-column: 1 / -1;
+  width: 100%;
+  display: flex;
+}
+
+.dashboard-panel {
+  max-height: none;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 0;
 }
 
 .panel {
@@ -1451,6 +1482,13 @@ textarea::placeholder {
 /* Dashboard Extensions */
 .dashboard-section {
   margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+}
+
+.dashboard-main-grid .dashboard-section {
+  margin-top: 32px;
 }
 
 .dashboard-section h3 {
@@ -1520,8 +1558,17 @@ textarea::placeholder {
   text-overflow: ellipsis;
 }
 
+#dashboard-getting-started {
+  margin-top: 32px;
+  padding: 48px 24px;
+  background: var(--zebra);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--panel-border);
+  text-align: center;
+}
+
 .getting-started-actions {
-  margin-top: 16px;
+  margin-top: 24px;
 }
 
 .sidebar-footer {
@@ -1557,6 +1604,56 @@ textarea::placeholder {
   color: var(--text-muted);
   display: block;
   opacity: 0.8;
+}
+
+/* Health Status & Error Log */
+.health-status-block {
+  margin: 14px 0;
+  padding: 12px;
+  background: var(--zebra);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+}
+
+.health-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.health-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.health-label {
+  min-width: 100px;
+  color: var(--text-dim);
+}
+
+.health-activity {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.recovery-info {
+  margin-top: 8px;
+  color: var(--warn);
+  font-weight: 600;
+  font-size: 11.5px;
+}
+
+.error-log .history-item {
+  border-left: 3px solid var(--danger);
+}
+
+.dashboard-history {
+  max-height: 400px;
+  overflow-y: auto;
 }
 
 /* End of styles */

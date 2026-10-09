@@ -102,6 +102,7 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   handle(IPC_CHANNELS.startAll, guarded(async () => ctx.requireService().startAll()));
   handle(IPC_CHANNELS.stopAll, guarded(async () => ctx.requireService().stopAll()));
   handle(IPC_CHANNELS.validatePair, guarded(async (_e, pairId: unknown) => ctx.requireService().validatePair(asPairId(pairId))));
+  handle(IPC_CHANNELS.initializePair, guarded(async (_e, pairId: unknown) => ctx.requireService().initializePair(asPairId(pairId))));
   handle(IPC_CHANNELS.getValidation, guarded(async (_e, pairId: unknown) => ctx.requireService().getLastValidation(asPairId(pairId))));
   handle(IPC_CHANNELS.getRecentEvents, guarded(async (_e, filter: unknown) => ctx.requireService().getRecentEvents(castRecentEventsFilter(filter))));
   handle(IPC_CHANNELS.getAutomationInfo, guarded(async () => ctx.requireService().getAutomationInfo()));

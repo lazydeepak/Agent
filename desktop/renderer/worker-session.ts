@@ -25,8 +25,8 @@ export async function openWorkerSession(pairId: string): Promise<void> {
   if (!result) return;
   toast(
     result.foregrounded
-      ? `Opened the shared OpenCode session (${result.sessionId}) — same session the relay uses.`
-      : `Bound worker session is ${result.sessionId}. Select it in the opened OpenCode window if it did not switch automatically.`,
+      ? `Opened the shared Worker Agent session (${result.sessionId}) — same session the relay uses.`
+      : `Bound Worker Agent session is ${result.sessionId}. Select it in the opened agent window if it did not switch automatically.`,
     "ok"
   );
 }
@@ -70,7 +70,7 @@ export function renderWorkerSessionModal(): void {
   input.disabled = workerSessionCreation.confirmed;
   field.classList.toggle("hidden", workerSessionCreation.confirmed);
   confirmation.classList.toggle("hidden", !workerSessionCreation.confirmed);
-  confirmation.textContent = `Create and bind the new worker session "${workerSessionCreation.title}"?`;
+  confirmation.textContent = `Create and bind the new Worker Agent session "${workerSessionCreation.title}"?`;
   confirm.textContent = workerSessionCreation.confirmed ? "Create session" : "Continue";
   if (!workerSessionCreation.confirmed) input.focus();
 }
@@ -87,7 +87,7 @@ export async function confirmWorkerSessionCreation(): Promise<void> {
   if (!workerSessionCreation.confirmed) {
     const title = input.value.trim();
     if (!title) {
-      toast("A worker session name is required.");
+      toast("A Worker Agent session name is required.");
       input.focus();
       return;
     }
@@ -100,7 +100,7 @@ export async function confirmWorkerSessionCreation(): Promise<void> {
   if (result) {
     state.workerModels.delete(result.pairId);
     closeWorkerSessionModal();
-    toast(`${result.pairId}: bound new worker session ${result.worker.sessionId}.`, "ok");
+    toast(`${result.pairId}: bound new Worker Agent session ${result.worker.sessionId}.`, "ok");
     await requireDispatch().refreshAll();
   }
 }
@@ -112,7 +112,7 @@ export function renderWorkerModelControl(card: PairCardModel, running: boolean):
   running = running || fallbackRequests.has(card.pairId);
   const row = el("div", "pair-priming");
   const label = el("label", "priming-label");
-  label.textContent = "Worker model:";
+  label.textContent = "Worker Agent model:";
   row.appendChild(label);
   const models = state.workerModels.get(card.pairId);
   if (!models) {
@@ -161,7 +161,7 @@ export function renderWorkerModelControl(card: PairCardModel, running: boolean):
   const notifyLabel = el("label", "priming-choice");
   notifyLabel.appendChild(notify);
   const notifyText = el("span");
-  notifyText.textContent = "Notify ChatGPT";
+  notifyText.textContent = "Notify Planner Agent";
   notifyLabel.appendChild(notifyText);
   row.appendChild(notifyLabel);
   row.appendChild(actionButton("Apply", "btn-sm", models.length > 0, () => {
@@ -181,7 +181,7 @@ export function renderWorkerModelControl(card: PairCardModel, running: boolean):
 
 export async function resumeWithFallbackModel(pairId: string, providerId: string, modelId: string): Promise<void> {
   if (fallbackRequests.has(pairId)) return;
-  if (!window.confirm(`Switch ${pairId} to ${providerId}/${modelId} and send one "continue" prompt to its worker? This can resume project work. The relay will remain stopped. No ChatGPT notification is sent.`)) return;
+  if (!window.confirm(`Switch ${pairId} to ${providerId}/${modelId} and send one "continue" prompt to its Worker Agent? This can resume project work. The relay will remain stopped. No Planner Agent notification is sent.`)) return;
   fallbackRequests.add(pairId);
   requireDispatch().rerender();
   try {
@@ -209,13 +209,13 @@ export async function loadWorkerModels(pairId: string): Promise<void> {
 }
 
 export async function switchWorkerModel(pairId: string, providerId: string, modelId: string, notifyPlanner: boolean): Promise<void> {
-  const notification = notifyPlanner ? " Agent Relay will also post a model-change notice to the paired ChatGPT conversation." : "";
-  const confirmed = window.confirm(`Switch ${pairId} worker to ${providerId}/${modelId}? This applies from the next worker turn (subsequent prompts).${notification}`);
+  const notification = notifyPlanner ? " Agent Relay will also post a model-change notice to the paired Planner Agent conversation." : "";
+  const confirmed = window.confirm(`Switch ${pairId} Worker Agent to ${providerId}/${modelId}? This applies from the next worker turn (subsequent prompts).${notification}`);
   if (!confirmed) return;
   const result = await runAction(() => window.desktop.switchWorkerModel(pairId, { providerId, modelId, notifyPlanner }));
   state.workerModels.delete(pairId);
   if (result) {
-    toast(`${pairId}: worker model switched to ${result.name ?? `${result.providerId}/${result.modelId}`}.`, "ok");
+    toast(`${pairId}: Worker Agent model switched to ${result.name ?? `${result.providerId}/${result.modelId}`}.`, "ok");
   }
   await requireDispatch().refreshAll();
 }

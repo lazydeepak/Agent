@@ -385,6 +385,11 @@ export class DesktopApplicationService {
     events.push(normalized);
   }
 
+  async initializePair(pairId: string): Promise<ValidatedPair> {
+    this.recordEvent("PAIR_INITIALIZING", pairId, { reason: "User requested initialization." });
+    return this.validatePair(pairId);
+  }
+
   getStatus(): RuntimeStatusSummary {
     const rawStatus = this.relayEngine.getStatus();
     return {

@@ -2,7 +2,31 @@
 
 High-reliability bidirectional message transport between autonomous agents.
 
-`agent-relay` is a professional transport layer that pairs worker (OpenCode) sessions with planner (ChatGPT) conversations. It ensures reliable, at-least-once message delivery with deterministic supervision and strong duplicate suppression.
+`agent-relay` is a professional transport layer that pairs **Worker Agents** with **Planner Agents**. It ensures reliable, at-least-once message delivery with deterministic supervision and strong duplicate suppression.
+
+## 🚀 Quick Start
+
+To run this application in your local environment:
+
+1. **Install dependencies**:
+   ```sh
+   npm install
+   ```
+
+2. **Run the Dashboard (Preview)**:
+   This launches the web-based control panel:
+   ```sh
+   npm run dev
+   ```
+
+3. **Run the Desktop App (Electron)**:
+   If you have Electron installed locally:
+   ```sh
+   npm run desktop:dev
+   ```
+
+4. **Configure your first Agent Pair**:
+   Open the dashboard, click **+ Add Project** or **+ Add Session**, and follow the setup wizard to connect your local repository and chat conversation.
 
 ## Key Features
 

@@ -14,6 +14,11 @@ export interface PairCardModel {
   conversationUrl: string;
   openCodeEndpoint?: string;
   cdpEndpoint?: string;
+  workerStatus: string;
+  plannerStatus: string;
+  workerActivity?: string;
+  plannerActivity?: string;
+  recovering: boolean;
 }
 
 export interface PairControls {
@@ -37,7 +42,12 @@ export function toPairCard(pair: PairIdentityDto, status: PeerHealthDto | undefi
     conversationId: pair.planner.conversationId,
     conversationUrl: pair.planner.conversationUrl,
     openCodeEndpoint: pair.worker.server?.baseUrl,
-    cdpEndpoint: pair.planner.browser?.cdpUrl
+    cdpEndpoint: pair.planner.browser?.cdpUrl,
+    workerStatus: status?.worker ?? "UNKNOWN",
+    plannerStatus: status?.planner ?? "UNKNOWN",
+    workerActivity: status?.workerActivity,
+    plannerActivity: status?.plannerActivity,
+    recovering: status?.recovering ?? false
   };
 }
 

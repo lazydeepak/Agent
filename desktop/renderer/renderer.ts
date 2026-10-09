@@ -188,6 +188,7 @@ declare global {
       onStatusRefresh(listener: (payload: { reason?: string }) => void): () => void;
       onWorkerProgressUpdate(listener: (pairId: string) => void): () => void;
       clearTimeline(): Promise<{ ok: boolean }>;
+      initializePair(pairId: string): Promise<ValidationResultDto>;
     };
   }
 }
@@ -336,34 +337,47 @@ function renderDashboard(): void {
 
   if (historyContainer) {
     void (async () => {
-      const timeline = await window.desktop.getTimeline(undefined, 10);
-      if (timeline.length === 0) {
-        const empty = el("div", "empty-state");
-        empty.textContent = "No transport activity observed yet.";
-        historyContainer.replaceChildren(empty);
-        return;
-      }
+      const timeline = await window.desktop.getTimeline(undefined, 50);
+      const transportEvents = timeline.filter(e => !e.type.includes("ERROR") && e.type !== "FAIL" && e.type !== "VALIDATION_FAILED");
+      const errorEvents = timeline.filter(e => e.type.includes("ERROR") || e.type === "FAIL" || e.type === "VALIDATION_FAILED" || e.type.includes("FAILED"));
 
-      const list = el("div", "history-list");
-      for (const entry of [...timeline].reverse()) {
-        const item = el("div", "history-item");
-        const time = el("span", "history-time");
-        time.textContent = formatTime(entry.time);
-        const type = el("span", `history-type badge ${entry.type.includes("FAILED") ? "badge-danger" : "badge-neutral"}`);
-        type.textContent = entry.type.replace("WORKER_", "W_").replace("PLANNER_", "P_").replace("_RELAYED", "").replace("_OBSERVED", "");
-        
-        const label = el("span", "history-label");
-        label.textContent = entry.pairId || entry.projectPairId || "System";
-
-        const reason = el("span", "history-reason");
-        reason.textContent = entry.reason || "—";
-        
-        item.append(time, type, label, reason);
-        list.appendChild(item);
+      renderEventList(historyContainer, transportEvents.slice(-10), "No transport activity observed yet.");
+      
+      const errorContainer = document.getElementById("dashboard-errors");
+      if (errorContainer) {
+        renderEventList(errorContainer, errorEvents.slice(-10), "No errors reported recently.");
       }
-      historyContainer.replaceChildren(list);
     })();
   }
+}
+
+function renderEventList(container: HTMLElement, events: any[], emptyMessage: string): void {
+  if (events.length === 0) {
+    const empty = el("div", "empty-state");
+    empty.textContent = emptyMessage;
+    container.replaceChildren(empty);
+    return;
+  }
+
+  const list = el("div", "history-list");
+  for (const entry of [...events].reverse()) {
+    const item = el("div", "history-item");
+    const time = el("span", "history-time");
+    time.textContent = formatTime(entry.time);
+    const type = el("span", `history-type badge ${entry.type.includes("FAILED") || entry.type.includes("ERROR") || entry.type === "FAIL" ? "badge-danger" : "badge-neutral"}`);
+    type.textContent = entry.type.replace("WORKER_", "W_").replace("PLANNER_", "P_").replace("_RELAYED", "").replace("_OBSERVED", "").replace("VALIDATION_", "V_");
+    
+    const label = el("span", "history-label");
+    label.textContent = entry.pairId || entry.projectPairId || "System";
+
+    const reason = el("span", "history-reason");
+    reason.textContent = entry.reason || "—";
+    reason.title = entry.reason || "";
+    
+    item.append(time, type, label, reason);
+    list.appendChild(item);
+  }
+  container.replaceChildren(list);
 }
 
 function projectPairBadgeClass(presence: ProjectPairPresence): string {
@@ -571,20 +585,20 @@ function renderProjectPairDetails(pair: ProjectPairDto): HTMLElement {
   const snapshot = state.projectPairSnapshots.get(pair.projectPairId);
 
   const workerHead = el("div", "detail");
-  workerHead.textContent = "OpenCode project";
+  workerHead.textContent = "Worker Agent project";
   details.appendChild(workerHead);
   details.appendChild(buildIdentityBlock([
     { label: "Folder", value: pair.worker.repoPath },
-    { label: "Project ID", value: pair.worker.projectId ?? "—" }
+    { label: "Agent ID", value: pair.worker.projectId ?? "—" }
   ]));
 
   const sessions = snapshot?.openCodeSessions ?? [];
   const sessionHead = el("div", "detail");
-  sessionHead.textContent = snapshot ? `Sessions (${sessions.length})` : "Sessions (unknown — OpenCode unreachable)";
+  sessionHead.textContent = snapshot ? `Sessions (${sessions.length})` : "Sessions (unknown — Worker Agent unreachable)";
   details.appendChild(sessionHead);
   if (snapshot && sessions.length === 0) {
     const none = el("div", "detail");
-    none.textContent = "No open sessions in this project.";
+    none.textContent = "No open sessions for this agent.";
     details.appendChild(none);
   }
   for (const session of sessions) {
@@ -593,7 +607,7 @@ function renderProjectPairDetails(pair: ProjectPairDto): HTMLElement {
   }
 
   const plannerHead = el("div", "detail");
-  plannerHead.textContent = "ChatGPT project";
+  plannerHead.textContent = "Planner Agent project";
   details.appendChild(plannerHead);
   details.appendChild(buildIdentityBlock([
     { label: "Name", value: pair.planner.projectName ?? "—" },
@@ -606,7 +620,7 @@ function renderProjectPairDetails(pair: ProjectPairDto): HTMLElement {
   const convoHead = el("div", "detail");
   convoHead.textContent = snapshot?.chatgpt
     ? `Conversations (${conversations.length} · ${tabCount} open tab${tabCount === 1 ? "" : "s"})`
-    : "Conversations (unknown — automation browser unreachable)";
+    : "Conversations (unknown — Planner Agent unreachable)";
   details.appendChild(convoHead);
   if (snapshot?.chatgpt && conversations.length === 0) {
     const none = el("div", "detail");
@@ -695,12 +709,12 @@ function renderProjectPairOptions(): void {
     if (getDiscoveredOpenCodeProjects().length > 0) {
       const placeholder = document.createElement("option");
       placeholder.value = "";
-      placeholder.textContent = `Detected OpenCode projects (${getDiscoveredOpenCodeProjects().length})…`;
+      placeholder.textContent = `Detected Worker Agents (${getDiscoveredOpenCodeProjects().length})…`;
       repoSelect.appendChild(placeholder);
       for (const project of getDiscoveredOpenCodeProjects()) {
         const option = document.createElement("option");
         option.value = project.repoPath;
-        option.textContent = `${project.name} — ${project.sessionCount} session${project.sessionCount === 1 ? "" : "s"}`;
+        option.textContent = `${project.name} — ${project.sessionCount} agent session${project.sessionCount === 1 ? "" : "s"}`;
         repoSelect.appendChild(option);
       }
       repoSelect.classList.remove("hidden");
@@ -714,7 +728,7 @@ function renderProjectPairOptions(): void {
     if (getDiscoveredChatGptProjects().length > 0) {
       const placeholder = document.createElement("option");
       placeholder.value = "";
-      placeholder.textContent = `Detected ChatGPT projects (${getDiscoveredChatGptProjects().length})…`;
+      placeholder.textContent = `Detected Planner Agents (${getDiscoveredChatGptProjects().length})…`;
       chatgptSelect.appendChild(placeholder);
       for (const project of getDiscoveredChatGptProjects()) {
         const option = document.createElement("option");
@@ -738,7 +752,7 @@ async function detectOpenCodeProjects(): Promise<void> {
 
   renderProjectPairOptions();
   if (projects.length === 0) {
-    toast("No OpenCode projects detected. Is the OpenCode server running?");
+    toast("No Worker Agents detected. Is the agent server running?");
   }
 }
 
@@ -750,7 +764,7 @@ async function detectChatGptProjects(): Promise<void> {
   setDiscoveredChatGptProjects(projects);
   renderProjectPairOptions();
   if (projects.length === 0) {
-    toast("No ChatGPT projects detected in open tabs. Open a project conversation in the automation browser.");
+    toast("No Planner Agents detected in open tabs. Open a project conversation in the automation browser.");
   }
 }
 
@@ -759,7 +773,7 @@ async function startOpenCodeServerForPair(): Promise<void> {
   const repo = document.getElementById("project-pair-repo") as HTMLInputElement | null;
   const repoPath = repo?.value.trim() ?? "";
   if (!repoPath) {
-    showProjectPairError("Enter a repository path before starting the OpenCode server.");
+    showProjectPairError("Enter a repository path before starting the Worker Agent.");
     return;
   }
   const result = await runAction(() => window.desktop.startWorkerServer({ repoPath }));
@@ -1010,6 +1024,13 @@ document.addEventListener("DOMContentLoaded", () => {
     void (async () => {
       if (!window.confirm("Clear all transport history? This cannot be undone.")) return;
       await window.desktop.clearTimeline();
+      renderDashboard();
+    })();
+  });
+  document.getElementById("clear-errors")?.addEventListener("click", () => {
+    void (async () => {
+      if (!window.confirm("Clear error log? This cannot be undone.")) return;
+      await window.desktop.clearTimeline(); // Reuse clearTimeline for now as it clears the whole log
       renderDashboard();
     })();
   });
