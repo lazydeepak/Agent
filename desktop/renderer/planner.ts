@@ -7,10 +7,6 @@ export async function launchPlannerForPair(pairId: string, cdpUrl?: string): Pro
   const result = await runAction(() => window.desktop.startPlannerBrowser({ ...(cdpUrl ? { cdpUrl } : {}) }));
   if (result) {
     toast(`${pairId}: ${result.message}`, "ok");
-    const validation = await runAction(() => window.desktop.validatePair(pairId));
-    if (validation) {
-      state.validations.set(pairId, validation);
-      dispatchRerender();
-    }
+    dispatchRerender();
   }
 }

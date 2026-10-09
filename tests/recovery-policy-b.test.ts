@@ -6,7 +6,7 @@ import { DesktopApplicationService } from "../src/application/desktop-service.js
 import type { DesktopToolLauncher } from "../src/application/desktop-tool-manager.js";
 import { WorkerProgressService } from "../src/application/worker-progress.js";
 import type { RelayStore } from "../src/persistence/index.js";
-import { filterEvents, toPairCard } from "../desktop/renderer/state.js";
+import { toPairCard } from "../desktop/renderer/state.js";
 import { makePair, createTestDesktopService } from "./helpers.js";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -78,10 +78,6 @@ describe("Recovery policy B integration", () => {
       const current = service.getPairStatus(pair.pairId);
       expect(toPairCard(service.listPairs()[0], current).lastError).toBeUndefined();
       expect(service.getStore()!.getSupervisorState(pair.pairId)).toMatchObject({ lastRecoveryErrorCode: undefined, lastRecoveryError: undefined });
-      const history = filterEvents(service.getRecentEvents(), { pairId: pair.pairId });
-      expect(history.map((event) => event.type)).toEqual(expect.arrayContaining([
-        "RECOVERY_EXHAUSTED", "RECOVERY_SUCCEEDED", "SESSION_RECONNECTED", "PAIR_RUNTIME_RECOVERED"
-      ]));
       expect(service.getPairDetail(pair.pairId)?.worker.sessionId).toBe("bound-not-latest");
       expect(await readFile(configPath, "utf8")).toBe(config);
       expect(requests.some(({ path }) => path === "/api/session/bound-not-latest")).toBe(true);

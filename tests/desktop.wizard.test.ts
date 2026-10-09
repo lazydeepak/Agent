@@ -14,7 +14,7 @@ import {
   wizardTitle,
   type WizardDraft
 } from "../desktop/renderer/wizard.js";
-import type { PairIdentityDto } from "../desktop/shared/dto.js";
+import type { PairIdentityDto } from "../src/contracts/desktop.js";
 
 const existing: PairIdentityDto = {
   pairId: "kisab-main",

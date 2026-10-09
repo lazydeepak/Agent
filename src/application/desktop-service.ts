@@ -1,5 +1,5 @@
 import { dirname, join, resolve } from "node:path";
-import { closeSync, existsSync, fstatSync, openSync, readSync } from "node:fs";
+import { closeSync, existsSync, fstatSync, openSync, readSync, writeFileSync } from "node:fs";
 import type { EventRecord } from "../contracts/events.js";
 import { EventLog } from "./event-log.js";
 import { PlannerSeedingService } from "./planner-seeding-service.js";
@@ -11,7 +11,7 @@ import { LiveOpenCodeAdapter, type OpenCodeSessionManager, type OpenCodeSessionS
 import { SqliteRelayStore, ensureDbParent, resolveDbPath, PairArchive, type ArchiveStore, type ArchivedPairPayload, type ArchivedPairSummary, type RelayStore } from "../persistence/index.js";
 import { ExternalBrowserManager, type BrowserManager } from "../recovery/index.js";
 import { LockRegistry, createPairAdapters, isFailedRuntime, type RuntimeAdapterOptions, type RuntimeStatusSummary } from "../runtime/index.js";
-import type { OpenCodeModelInfo, OpenCodeModelRef } from "../adapters/opencode/http.js";
+import type { OpenCodeModelInfo, OpenCodeModelRef } from "../types.js";
 import { ConfigError } from "../sessions/pairs.js";
 import { ChatGptUrlError, parseChatGptConversationUrl } from "../sessions/chatgpt-url.js";
 import { validatePair } from "../validator/readiness.js";
@@ -342,6 +342,19 @@ export class DesktopApplicationService {
     const deduped = sorted.filter((e, i) => i === 0 || !(e.time === sorted[i - 1]?.time && e.type === sorted[i - 1]?.type && e.pairId === sorted[i - 1]?.pairId));
     const limited = deduped.slice(-limit);
     return limited;
+  }
+
+  clearTimeline(): void {
+    this.eventLog.clear();
+    try {
+      const logPath = resolve("logs", "supervisor.ndjson");
+      if (existsSync(logPath)) {
+        writeFileSync(logPath, "");
+      }
+    } catch {
+      // Best effort truncation; memory log is already cleared above.
+    }
+    this.recordEvent("TIMELINE_CLEARED", undefined, { reason: "User cleared history." });
   }
 
   /**

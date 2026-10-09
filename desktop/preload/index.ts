@@ -33,7 +33,7 @@ import type {
   WorkerModelDto,
   WorkerModelSwitchResultDto,
   SwitchWorkerModelDto
-} from "../shared/dto.js";
+} from "../../src/contracts/desktop.js";
 import type { WorkerProgressDto } from "../shared/worker-progress.js";
 
 interface RpcEnvelope<T> {

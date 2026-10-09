@@ -30,8 +30,23 @@ export function decideRelays(input: PolicyInput): RelayDecisions {
     !input.snapshot.planner.generating &&
     !input.snapshot.worker.gathering;
 
+  // When both sides have pending work, prefer the absolute latest message globally
+  // to maintain a deterministic "ping-pong" sequence.
+  let relayWorker = workerReportPending;
+  let relayPlanner = plannerInstructionPending;
+
+  if (workerReportPending && plannerInstructionPending) {
+    const workerTime = input.cycle.pendingWorkerMessageCreatedAt ?? 0;
+    const plannerTime = input.cycle.pendingPlannerMessageCreatedAt ?? 0;
+    if (workerTime > plannerTime) {
+      relayPlanner = false;
+    } else {
+      relayWorker = false;
+    }
+  }
+
   return {
-    relayWorkerToPlanner: input.mode === "relay" && !input.paused && workerReportPending,
-    relayPlannerToWorker: input.mode === "relay" && !input.paused && plannerInstructionPending
+    relayWorkerToPlanner: input.mode === "relay" && !input.paused && relayWorker,
+    relayPlannerToWorker: input.mode === "relay" && !input.paused && relayPlanner
   };
 }

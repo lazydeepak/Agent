@@ -1,4 +1,4 @@
-import type { CandidatePairDto, PairIdentityDto } from "../shared/dto.js";
+import type { CandidatePairDto, PairIdentityDto } from "../../src/contracts/desktop.js";
 
 export type WizardKind = "create" | "edit" | "rebind";
 
@@ -7,9 +7,9 @@ export type WizardStep = "worker" | "planner" | "review";
 export interface WizardSession {
   kind: WizardKind;
   draft: WizardDraft;
-  sessions: Array<import("../shared/dto.js").OpenCodeSessionInfoDto>;
-  projects: Array<import("../shared/dto.js").ProjectPairDto>;
-  validation?: import("../shared/dto.js").ValidationResultDto;
+  sessions: Array<import("../../src/contracts/desktop.js").OpenCodeSessionInfoDto>;
+  projects: Array<import("../../src/contracts/desktop.js").ProjectPairDto>;
+  validation?: import("../../src/contracts/desktop.js").ValidationResultDto;
   manualCommand?: { command: string; verify: "worker" | "planner" };
 }
 

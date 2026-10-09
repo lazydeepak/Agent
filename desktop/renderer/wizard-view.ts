@@ -17,7 +17,7 @@ import {
   type WizardSession,
   type WizardStep
 } from "./wizard.js";
-import type { CandidatePairDto, EndpointTestResultDto, OpenCodeSessionInfoDto, ProjectPairDto, UpdatePairDto, ValidationResultDto } from "../shared/dto.js";
+import type { CandidatePairDto, EndpointTestResultDto, OpenCodeSessionInfoDto, ProjectPairDto, UpdatePairDto, ValidationResultDto } from "../../src/contracts/desktop.js";
 
 /** Refresh seam into the owning renderer. */
 export interface WizardHooks {

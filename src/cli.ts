@@ -24,10 +24,13 @@ import { LockRegistry, RuntimeOrchestrator, createPairAdapters, type RuntimeStat
 import type { RelayResult } from "./relay/index.js";
 import type {
   ChatGPTBrowserConfig,
+  ObservationSnapshot,
   OpenCodeServerConfig,
+  PlannerObservation,
   RelayableMessage,
   RelayRecord,
-  SessionPair
+  SessionPair,
+  WorkerObservation
 } from "./types.js";
 import { formatReadinessReport } from "./validator/report.js";
 import { validatePair } from "./validator/readiness.js";
@@ -314,6 +317,42 @@ async function runState(args: ParsedArgs): Promise<void> {
       console.log(records.map(formatRecordLine).join("\n"));
       return;
     }
+
+    if (args.subcommand === "attention") {
+      const items = store.listAttentionItems(args.pairId);
+      if (args.json) {
+        console.log(JSON.stringify(items, null, 2));
+        return;
+      }
+      if (items.length === 0) {
+        console.log(`No attention items recorded for ${args.pairId}.`);
+        return;
+      }
+      console.log(`Attention items for ${args.pairId}:`);
+      for (const item of items) {
+        const blocking = item.blocking ? " [BLOCKING]" : "";
+        console.log(`  #${item.id}  ${item.kind}  status:${item.status}${blocking}`);
+        console.log(`    source: ${item.sourceMessageId}  created: ${item.createdAt}`);
+        if (item.summary) console.log(`    summary: ${item.summary}`);
+        if (item.resolvedByMessageId) console.log(`    resolved by: ${item.resolvedByMessageId}`);
+      }
+      return;
+    }
+
+    if (args.subcommand === "ambiguous") {
+      const records = store.listNondelivered();
+      if (args.json) {
+        console.log(JSON.stringify(records, null, 2));
+        return;
+      }
+      if (records.length === 0) {
+        console.log("No pending ambiguous attempts found.");
+        return;
+      }
+      console.log("Pending ambiguous attempts:");
+      console.log(records.map(formatRecordLine).join("\n"));
+      return;
+    }
   } finally {
     store.close();
   }
@@ -561,7 +600,7 @@ function printSupervisorReport(report: {
   mode: string;
   relays: RelayResult[];
   cycle: unknown;
-  snapshot: unknown;
+  snapshot: ObservationSnapshot;
   workerRelayStable?: boolean;
   recovery?: {
     policy: string;
@@ -595,7 +634,8 @@ function printSupervisorReport(report: {
               attemptCount: report.recovery.attemptCount
             }
           : null,
-        workerRelayStable: report.workerRelayStable ?? null
+        workerRelayStable: report.workerRelayStable ?? null,
+        snapshot: report.snapshot
       })
     );
     return;
@@ -603,13 +643,25 @@ function printSupervisorReport(report: {
 
   const header = `${report.pairId}  ${report.state}  ${report.observedAt}`;
   console.log(report.reason ? `${header}  ${report.reason}` : header);
+
+  const { worker, planner } = report.snapshot;
+  console.log(`  worker   reachable=${worker.reachable}  exists=${worker.sessionExists}  active=${worker.sessionActive}  gathering=${worker.gathering}${worker.waitingForInput ? "  [WAITING_INPUT]" : ""}`);
+  if (worker.lastAssistantMessageId) {
+    console.log(`           last assistant: ${worker.lastAssistantMessageId} (${worker.lastAssistantMessageCreatedAt ? new Date(worker.lastAssistantMessageCreatedAt).toLocaleTimeString() : "unknown"})`);
+  }
+
+  console.log(`  planner  reachable=${planner.reachable}  auth=${planner.authenticated}  convo=${planner.conversationReachable}  generating=${planner.generating}`);
+  if (planner.latestPlannerMessageId) {
+    console.log(`           last planner: ${planner.latestPlannerMessageId} (${planner.latestPlannerMessageCreatedAt ? new Date(planner.latestPlannerMessageCreatedAt).toLocaleTimeString() : "unknown"})`);
+  }
+
   for (const relay of report.relays) {
-    console.log(`relay  ${relay.direction ?? ""}  ${relay.status}  ${relay.sourceMessage?.id ?? ""}`.trimEnd());
+    console.log(`  relay    ${relay.direction ?? ""}  ${relay.status}  ${relay.sourceMessage?.id ?? ""}`.trimEnd());
   }
   if (report.recovery?.performed) {
     const outcome = report.recovery.recovered ? "recovered" : report.recovery.intervention ? "intervention" : "failed";
     console.log(
-      `recovery  ${outcome}  action=${report.recovery.action}  attempts=${report.recovery.attemptCount}`
+      `  recovery ${outcome}  action=${report.recovery.action}  attempts=${report.recovery.attemptCount}`
     );
   }
 }
@@ -1053,6 +1105,8 @@ function usage(): string {
     "npm run relay -- state inspect [--db <path>]",
     "npm run relay -- state pair <pairId> [--db <path>]",
     "npm run relay -- state messages <pairId> [--json] [--db <path>]",
+    "npm run relay -- state attention <pairId> [--json] [--db <path>]",
+    "npm run relay -- state ambiguous [--json] [--db <path>]",
     "npm run relay -- supervise <pairId> [--once] [--json] [--config <path>] [--db <path>]",
     "npm run relay -- supervise <pairId> --watch [--relay] [--poll-interval <ms>] [--stuck-after <ms>] [--recovery <none|safe>] [--recovery-max-attempts <n>] [--config <path>] [--db <path>]",
     "npm run relay -- supervisor pause <pairId> [--db <path>]",

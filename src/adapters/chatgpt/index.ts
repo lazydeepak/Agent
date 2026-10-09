@@ -19,6 +19,7 @@ import { hasVisibleServiceWarning } from "./service-warning.js";
 export interface ChatGPTBrowserAdapter {
   checkReadiness(planner: PlannerIdentity): Promise<ReadinessCheck[]>;
   getLatestPlannerMessage(planner: PlannerIdentity): Promise<RelayableMessage | undefined>;
+  getLatestPlannerMessages?(planner: PlannerIdentity, options?: { limit?: number }): Promise<RelayableMessage[]>;
   sendWorkerMessage(planner: PlannerIdentity, message: RelayableMessage): Promise<RelayReceipt>;
   observePlannerConversation?(planner: PlannerIdentity): Promise<PlannerObservation>;
   subscribePlannerEvents?(planner: PlannerIdentity, signal: AbortSignal): AsyncIterable<PlannerSessionEvent>;
@@ -103,6 +104,7 @@ export interface ChatGPTReadinessProbe {
 
 export interface ChatGPTBrowserDriver extends ChatGPTReadinessProbe {
   latestPlannerMessage(planner: PlannerIdentity): Promise<RelayableMessage | undefined>;
+  latestPlannerMessages?(planner: PlannerIdentity, options?: { limit?: number }): Promise<RelayableMessage[]>;
   sendMessage(planner: PlannerIdentity, message: RelayableMessage): Promise<void>;
   observe?(planner: PlannerIdentity): Promise<{
     snapshot: ChatGPTReadinessSnapshot;
@@ -146,6 +148,10 @@ export class LiveChatGPTBrowserAdapter implements ChatGPTBrowserAdapter {
 
   async getLatestPlannerMessage(planner: PlannerIdentity): Promise<RelayableMessage | undefined> {
     return this.locked(() => this.driver.latestPlannerMessage(planner));
+  }
+
+  async getLatestPlannerMessages(planner: PlannerIdentity, options?: { limit?: number }): Promise<RelayableMessage[]> {
+    return this.locked(() => this.driver.latestPlannerMessages?.(planner, options) ?? Promise.resolve([]));
   }
 
   async sendWorkerMessage(planner: PlannerIdentity, message: RelayableMessage): Promise<RelayReceipt> {
@@ -241,6 +247,10 @@ export class PlaywrightChatGPTBrowserDriver implements ChatGPTBrowserDriver {
 
   async latestPlannerMessage(planner: PlannerIdentity): Promise<RelayableMessage | undefined> {
     return this.withPage(planner, async (page) => extractLatestAssistantMessage(page, planner));
+  }
+
+  async latestPlannerMessages(planner: PlannerIdentity, options: { limit?: number } = {}): Promise<RelayableMessage[]> {
+    return this.withPage(planner, async (page) => extractAssistantMessages(page, planner, options.limit ?? 10));
   }
 
   async observe(planner: PlannerIdentity): Promise<{
@@ -722,10 +732,19 @@ async function extractLatestAssistantMessage(
   page: Page,
   planner: PlannerIdentity
 ): Promise<RelayableMessage | undefined> {
+  return (await extractAssistantMessages(page, planner, 1)).at(0);
+}
+
+async function extractAssistantMessages(
+  page: Page,
+  planner: PlannerIdentity,
+  limit: number
+): Promise<RelayableMessage[]> {
   const messageNodes = page.locator('[data-message-author-role="assistant"]');
   const count = await messageNodes.count();
+  const results: RelayableMessage[] = [];
 
-  for (let index = count - 1; index >= 0; index -= 1) {
+  for (let index = count - 1; index >= 0 && results.length < limit; index -= 1) {
     const node = messageNodes.nth(index);
     if (!(await node.isVisible().catch(() => false))) {
       continue;
@@ -737,16 +756,16 @@ async function extractLatestAssistantMessage(
     }
 
     const domId = await node.getAttribute("data-message-id").catch(() => undefined);
-    return {
+    results.push({
       id: domId ?? `chatgpt-assistant-${planner.conversationId}-${index}`,
       source: "planner",
       role: "assistant",
       text,
       createdAt: Date.now()
-    };
+    });
   }
 
-  return undefined;
+  return results;
 }
 
 function normalizeMessageText(text: string): string {

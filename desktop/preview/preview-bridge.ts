@@ -30,7 +30,7 @@ import type {
   WorkerModelDto,
   WorkerModelSwitchResultDto,
   WorkerSessionOpenResultDto
-} from "../shared/dto.js";
+} from "../../src/contracts/desktop.js";
 import type { WorkerProgressDto } from "../shared/worker-progress.js";
 import type { WorkerQuestion } from "../../src/contracts/worker-question.js";
 import type { WorkerTranscript } from "../../src/contracts/worker-transcript.js";
@@ -1049,6 +1049,11 @@ export function createPreviewDesktopApi(): Window["desktop"] {
       return () => {
         store.listeners.workerProgress.delete(listener);
       };
+    },
+
+    async clearTimeline(): Promise<{ ok: boolean }> {
+      store.events = [];
+      return { ok: true };
     }
   };
 }

@@ -1,7 +1,8 @@
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { resolve } from "node:path";
-import type { OpenCodeServerConfig } from "../../types.js";
+import { Buffer } from "node:buffer";
+import type { OpenCodeServerConfig, OpenCodeModelRef, OpenCodeModelInfo } from "../../types.js";
 import { credentialsAllowed } from "../../util/net.js";
 import type { WorkerQuestion as OpenCodeQuestion } from "../../contracts/worker-question.js";
 
@@ -36,17 +37,6 @@ export interface OpenCodeSessionInfo {
     archived?: number;
   };
   metadata?: Record<string, unknown>;
-}
-
-export interface OpenCodeModelRef {
-  providerID: string;
-  id: string;
-}
-
-
-export interface OpenCodeModelInfo extends OpenCodeModelRef {
-  name?: string;
-  enabled?: boolean;
 }
 
 export interface OpenCodeSessionList {
@@ -573,14 +563,14 @@ export class OpenCodeHttpClient {
     // OpenCode's own UI (Desktop and the server's embedded web client) probes /global/health first
     // and treats a healthy response as legacy, even when v2 is also available. Match that exactly so
     // both sides read and write the same message store instead of picking v2 whenever it exists.
-    if (Object.hasOwn(paths, "/global/health") && (await this.globalHealthIsLegacy())) {
+    if (Object.prototype.hasOwnProperty.call(paths, "/global/health") && (await this.globalHealthIsLegacy())) {
       this.pinApiProtocol("legacy");
       return;
     }
 
     if (
-      Object.hasOwn(paths, "/api/session/{sessionID}/prompt") ||
-      Object.hasOwn(paths, "/api/session/{sessionID}/message")
+      Object.prototype.hasOwnProperty.call(paths, "/api/session/{sessionID}/prompt") ||
+      Object.prototype.hasOwnProperty.call(paths, "/api/session/{sessionID}/message")
     ) {
       this.pinApiProtocol("v2");
       return;
@@ -684,7 +674,7 @@ export class OpenCodeHttpClient {
             ...(this.authHeader ? { authorization: this.authHeader } : {})
           }
         },
-        (response) => {
+        (response: any) => {
           if ((response.statusCode ?? 0) >= 200 && (response.statusCode ?? 0) < 300) {
             let responseBody = "";
             response.setEncoding("utf8");
@@ -720,7 +710,7 @@ export class OpenCodeHttpClient {
         }
       }, 30_000);
 
-      request.on("error", (error) => {
+      request.on("error", (error: any) => {
         if (!settled) {
           settle(rejectRequest, error);
         }

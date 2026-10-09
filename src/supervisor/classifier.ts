@@ -14,6 +14,8 @@ export interface CycleContext {
   workerFailed?: boolean;
   workerReportPending: boolean;
   plannerInstructionPending: boolean;
+  pendingWorkerMessageCreatedAt?: number;
+  pendingPlannerMessageCreatedAt?: number;
   lastWorkerRelaySourceMessageId?: string;
   lastWorkerRelayAt?: string;
   lastPlannerRelaySourceMessageId?: string;
@@ -51,11 +53,15 @@ export function classify(input: ClassifyInput): Classification {
   const planner = snapshot.planner;
 
   if (continuity.paused) {
-    return { state: "PAUSED", reason: "Supervision is paused for this pair." };
+    return { state: "PAUSED", reason: "Relay is stopped." };
   }
 
   if (cycle.ambiguousDelivery) {
-    return { state: "FAILED", reason: "An uncertain delivery requires reconciliation before either relay direction can continue." };
+    return {
+      state: "FAILED",
+      reason:
+        "Delivery state is uncertain and requires verification."
+    };
   }
 
   if (!worker.reachable) {
@@ -63,7 +69,7 @@ export function classify(input: ClassifyInput): Classification {
   }
 
   if (worker.sessionExists && planner.rateLimitedUntil !== undefined && planner.rateLimitedUntil > now) {
-    return { state: "WAITING_PLANNER", reason: `Planner is temporarily rate-limited until ${new Date(planner.rateLimitedUntil).toISOString()}; holding pending work.` };
+    return { state: "WAITING_PLANNER", reason: `Planner is rate-limited until ${new Date(planner.rateLimitedUntil).toISOString()}.` };
   }
 
   if (!planner.reachable) {
@@ -71,7 +77,7 @@ export function classify(input: ClassifyInput): Classification {
   }
 
   if (worker.sessionExists === false) {
-    return { state: "FAILED", reason: "Worker session does not exist on the worker server." };
+    return { state: "FAILED", reason: "Worker session does not exist." };
   }
 
   if (planner.authenticated === false) {
@@ -87,17 +93,17 @@ export function classify(input: ClassifyInput): Classification {
   }
 
   if (cycle.workerFailed) {
-    return { state: "FAILED", reason: "The attributed OpenCode worker step failed." };
+    return { state: "FAILED", reason: "Worker step failed." };
   }
 
   if (worker.waitingForInput) {
-    return { state: "WAITING_INPUT", reason: "OpenCode is waiting for an answer to a question. Open the bound worker session and answer it before relaying more instructions." };
+    return { state: "WAITING_INPUT", reason: "Worker is waiting for input." };
   }
 
   if (!planner.generating && !worker.gathering && planner.latestPlannerControl) {
     return planner.latestPlannerControl === "complete"
-      ? { state: "COMPLETED", reason: "Planner marked the in-scope work complete." }
-      : { state: "FAILED", reason: "Planner reported a blocker requiring intervention." };
+      ? { state: "COMPLETED", reason: "Work marked as complete." }
+      : { state: "FAILED", reason: "Blocker reported." };
   }
 
   const pendingWork = Boolean(
@@ -113,32 +119,32 @@ export function classify(input: ClassifyInput): Classification {
     if (busyPreviously && idleSinceMs >= stuckAfterMs) {
       return {
         state: "STUCK",
-        reason: `No progress for ${Math.round(idleSinceMs / 1000)}s while work is pending.`
+        reason: `No activity for ${Math.round(idleSinceMs / 1000)}s.`
       };
     }
   }
 
   if (worker.gathering) {
     if (cycle.lastPlannerRelaySourceMessageId) {
-      return { state: "WAITING_WORKER", reason: "Worker is processing a delivered planner instruction." };
+      return { state: "WAITING_WORKER", reason: "Worker is processing instruction." };
     }
-    return { state: "WORKING", reason: "Worker is working on a new instruction." };
+    return { state: "WORKING", reason: "Worker is active." };
   }
 
   if (cycle.workerReportPending) {
-    return { state: "WORKING", reason: "A new worker report is ready to relay to the planner." };
+    return { state: "WORKING", reason: "Ready to relay worker report." };
   }
 
   if (planner.generating) {
-    return { state: "WAITING_PLANNER", reason: "Planner is generating its next instruction." };
+    return { state: "WAITING_PLANNER", reason: "Planner is generating." };
   }
 
   if (cycle.plannerInstructionPending) {
-    return { state: "WORKING", reason: "A new planner instruction is ready to relay to the worker." };
+    return { state: "WORKING", reason: "Ready to relay planner instruction." };
   }
 
   if (cycleCompleted(cycle)) {
-    return { state: "COMPLETED", reason: "The current work cycle completed: instruction delivered and report relayed." };
+    return { state: "COMPLETED", reason: "Cycle completed." };
   }
 
   const cycleStarted = Boolean(
@@ -148,10 +154,10 @@ export function classify(input: ClassifyInput): Classification {
   );
 
   if (!cycleStarted) {
-    return { state: "READY", reason: "Pair is ready; no work cycle has started." };
+    return { state: "READY", reason: "Ready." };
   }
 
-  return { state: "IDLE", reason: "Pair is idle with no pending work." };
+  return { state: "IDLE", reason: "Idle." };
 }
 
 function idleSinceMsFor(continuity: SupervisorContinuity, now: number): number {

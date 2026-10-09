@@ -1,12 +1,16 @@
 # agent-relay
 
-`agent-relay` pairs worker/planner sessions and validates that both peers are ready before any relay logic runs.
+High-reliability bidirectional message transport between autonomous agents.
 
-The first milestone was intentionally narrow:
+`agent-relay` is a professional transport layer that pairs worker (OpenCode) sessions with planner (ChatGPT) conversations. It ensures reliable, at-least-once message delivery with deterministic supervision and strong duplicate suppression.
 
-> M1 - Pair one existing OpenCode session with one existing ChatGPT conversation, validate both peers, and display `READY` / `NOT_READY`.
+## Key Features
 
-M2 adds live OpenCode session discovery, creation, binding, and readiness integration. M3 adds a one-shot OpenCode-to-planner relay path, M4 adds the explicit reverse planner-to-OpenCode path, M5a adds live ChatGPT readiness checks, M5b adds opt-in live ChatGPT message read/send, M6 adds persistent relay state with duplicate-send protection, and M7 adds a deterministic supervisor/watcher state machine with safe relay orchestration and pause/resume control. M8 adds bounded, deterministic, opt-in recovery for browser/OpenCode connectivity failures and process restarts. M9 adds concurrent multi-pair runtime supervision with strict isolation, per-pair persistence, and hard duplicate-identity protection. M10a adds an optional cross-platform Electron desktop shell and runtime dashboard that reuses the core runtime, persistence, and validation APIs over a narrow, whitelisted IPC bridge. M10b adds a desktop pair setup wizard so pairs can be created, edited, rebound, and removed from the dashboard. There is still no AI classification or autonomous re-prompting.
+- **Automatic Transport**: The supervisor continuously observes configured pairs and automatically relays messages as soon as they are stable.
+- **Deterministic Supervision**: Uses a clear state machine (`READY`, `WORKING`, `WAITING`, `FAILED`) based on peer health and message cycles—no AI judgment.
+- **Relay Ledger**: Every delivery is recorded in a local SQLite database to prevent duplicates and handle crashes gracefully.
+- **Desktop Dashboard**: A modern Electron interface for managing projects, monitoring transport history, and starting/stopping relays.
+- **Safe Recovery**: Bounded, deterministic recovery for connectivity failures (reconnects CDP, verifies sessions) without autonomous re-prompting.
 
 ## Session pairs
 
@@ -178,9 +182,9 @@ The transport guarantee is **at-least-once** with strong duplicate suppression a
 
 The `validate` and existing relay paths keep their prior behavior when no persistence is wired. Relay commands receive the persistent store from the CLI automatically.
 
-## Supervision (M7)
+## Transport Management (M7)
 
-The supervisor continuously observes one configured pair, classifies its state deterministically (no AI/model judgment), and can relay messages safely through the M6 ledger.
+The transport layer continuously observes configured pairs, classifies state deterministically, and relays messages safely through the M6 ledger.
 
 State transitions are decided by a pure classifier assigned per observation:
 
@@ -188,15 +192,11 @@ State transitions are decided by a pure classifier assigned per observation:
 | --- | --- |
 | `READY` | Quiescent, no cycle started |
 | `IDLE` | Quiescent, prior relay history but no completed cycle |
-| `WORKING` | Worker report or planner instruction pending/deliberation in progress |
-| `WAITING_PLANNER` | Planner is mid-generation |
-| `WAITING_WORKER` | Worker is gathering after a delivered instruction |
-| `COMPLETED` | Instruction and a later report both relayed |
-| `WAITING_INPUT` | Reserved; never emitted (no reliable upstream signal) |
-| `STUCK` | Busy evidence and no progress for the stuck threshold |
-| `FAILED` | Explicit peer evidence (missing session/auth/conversation/composer) |
-| `DISCONNECTED` | Peer unreachable |
-| `PAUSED` | Supervision paused via `supervisor pause` |
+| `WORKING` | Active transport or deliberation in progress |
+| `WAITING_PLANNER` | Awaiting planner generation |
+| `WAITING_WORKER` | Awaiting worker task completion |
+| `COMPLETED` | Transport cycle completed |
+| `PAUSED` | Relay stopped manually |
 
 Relays only run with `--watch --relay` and only when a message identity has not already been delivered (M6 ledger). A one-shot `supervise` (the default, or `--once` explicitly, which cannot be combined with `--watch`) is read-only.
 

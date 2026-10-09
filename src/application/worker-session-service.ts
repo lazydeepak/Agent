@@ -3,7 +3,7 @@ import { scanOpenCodeDesktopActiveSession, OpenCodeDesktopStateError } from "../
 import { resolve } from "node:path";
 import { createPairAdapters } from "../runtime/index.js";
 import type { LockRegistry, RuntimeAdapterOptions } from "../runtime/index.js";
-import type { OpenCodeModelRef } from "../adapters/opencode/http.js";
+import type { OpenCodeModelRef } from "../types.js";
 import type {
   EndpointTestResult,
   OpenCodeEndpointInput,
@@ -72,7 +72,7 @@ export class WorkerSessionService {
       .filter((model) => model.enabled !== false)
       .map((model) => ({
         ...model,
-        current: session?.model?.providerID === model.providerID && session.model.id === model.id
+        current: session?.model?.providerID === model.providerID && session?.model?.id === model.id
       }));
   }
 

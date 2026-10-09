@@ -1,6 +1,6 @@
 {
   "name": "Agent Relay",
-  "description": "Pair agent sessions and validate readiness before relaying work between them.",
+  "description": "High-reliability bidirectional message transport between autonomous agents.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

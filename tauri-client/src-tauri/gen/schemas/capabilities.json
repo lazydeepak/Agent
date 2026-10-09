@@ -1,1 +1,0 @@
-{"default":{"identifier":"default","description":"Default capabilities for Agent Relay Tauri","local":true,"windows":["AgentRelayTauri"],"permissions":["core:default","core:window:default","core:event:default","opener:default"]}}

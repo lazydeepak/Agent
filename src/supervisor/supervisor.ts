@@ -9,6 +9,7 @@ import { ExternalBrowserManager, type BrowserManager } from "../recovery/index.j
 import type { BackoffPolicy } from "../recovery/schedule.js";
 import type { OpenCodeServerLauncher } from "../recovery/opencode.js";
 import { ChatGptSubmissionGate } from "../relay/chatgpt-gate.js";
+import { RelayVerifier } from "../relay/verifier.js";
 import { interruptibleSleep } from "../util/async.js";
 import type {
   ObservationSnapshot,
@@ -98,6 +99,7 @@ export class Supervisor {
   private readonly stuckAfterMs: number | undefined;
   private readonly mode: SuperviseMode;
   private readonly chatgptGate: ChatGptSubmissionGate | undefined;
+  private readonly verifier: RelayVerifier;
   private lastPlannerObservation: PlannerObservation | undefined;
   private lastWorkerObservation: WorkerObservation | undefined;
   private recoveryEngine: RecoveryEngine | undefined;
@@ -113,6 +115,7 @@ export class Supervisor {
     this.stuckAfterMs = deps.stuckAfterMs;
     this.mode = deps.mode ?? "observe";
     this.chatgptGate = deps.chatgptGate ?? new ChatGptSubmissionGate({ now: () => this.clock().getTime() });
+    this.verifier = new RelayVerifier({ worker: deps.worker, planner: deps.planner });
   }
 
   async observeOnce(): Promise<SupervisorReport> {
@@ -257,6 +260,30 @@ export class Supervisor {
     }
 
     const cycle = buildCycle(store, pair.pairId, snapshot, continuity);
+
+    if (cycle.ambiguousDelivery && this.mode !== "observe") {
+      const ambiguousRecords = store.listRecords(pair.pairId).filter((r) => r.status === "DELIVERING");
+      for (const record of ambiguousRecords) {
+        const identity = {
+          pairId: pair.pairId,
+          direction: record.direction,
+          sourceMessageId: record.sourceMessageId,
+          sourceHash: record.sourceHash,
+        };
+        const verification = await this.verifier.verify(pair, record);
+        if (verification.verified) {
+          store.reconcileAmbiguous(identity, "DELIVERED", verification.targetId);
+          this.emit({
+            type: "AMBIGUOUS_DELIVERY_RECONCILED",
+            reason: `Ambiguous delivery for ${record.direction} was verified as DELIVERED.`,
+            details: { direction: record.direction, targetId: verification.targetId },
+          });
+        }
+      }
+      // Refresh cycle after reconciliation
+      Object.assign(cycle, buildCycle(store, pair.pairId, snapshot, continuity));
+    }
+
     const previousState = continuity.lastSupervisorState;
     const classification = classify({
       snapshot,
@@ -768,6 +795,8 @@ export function buildCycle(
     workerFailed: durableCycle?.cycleStatus === "FAILED",
     workerReportPending,
     plannerInstructionPending,
+    pendingWorkerMessageCreatedAt: workerReportPending ? snapshot.worker.lastAssistantMessageCreatedAt : undefined,
+    pendingPlannerMessageCreatedAt: plannerInstructionPending ? snapshot.planner.latestPlannerMessageCreatedAt : undefined,
     lastWorkerRelaySourceMessageId: lastWorkerDelivered?.sourceMessageId,
     lastWorkerRelayAt: lastWorkerDelivered?.deliveredAt,
     lastPlannerRelaySourceMessageId: lastPlannerDelivered?.sourceMessageId,

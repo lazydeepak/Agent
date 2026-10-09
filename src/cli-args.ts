@@ -318,13 +318,13 @@ export function parseArgs(args: string[]): ParsedArgs {
     throw new CliError("Relay command requires worker-to-planner or planner-to-worker.");
   }
 
-  const stateSubcommand = ["init", "inspect", "pair", "messages"];
+  const stateSubcommand = ["init", "inspect", "pair", "messages", "attention", "ambiguous"];
   if (parsed.command === "state" && (parsed.subcommand === undefined || !stateSubcommand.includes(parsed.subcommand))) {
-    throw new CliError("State command requires one of: init, inspect, pair, messages.");
+    throw new CliError("State command requires one of: init, inspect, pair, messages, attention, ambiguous.");
   }
 
-  if (parsed.command === "state" && ["pair", "messages"].includes(parsed.subcommand ?? "") && !parsed.pairId) {
-    throw new CliError("State pair/messages requires a pairId.");
+  if (parsed.command === "state" && ["pair", "messages", "attention"].includes(parsed.subcommand ?? "") && !parsed.pairId) {
+    throw new CliError(`State ${parsed.subcommand} requires a pairId.`);
   }
 
   if (parsed.command === "state" && parsed.subcommand === "init" && parsed.pairId) {

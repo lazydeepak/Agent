@@ -72,6 +72,7 @@ export interface RelayStore {
   listCycles(pairId: string): RelayCycle[];
   listAllPairIds(): string[];
   listNondelivered(): RelayRecord[];
+  reconcileAmbiguous(identity: CanonicalRelayIdentity, status: "DELIVERED" | "FAILED", targetId?: string): RelayRecord | undefined;
   purgePairData(pairId: string): void;
   // Attention / worker-question persistence
   createAttentionItem(item: {
@@ -981,6 +982,26 @@ export class SqliteRelayStore implements RelayStore {
       )
       .all();
     return rows.map((row) => rowToRelayRecord(row) as RelayRecord).filter(isDefined);
+  }
+
+  reconcileAmbiguous(identity: CanonicalRelayIdentity, status: "DELIVERED" | "FAILED", targetId?: string): RelayRecord | undefined {
+    const existing = this.findRecord(identity);
+    if (!existing || existing.status !== "DELIVERING") {
+      return existing;
+    }
+    const now = new Date().toISOString();
+    this.db
+      .prepare(
+        `UPDATE relay_records
+         SET
+           status = ?,
+           delivered_at = CASE WHEN ? = 'DELIVERED' THEN ? ELSE delivered_at END,
+           target_id = COALESCE(?, target_id)
+         WHERE id = ?`
+      )
+      .run(status, status, now, targetId ?? null, existing.id);
+
+    return this.findRecord(identity);
   }
 
   touchRuntimeState(state: Partial<Omit<RuntimeMetadata, "pairId">> & { pairId: string }): void {

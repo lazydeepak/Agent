@@ -2,7 +2,6 @@ import { actionButton, el, errorMessage, toast } from "./dom.js";
 import { runAction } from "./actions.js";
 import { state } from "./view-state.js";
 import type { PairCardModel } from "./state.js";
-import { showWorkerTranscript } from "./worker-transcript.js";
 interface WorkerSessionDispatch {
   rerender(): void;
   refreshAll(): Promise<void>;
@@ -31,12 +30,6 @@ export async function openWorkerSession(pairId: string): Promise<void> {
     "ok"
   );
 }
-
-/** Read-only diagnostic view of the worker's message history; not the interactive shared session. */
-export async function viewWorkerTranscript(pairId: string): Promise<void> {
-  await showWorkerTranscript(pairId);
-}
-
 
 export async function alignWorkerSessionWithOpenCodeDesktop(pairId: string): Promise<void> {
   const result = await runAction(() => window.desktop.alignWorkerSessionWithOpenCodeDesktop(pairId));

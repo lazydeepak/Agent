@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ALLOWED_INVOKE_CHANNELS, EVENT_CHANNEL, IPC_CHANNELS } from "../desktop/shared/ipc-channels.js";
 import { isValidError } from "../desktop/renderer/state.js";
-import type { DesktopErrorDto, EventRecordDto, PairIdentityDto, ValidationResultDto } from "../desktop/shared/dto.js";
+import type { DesktopErrorDto, EventRecordDto, PairIdentityDto, ValidationResultDto } from "../src/contracts/desktop.js";
 
 const invokeChannelNames = [
   "listPairs",

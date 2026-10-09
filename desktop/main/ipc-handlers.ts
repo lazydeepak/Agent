@@ -2,7 +2,7 @@ import { clipboard } from "electron";
 import { DesktopApplicationError, type DesktopApplicationService } from "../../src/application/desktop-service.js";
 import type { ProjectPairService } from "../../src/application/project-pair-service.js";
 import type { WorkerProgressService } from "../../src/application/worker-progress.js";
-import type { DesktopErrorDto } from "../shared/dto.js";
+import type { DesktopErrorDto } from "../../src/contracts/desktop.js";
 import { IPC_CHANNELS, WORKER_PROGRESS_CHANNEL } from "../shared/ipc-channels.js";
 import {
   asHttpUrl,
@@ -219,6 +219,13 @@ export function registerIpcHandlers(ctx: IpcContext): void {
       const pairId = (filter as { pairId?: string })?.pairId;
       const limit = (filter as { limit?: number })?.limit ?? 50;
       return svc.getTimeline(pairId, limit);
+    })
+  );
+  handle(
+    IPC_CHANNELS.clearTimeline,
+    guarded(async () => {
+      ctx.requireService().clearTimeline();
+      return { ok: true };
     })
   );
   handle(

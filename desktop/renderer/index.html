@@ -18,22 +18,8 @@
       <div class="brand">
         <button id="sidebar-toggle" class="sidebar-toggle-btn btn btn-ghost btn-icon" aria-label="Toggle navigation menu" title="Toggle navigation">☰</button>
         <span class="brand-name">Agent Relay</span>
-        <span class="config-path hidden" id="config-path"></span>
-        <span class="badge badge-neutral" id="automation-mode">mode: loading</span>
       </div>
       <div class="global-actions">
-        <label class="pref-toggle theme-toggle" title="Color theme">
-          <span>Theme</span>
-          <select id="theme-select" aria-label="Color theme">
-            <option value="system">System</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-        </label>
-        <label class="pref-toggle" title="Bring the worker OpenCode session to the foreground when a session starts">
-          <input id="show-worker-on-start" type="checkbox" />
-          <span>Show worker when started</span>
-        </label>
         <button id="refresh" class="btn" title="Refresh status">Refresh</button>
         <button id="start-all" class="btn btn-primary">Start All</button>
         <button id="stop-all" class="btn btn-danger">Stop All</button>
@@ -45,21 +31,18 @@
         <div class="sidebar-header">
           <span class="sidebar-title">Workspace</span>
         </div>
+        <div class="sidebar-search">
+          <input type="text" id="sidebar-search-input" placeholder="Filter projects…" autocomplete="off" />
+        </div>
         <nav class="sidebar-menu">
-          <button id="nav-all-sessions" class="sidebar-item active">
+          <button id="nav-home" class="sidebar-item">
+            <span class="sidebar-item-icon">⌂</span>
+            <span class="sidebar-item-label">Dashboard</span>
+          </button>
+          <button id="nav-all-sessions" class="sidebar-item">
             <span class="sidebar-item-icon">◈</span>
             <span class="sidebar-item-label">Projects</span>
             <span id="nav-projects-count" class="sidebar-count">0</span>
-          </button>
-          <button id="nav-activity" class="sidebar-item">
-            <span class="sidebar-item-icon">⚡</span>
-            <span class="sidebar-item-label">Live Activity</span>
-            <span id="nav-event-count" class="sidebar-count">0</span>
-          </button>
-          <button id="nav-archive" class="sidebar-item">
-            <span class="sidebar-item-icon">🗄</span>
-            <span class="sidebar-item-label">Archive</span>
-            <span id="nav-archive-count" class="sidebar-count">0</span>
           </button>
         </nav>
         <div class="sidebar-section-divider"></div>
@@ -72,80 +55,103 @@
           <button id="add-pair" class="btn btn-primary btn-sm btn-full">+ Add Session</button>
           <button id="add-project-pair" class="btn btn-ghost btn-sm btn-full">+ Add Project</button>
         </div>
+
+        <div class="sidebar-footer">
+          <div class="sidebar-section-divider"></div>
+          <div class="sidebar-footer-section">
+            <span class="sidebar-title">Preferences</span>
+            <label class="pref-toggle">
+              <input type="checkbox" id="show-worker-on-start" />
+              <span>Show worker on start</span>
+            </label>
+          </div>
+          <div class="sidebar-footer-section">
+            <span class="sidebar-title">Appearance</span>
+            <div class="theme-toggle">
+              <select id="theme-select" aria-label="Select theme">
+                <option value="system">System</option>
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+              </select>
+            </div>
+          </div>
+          <div class="sidebar-footer-section config-info">
+            <span class="sidebar-title">Configuration</span>
+            <span class="config-path-label" id="config-path-display">No config loaded</span>
+          </div>
+          <div class="sidebar-footer-section about-info">
+            <span class="sidebar-title">About</span>
+            <span class="about-label">Agent Relay v0.1.0</span>
+          </div>
+        </div>
       </aside>
       <div id="sidebar-backdrop" class="sidebar-backdrop hidden"></div>
 
       <main class="layout">
+        <section class="panel dashboard-panel hidden" id="dashboard-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Dashboard</h2>
+            </div>
+          </div>
+          <div id="dashboard-content" class="dashboard-content">
+            <div class="dashboard-grid">
+              <div class="dashboard-stat">
+                <span class="stat-label">Running</span>
+                <span id="stat-running" class="stat-value">0</span>
+              </div>
+              <div class="dashboard-stat">
+                <span class="stat-label">Healthy</span>
+                <span id="stat-healthy" class="stat-value">0</span>
+              </div>
+              <div class="dashboard-stat">
+                <span class="stat-label">Failed</span>
+                <span id="stat-failed" class="stat-value">0</span>
+              </div>
+              <div class="dashboard-stat">
+                <span class="stat-label">Total Pairs</span>
+                <span id="stat-total" class="stat-value">0</span>
+              </div>
+            </div>
+
+            <div class="dashboard-section">
+              <div class="section-header">
+                <h3>Transport History</h3>
+                <button id="clear-history" class="btn btn-ghost btn-sm" title="Clear all history">Clear</button>
+              </div>
+              <div id="dashboard-history" class="dashboard-history">
+                <div class="empty-state">No transport activity observed yet.</div>
+              </div>
+            </div>
+
+            <div id="dashboard-getting-started" class="dashboard-section hidden">
+              <h3>Getting Started</h3>
+              <p class="detail">To begin relaying messages between agents, start by adding a project.</p>
+              <div class="getting-started-actions">
+                <button id="dashboard-add-project" class="btn btn-primary">Add your first project</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section class="panel project-pairs-panel" id="project-pairs-panel">
           <div class="panel-header" id="projects-panel-header">
             <div>
               <h2>Projects</h2>
-              <span class="panel-subtitle">Paired autonomous agents and supervised workflows</span>
             </div>
             <div class="panel-header-actions">
+              <button id="refresh-projects" class="btn btn-ghost btn-sm" title="Refresh projects and sessions">Refresh</button>
               <button id="expand-all" class="btn btn-ghost btn-sm" title="Expand every session card">Expand all</button>
               <button id="collapse-all" class="btn btn-ghost btn-sm" title="Collapse every session card">Collapse all</button>
-              <button id="toggle-split-view" class="btn btn-ghost btn-sm" title="Toggle side activity stream">Split View</button>
             </div>
           </div>
           <div id="no-project-pairs" class="empty-state hidden">No projects configured</div>
           <div id="project-pairs-list" class="project-pairs-list"></div>
-
-          <div id="archive-section" class="archive-panel hidden">
-            <div class="panel-header">
-              <div>
-                <h2>Archived Sessions</h2>
-                <span class="panel-subtitle">Archived pairs and preserved ledger records in <code>data/archive/</code></span>
-              </div>
-              <div class="panel-header-actions">
-                <button id="archive-refresh" class="btn btn-ghost btn-sm" title="Rescan data/archive/">Refresh</button>
-              </div>
-            </div>
-            <div id="archive-summary" class="archive-summary"></div>
-            <div id="archive-list" class="archive-list"></div>
-          </div>
-        </section>
-
-        <section class="panel events-panel" id="events-panel">
-          <div class="events-header">
-            <div>
-              <h2>Live Activity</h2>
-              <span class="panel-subtitle">Real-time supervision &amp; relay events</span>
-            </div>
-            <div class="events-controls">
-              <input type="text" id="event-filter" class="event-filter input-sm" placeholder="Filter events..." />
-              <span id="event-count" class="event-count">0 events</span>
-            </div>
-          </div>
-          <div id="events-list" class="events-list"></div>
         </section>
       </main>
     </div>
 
     <div id="toast" class="toast hidden"></div>
-
-    <div id="progress-modal" class="modal-overlay hidden">
-      <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="progress-title">
-        <div class="modal-header">
-          <h3 id="progress-title">Worker Progress</h3>
-          <button id="progress-close" class="btn btn-ghost btn-sm" title="Close">×</button>
-        </div>
-        <div id="progress-body" class="modal-body progress-body">
-          <div class="progress-tabs">
-            <button class="progress-tab active" data-tab="live">Live</button>
-            <button class="progress-tab" data-tab="plan">Plan</button>
-            <button class="progress-tab" data-tab="changes">Changes</button>
-            <button class="progress-tab" data-tab="history">History</button>
-          </div>
-          <div id="progress-tab-content" class="progress-tab-content"></div>
-        </div>
-        <div class="modal-footer">
-          <button id="progress-refresh" class="btn">Refresh</button>
-          <div class="modal-footer-spacer"></div>
-          <button id="progress-close-footer" class="btn btn-ghost">Close</button>
-        </div>
-      </div>
-    </div>
 
     <div id="wizard-modal" class="modal-overlay hidden">
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="wizard-title">
@@ -222,6 +228,24 @@
           <button id="project-pair-cancel" class="btn btn-ghost">Cancel</button>
           <div class="modal-footer-spacer"></div>
           <button id="project-pair-create" class="btn btn-primary">Create project</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="timeline-modal" class="modal-overlay hidden">
+      <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="timeline-title">
+        <div class="modal-header">
+          <h3 id="timeline-title">Project Timeline</h3>
+          <button id="timeline-close" class="btn btn-ghost btn-sm" title="Close">×</button>
+        </div>
+        <div class="modal-body">
+          <div id="timeline-content" class="history-list">
+            <div class="empty-state">No timeline events recorded.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <div class="modal-footer-spacer"></div>
+          <button id="timeline-done" class="btn btn-primary">Done</button>
         </div>
       </div>
     </div>

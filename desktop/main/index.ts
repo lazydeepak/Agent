@@ -14,7 +14,7 @@ import { RuntimeOrchestrator } from "../../src/runtime/index.js";
 import { RelayEngine } from "../../src/application/relay-engine.js";
 import type { SessionPair } from "../../src/types.js";
 import { EVENT_CHANNEL, IPC_CHANNELS, STATUS_REFRESH_CHANNEL, WORKER_PROGRESS_CHANNEL } from "../shared/ipc-channels.js";
-import type { DesktopErrorDto } from "../shared/dto.js";
+import type { DesktopErrorDto } from "../../src/contracts/desktop.js";
 import { registerIpcHandlers, type IpcContext } from "./ipc-handlers.js";
 import { installNavigationGuards, openWorkerAuthWindowImpl } from "./electron-window.js";
 import { parseCliOptions, type CliOptions } from "./cli-options.js";

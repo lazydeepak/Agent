@@ -11,5 +11,5 @@
     "noEmit": true,
     "types": []
   },
-  "include": ["desktop/renderer/**/*.ts", "desktop/shared/**/*.ts", "desktop/preview/preview-bridge.ts"]
+  "include": ["desktop/renderer/**/*.ts", "desktop/shared/**/*.ts", "desktop/preview/preview-bridge.ts", "src/contracts/**/*.ts"]
 }

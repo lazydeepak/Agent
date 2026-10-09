@@ -50,6 +50,16 @@ export interface PlannerIdentity {
   };
 }
 
+export interface OpenCodeModelRef {
+  providerID: string;
+  id: string;
+}
+
+export interface OpenCodeModelInfo extends OpenCodeModelRef {
+  name?: string;
+  enabled?: boolean;
+}
+
 export interface SessionPair {
   pairId: string;
   enabled: boolean;

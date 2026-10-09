@@ -1,6 +1,6 @@
 import type {
-  CandidatePairDto,
   ArchivedPairSummaryDto,
+  CandidatePairDto,
   AutomationInfoDto,
   ChatGptProjectDto,
   CreateProjectPairDto,
@@ -20,9 +20,8 @@ import type {
   ValidationResultDto,
   WorkerModelDto,
   WorkerModelSwitchResultDto
-} from "../shared/dto.js";
+} from "../../src/contracts/desktop.js";
 import { runAction, setRunActionHook, type RunActionErrorHook } from "./actions.js";
-import { wireArchiveView, refreshArchive } from "./archive-view.js";
 import { launchPlannerForPair } from "./planner.js";
 import { appendPairCard, expandedPairs, setPairCardHooks } from "./pair-card.js";
 import {
@@ -49,12 +48,7 @@ import {
   setWorkerSessionDispatch
 } from "./worker-session.js";
 
-import {
-  formatTime,
-  humanizePeer,
-  renderEvents,
-  renderValidation
-} from "./events.js";
+
 
 import {
   actionButton,
@@ -65,10 +59,10 @@ import {
   buildIdentityBlock,
   el,
   errorMessage,
+  formatTime,
   identityRow,
   toast
 } from "./dom.js";
-import { initProgressTabs, refreshWorkerProgress, showProgressModal } from "./progress-view.js";
 import { initGlobalFocusTrap } from "./focus-trap.js";
 import {
   getDiscoveredChatGptProjects,
@@ -83,12 +77,9 @@ import {
   type ProjectPairSnapshot
 } from "./view-state.js";
 import {
-  appendEvent,
   controlsFor,
   isValidError,
-  peerBadgeClass,
   stateDotClass,
-  supervisorBadgeClass,
   toPairCard,
   type PairControls
 } from "./state.js";
@@ -196,6 +187,7 @@ declare global {
       onEvent(listener: (event: EventRecordDto) => void): () => void;
       onStatusRefresh(listener: (payload: { reason?: string }) => void): () => void;
       onWorkerProgressUpdate(listener: (pairId: string) => void): () => void;
+      clearTimeline(): Promise<{ ok: boolean }>;
     };
   }
 }
@@ -268,8 +260,8 @@ function projectPairPresence(pair: ProjectPairDto): ProjectPairPresence {
   return "idle";
 }
 
-type ViewMode = "sessions" | "activity" | "archive";
-let currentView: ViewMode = "sessions";
+type ViewMode = "sessions" | "home";
+let currentView: ViewMode = "home";
 
 function closeMobileSidebar(): void {
   const sidebar = document.querySelector(".sidebar-nav");
@@ -285,58 +277,92 @@ function toggleMobileSidebar(): void {
   backdrop?.classList.toggle("hidden", !isOpen);
 }
 
-function setView(view: ViewMode): void {
+export function setView(view: ViewMode): void {
   currentView = view;
   closeMobileSidebar();
+  const navHome = document.getElementById("nav-home");
   const navAllSessions = document.getElementById("nav-all-sessions");
-  const navActivity = document.getElementById("nav-activity");
-  const navArchive = document.getElementById("nav-archive");
+  const dashboardPanel = document.getElementById("dashboard-panel");
   const projectPairsPanel = document.getElementById("project-pairs-panel");
-  const eventsPanel = document.getElementById("events-panel");
   const projectsPanelHeader = document.getElementById("projects-panel-header");
   const projectPairsList = document.getElementById("project-pairs-list");
-  const archiveSection = document.getElementById("archive-section");
   const noProjectPairs = document.getElementById("no-project-pairs");
   const layout = document.querySelector(".layout");
 
+  navHome?.classList.toggle("active", view === "home");
   navAllSessions?.classList.toggle("active", view === "sessions");
-  navActivity?.classList.toggle("active", view === "activity");
-  navArchive?.classList.toggle("active", view === "archive");
 
-  if (view === "sessions") {
-    layout?.classList.remove("view-activity", "view-archive");
+  if (view === "home") {
+    layout?.classList.remove("view-sessions");
+    layout?.classList.add("view-home");
+    dashboardPanel?.classList.remove("hidden");
+    projectPairsPanel?.classList.add("hidden");
+    renderDashboard();
+  } else {
+    layout?.classList.remove("view-home");
     layout?.classList.add("view-sessions");
+    dashboardPanel?.classList.add("hidden");
     projectPairsPanel?.classList.remove("hidden");
     projectPairsPanel?.classList.add("panel-full-width");
-    if (!layout?.classList.contains("split-view")) {
-      eventsPanel?.classList.add("hidden");
-    } else {
-      eventsPanel?.classList.remove("hidden");
-    }
-    eventsPanel?.classList.remove("panel-full-width");
     projectsPanelHeader?.classList.remove("hidden");
     projectPairsList?.classList.remove("hidden");
-    archiveSection?.classList.add("hidden");
     const hasContent = state.projectPairs.length > 0 || state.pairs.length > 0;
     noProjectPairs?.classList.toggle("hidden", hasContent);
-  } else if (view === "activity") {
-    layout?.classList.remove("view-sessions", "view-archive", "split-view");
-    layout?.classList.add("view-activity");
-    projectPairsPanel?.classList.add("hidden");
-    eventsPanel?.classList.remove("hidden");
-    eventsPanel?.classList.add("panel-full-width");
-    archiveSection?.classList.add("hidden");
-  } else if (view === "archive") {
-    layout?.classList.remove("view-sessions", "view-activity", "split-view");
-    layout?.classList.add("view-archive");
-    eventsPanel?.classList.add("hidden");
-    projectPairsPanel?.classList.remove("hidden");
-    projectPairsPanel?.classList.add("panel-full-width");
-    projectsPanelHeader?.classList.add("hidden");
-    projectPairsList?.classList.add("hidden");
-    noProjectPairs?.classList.add("hidden");
-    archiveSection?.classList.remove("hidden");
-    void refreshArchive();
+  }
+}
+
+function renderDashboard(): void {
+  const running = document.getElementById("stat-running");
+  const healthy = document.getElementById("stat-healthy");
+  const failed = document.getElementById("stat-failed");
+  const total = document.getElementById("stat-total");
+  const historyContainer = document.getElementById("dashboard-history");
+  const gettingStarted = document.getElementById("dashboard-getting-started");
+
+  const statuses = Array.from(state.statuses.values());
+  const runningCount = statuses.filter(s => s.runtimeState === "RUNNING" || s.runtimeState === "STARTING").length;
+  const healthyCount = statuses.filter(s => s.runtimeState === "RUNNING" && s.supervisorState !== "FAILED" && s.supervisorState !== "STUCK").length;
+  const failedCount = statuses.filter(s => s.runtimeState === "ERROR" || s.supervisorState === "FAILED" || s.supervisorState === "STUCK").length;
+  const totalCount = state.pairs.length;
+
+  if (running) running.textContent = String(runningCount);
+  if (healthy) healthy.textContent = String(healthyCount);
+  if (failed) failed.textContent = String(failedCount);
+  if (total) total.textContent = String(totalCount);
+
+  if (gettingStarted) {
+    gettingStarted.classList.toggle("hidden", state.projectPairs.length > 0);
+  }
+
+  if (historyContainer) {
+    void (async () => {
+      const timeline = await window.desktop.getTimeline(undefined, 10);
+      if (timeline.length === 0) {
+        const empty = el("div", "empty-state");
+        empty.textContent = "No transport activity observed yet.";
+        historyContainer.replaceChildren(empty);
+        return;
+      }
+
+      const list = el("div", "history-list");
+      for (const entry of [...timeline].reverse()) {
+        const item = el("div", "history-item");
+        const time = el("span", "history-time");
+        time.textContent = formatTime(entry.time);
+        const type = el("span", `history-type badge ${entry.type.includes("FAILED") ? "badge-danger" : "badge-neutral"}`);
+        type.textContent = entry.type.replace("WORKER_", "W_").replace("PLANNER_", "P_").replace("_RELAYED", "").replace("_OBSERVED", "");
+        
+        const label = el("span", "history-label");
+        label.textContent = entry.pairId || entry.projectPairId || "System";
+
+        const reason = el("span", "history-reason");
+        reason.textContent = entry.reason || "—";
+        
+        item.append(time, type, label, reason);
+        list.appendChild(item);
+      }
+      historyContainer.replaceChildren(list);
+    })();
   }
 }
 
@@ -350,6 +376,7 @@ function projectPairBadgeClass(presence: ProjectPairPresence): string {
       return "badge-neutral";
   }
 }
+
 
 function renderProjectPairs(): void {
   const list = document.getElementById("project-pairs-list");
@@ -380,13 +407,18 @@ function renderProjectPairs(): void {
 function renderSidebarProjects(): void {
   const container = document.getElementById("sidebar-projects-list");
   if (!container) return;
+  const searchInput = document.getElementById("sidebar-search-input") as HTMLInputElement | null;
+  const query = (searchInput?.value ?? "").toLowerCase().trim();
+
   const fragment = document.createDocumentFragment();
-  if (state.projectPairs.length === 0) {
+  const projects = state.projectPairs.filter(p => p.projectPairId.toLowerCase().includes(query));
+
+  if (projects.length === 0) {
     const empty = el("div", "sidebar-empty-hint");
-    empty.textContent = "No projects";
+    empty.textContent = query ? "No matches" : "No projects";
     fragment.appendChild(empty);
   } else {
-    for (const project of state.projectPairs) {
+    for (const project of projects) {
       const btn = el("button", "sidebar-project-item");
       btn.dataset.projectPairId = project.projectPairId;
       const presence = projectPairPresence(project);
@@ -488,7 +520,7 @@ function renderProjectPairCard(pair: ProjectPairDto): HTMLElement {
   });
   const projectActions = el("div", "project-actions");
   if (hasEligiblePair) {
-    projectActions.appendChild(actionButton("Start / Resume", "btn-sm btn-primary", true, () => {
+    projectActions.appendChild(actionButton("Start Relay", "btn-sm btn-primary", true, () => {
       void (async () => {
         const status = await runAction(async () => window.desktop.startProject?.(pair.projectPairId));
         if (status) setStatuses(status);
@@ -497,7 +529,7 @@ function renderProjectPairCard(pair: ProjectPairDto): HTMLElement {
     }));
   }
   if (hasActivePair) {
-    projectActions.appendChild(actionButton("Pause", "btn-sm", true, () => {
+    projectActions.appendChild(actionButton("Stop Relay", "btn-sm", true, () => {
       void (async () => {
         const status = await runAction(async () => window.desktop.pauseProject?.(pair.projectPairId));
         if (status) setStatuses(status);
@@ -508,6 +540,13 @@ function renderProjectPairCard(pair: ProjectPairDto): HTMLElement {
   if (projectActions.childNodes.length > 0) {
     body.push(projectActions);
   }
+
+  const projectConfigActions = el("div", "pair-actions-row");
+  projectConfigActions.style.marginTop = "12px";
+  projectConfigActions.appendChild(
+    actionButton("View Timeline", "btn-sm", true, () => openTimelineModal(pair.projectPairId))
+  );
+  body.push(projectConfigActions);
 
   return buildCard({
     wrapperClass: "project-pair-card",
@@ -799,32 +838,19 @@ async function refresh(): Promise<void> {
     }
     state.statuses = statusMap;
 
-    const validations = new Map<string, ValidationResultDto>();
-    for (const pair of pairs) {
-      const value = await window.desktop.getValidation(pair.pairId);
-      if (value) {
-        validations.set(pair.pairId, value);
-      }
-    }
-    state.validations = validations;
-
     refreshProjectAssignments();
     renderProjectPairs();
-    const header = document.querySelector(".app-header .config-path");
-    if (header) {
-      header.textContent = `config: ${window.desktop.configPath}`;
+    if (currentView === "home") {
+      renderDashboard();
+    }
+    const configDisplay = document.getElementById("config-path-display");
+    if (configDisplay) {
+      configDisplay.textContent = window.desktop.configPath || "No config loaded";
+      configDisplay.setAttribute("title", window.desktop.configPath);
     }
     const brandName = document.querySelector(".app-header .brand-name");
     if (brandName) {
       brandName.setAttribute("title", `Config: ${window.desktop.configPath}`);
-    }
-    const mode = document.getElementById("automation-mode");
-    if (mode) {
-      mode.textContent = `mode: ${automation.mode}`;
-      mode.className = `badge ${automation.mode === "relay" ? "badge-ok" : "badge-degraded"}`;
-      mode.title = automation.mode === "relay"
-        ? `Assistant responses are relayed to OpenCode. Universal prompt v${automation.universalPromptVersion}.`
-        : "Observe-only: messages are not relayed. Restart Agent Relay with --relay to automate.";
     }
   } catch (error) {
     toast(errorMessage(error));
@@ -854,11 +880,6 @@ async function stopAll(): Promise<void> {
 
 function wireEvents(): void {
   window.desktop.onEvent((event) => {
-    state.events = appendEvent(state.events, event, MAX_EVENTS);
-    renderEvents();
-    if (event.type === "PAIR_REMOVED") {
-      void refreshArchive();
-    }
     if (event.type.startsWith("RECOVERY_") || event.type === "STATE_CHANGED" || event.type === "PAIR_RUNTIME_RECOVERED") {
       void refresh();
     }
@@ -869,18 +890,57 @@ function wireEvents(): void {
   window.desktop.onStatusRefresh(() => {
     void refresh();
   });
-  window.desktop.onWorkerProgressUpdate((pairId) => {
-    void refreshWorkerProgress(pairId);
-  });
-  void window.desktop
-    .getRecentEvents({ limit: 100 })
-    .then((events) => {
-      state.events = events.slice(-MAX_EVENTS);
-      renderEvents();
-    })
-    .catch(() => {
-      renderEvents();
-    });
+}
+
+export async function openTimelineModal(pairId: string): Promise<void> {
+  const modal = document.getElementById("timeline-modal");
+  const content = document.getElementById("timeline-content");
+  const title = document.getElementById("timeline-title");
+  if (!modal || !content) return;
+
+  if (title) title.textContent = `Timeline: ${pairId}`;
+  const loading = el("div", "empty-state");
+  loading.textContent = "Loading timeline…";
+  content.replaceChildren(loading);
+  modal.classList.remove("hidden");
+
+  try {
+    const timeline = await window.desktop.getTimeline(pairId, 100);
+    if (timeline.length === 0) {
+      const empty = el("div", "empty-state");
+      empty.textContent = "No events recorded for this pair.";
+      content.replaceChildren(empty);
+      return;
+    }
+
+    const list = document.createDocumentFragment();
+    for (const entry of [...timeline].reverse()) {
+      const item = el("div", "history-item");
+      const time = el("span", "history-time");
+      time.textContent = formatTime(entry.time);
+      const type = el("span", `history-type badge ${entry.type.includes("FAILED") ? "badge-danger" : "badge-neutral"}`);
+      type.textContent = entry.type.replace("WORKER_", "W_").replace("PLANNER_", "P_").replace("_RELAYED", "").replace("_OBSERVED", "");
+      
+      const label = el("span", "history-label");
+      label.textContent = entry.pairId || entry.projectPairId || "System";
+
+      const reason = el("span", "history-reason");
+      reason.textContent = entry.reason || "—";
+      reason.title = entry.reason || "";
+      
+      item.append(time, type, label, reason);
+      list.appendChild(item);
+    }
+    content.replaceChildren(list);
+  } catch (error) {
+    const fail = el("div", "result-fail");
+    fail.textContent = `Failed to load timeline: ${errorMessage(error)}`;
+    content.replaceChildren(fail);
+  }
+}
+
+function closeTimelineModal(): void {
+  document.getElementById("timeline-modal")?.classList.add("hidden");
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -897,11 +957,6 @@ document.addEventListener("DOMContentLoaded", () => {
     state.workerModels.clear();
     void refresh();
     void refreshProjectPairs();
-  });
-  const eventFilter = document.getElementById("event-filter") as HTMLInputElement | null;
-  eventFilter?.addEventListener("input", () => {
-    state.eventFilter = eventFilter.value;
-    renderEvents();
   });
   document.getElementById("start-all")?.addEventListener("click", () => {
     void startAll();
@@ -937,6 +992,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("project-pair-create")?.addEventListener("click", () => {
     void confirmProjectPairCreation();
   });
+  document.getElementById("timeline-close")?.addEventListener("click", closeTimelineModal);
+  document.getElementById("timeline-done")?.addEventListener("click", closeTimelineModal);
   document.getElementById("project-pair-repo-detect")?.addEventListener("click", () => {
     void detectOpenCodeProjects();
   });
@@ -945,6 +1002,19 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.getElementById("project-pair-repo-active")?.addEventListener("click", () => {
     void useActiveOpenCodeSession();
+  });
+  document.getElementById("sidebar-search-input")?.addEventListener("input", () => {
+    renderSidebarProjects();
+  });
+  document.getElementById("clear-history")?.addEventListener("click", () => {
+    void (async () => {
+      if (!window.confirm("Clear all transport history? This cannot be undone.")) return;
+      await window.desktop.clearTimeline();
+      renderDashboard();
+    })();
+  });
+  document.getElementById("refresh-projects")?.addEventListener("click", () => {
+    void refreshProjectPairs();
   });
   document.getElementById("project-pair-chatgpt-detect")?.addEventListener("click", () => {
     void detectChatGptProjects();
@@ -972,6 +1042,9 @@ document.addEventListener("DOMContentLoaded", () => {
       input.value = value;
     }
   });
+  document.getElementById("dashboard-add-project")?.addEventListener("click", () => {
+    openProjectPairModal();
+  });
   document.getElementById("wizard-back")?.addEventListener("click", () => {
     if (wizardStepIndex > 0) {
       setWizardStepIndex(wizardStepIndex - 1);
@@ -993,17 +1066,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  const navHome = document.getElementById("nav-home");
   const navAllSessions = document.getElementById("nav-all-sessions");
-  const navActivity = document.getElementById("nav-activity");
-  const navArchive = document.getElementById("nav-archive");
+
+  navHome?.addEventListener("click", () => {
+    setView("home");
+  });
 
   navAllSessions?.addEventListener("click", () => {
     const container = document.getElementById("sidebar-projects-list");
     container?.querySelectorAll(".sidebar-project-item").forEach((el) => el.classList.remove("active-project"));
     setView("sessions");
   });
-  navActivity?.addEventListener("click", () => setView("activity"));
-  navArchive?.addEventListener("click", () => setView("archive"));
 
   const sidebarToggle = document.getElementById("sidebar-toggle");
   const sidebarBackdrop = document.getElementById("sidebar-backdrop");
@@ -1015,37 +1089,12 @@ document.addEventListener("DOMContentLoaded", () => {
   addPairBtn?.addEventListener("click", closeMobileSidebar);
   addProjectPairBtn?.addEventListener("click", closeMobileSidebar);
 
-  const toggleSplitView = document.getElementById("toggle-split-view");
-  toggleSplitView?.addEventListener("click", () => {
-    if (currentView !== "sessions") {
-      setView("sessions");
-    }
-    const layout = document.querySelector(".layout");
-    const isSplit = layout?.classList.toggle("split-view");
-    const eventsPanel = document.getElementById("events-panel");
-    const projectPairsPanel = document.getElementById("project-pairs-panel");
-    if (isSplit) {
-      eventsPanel?.classList.remove("hidden");
-      projectPairsPanel?.classList.remove("panel-full-width");
-      toggleSplitView.textContent = "Full View";
-      toggleSplitView.classList.add("btn-primary-soft");
-    } else {
-      eventsPanel?.classList.add("hidden");
-      projectPairsPanel?.classList.add("panel-full-width");
-      toggleSplitView.textContent = "Split View";
-      toggleSplitView.classList.remove("btn-primary-soft");
-    }
-  });
-
-  setView("sessions");
+  setView("home");
 
   wireEvents();
-  initProgressTabs();
   initGlobalFocusTrap();
-  wireArchiveView(() => refreshProjectPairs());
   void refresh();
   void refreshProjectPairs();
-  void refreshArchive();
 });
 
 // Boot: wire wizard-aware runAction and the worker-session view seams.
@@ -1064,6 +1113,7 @@ setRunActionHook({
     }
   }
 });
+
 setWorkerSessionDispatch({
   rerender: () => renderProjectPairs(),
   refreshAll: async () => {
@@ -1076,7 +1126,8 @@ setPairCardHooks({
   rerender: () => renderProjectPairs(),
   refreshAll: () => refresh(),
   openWizard: (kind, pairId) => openWizard(kind, pairId),
-  removePair: (pairId) => removePair(pairId)
+  removePair: (pairId) => removePair(pairId),
+  openTimeline: (pairId) => openTimelineModal(pairId)
 });
 
 setWizardHooks({

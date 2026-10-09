@@ -7,7 +7,9 @@ import type {
   RelayableMessage,
   WorkerIdentity,
   WorkerObservation,
-  WorkerPromptState
+  WorkerPromptState,
+  OpenCodeModelRef,
+  OpenCodeModelInfo
 } from "../../types.js";
 import { fail, pass } from "../../util/readiness.js";
 import {
@@ -16,8 +18,6 @@ import {
   type OpenCodeClientOptions,
   type OpenCodeDurableEvent,
   type OpenCodeHistoryResult,
-  type OpenCodeModelInfo,
-  type OpenCodeModelRef,
   type OpenCodeMessageInfo,
   type OpenCodePromptAdmission,
   type OpenCodeSessionInfo

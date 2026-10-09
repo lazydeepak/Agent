@@ -149,6 +149,11 @@ export function identityRow(label: string, value: string): HTMLElement {
   row.appendChild(valueEl);
   return row;
 }
+export function formatTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
 export function actionButton(label: string, className: string, enabled: boolean, onClick: () => void): HTMLButtonElement {
   const button = el("button", `btn ${className}`);
   button.textContent = label;

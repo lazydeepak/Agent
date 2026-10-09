@@ -207,6 +207,7 @@ export class PairRuntime {
 
   resume(): void {
     this.store.touchSupervisorState({ pairId: this.pairId, paused: false });
+    this.signalWake();
   }
 
   async observeOnce(): Promise<SupervisorReport | undefined> {
