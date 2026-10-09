@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/relay/index.ts
+ * Purpose: Relay core exports (identity, verification, ledger).
+ */
 import type { ChatGPTBrowserAdapter } from "../adapters/chatgpt/index.js";
 import type { OpenCodeSessionManager } from "../adapters/opencode/index.js";
 import { canonicalRelayIdentity, type RelayStore } from "../persistence/index.js";

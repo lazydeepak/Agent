@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/universal-planner-prompt.ts
+ * Purpose: Source module for universal-planner-prompt.ts.
+ */
 export const UNIVERSAL_PLANNER_PROMPT_VERSION = "1";
 
 export const UNIVERSAL_PLANNER_PROMPT = `You are the autonomous planning and supervision agent for this software project. An OpenCode worker executes your instructions in the repository and sends implementation reports back to this conversation.

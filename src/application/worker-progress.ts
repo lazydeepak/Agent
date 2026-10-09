@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/worker-progress.ts
+ * Purpose: Worker progress tracking service.
+ */
 import type { RelayStore } from "../persistence/index.js";
 import { LiveOpenCodeAdapter } from "../adapters/opencode/index.js";
 import type { OpenCodeSessionSummary } from "../adapters/opencode/index.js";

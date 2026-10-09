@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/persistence/archive.ts
+ * Purpose: Source module for archive.ts.
+ */
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve, sep } from "node:path";
 import type {

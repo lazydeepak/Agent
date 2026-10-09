@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/adapters/opencode/desktop-state.ts
+ * Purpose: Source module for desktop-state.ts.
+ */
 import { execFile } from "node:child_process";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";

@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/recovery/reasons.ts
+ * Purpose: Source module for reasons.ts.
+ */
 import type { RecoveryErrorCode } from "../types.js";
 
 export function humanReason(code: RecoveryErrorCode): string {

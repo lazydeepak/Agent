@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/sessions/pairs.ts
+ * Purpose: Source module for pairs.ts.
+ */
 import { readFile, writeFile } from "node:fs/promises";
 import { z } from "zod";
 import type { PairsConfig, SessionPair } from "../types.js";

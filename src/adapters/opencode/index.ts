@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/adapters/opencode/index.ts
+ * Purpose: OpenCode adapter exports (session management, readiness, event source).
+ */
 import { resolve } from "node:path";
 import { hashText } from "../../util/canonical.js";
 import type {

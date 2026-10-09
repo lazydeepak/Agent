@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/adapters/chatgpt/index.ts
+ * Purpose: ChatGPT browser adapter exports.
+ */
 import { existsSync } from "node:fs";
 import { platform, tmpdir } from "node:os";
 import { join } from "node:path";

@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/contracts/desktop.ts
+ * Purpose: Source module for desktop.ts.
+ */
 import type { OpenCodeModelInfo } from "../types.js";
 
 /**

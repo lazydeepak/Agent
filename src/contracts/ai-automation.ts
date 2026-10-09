@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/contracts/ai-automation.ts
+ * Purpose: Source module for ai-automation.ts.
+ */
 /** AI automation policy contract — transport-neutral, explicit, deterministic.
  *
  * Policy must never give a model autonomous authority to send answers,

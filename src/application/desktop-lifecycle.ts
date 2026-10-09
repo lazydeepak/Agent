@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/desktop-lifecycle.ts
+ * Purpose: Source module for desktop-lifecycle.ts.
+ */
 import type { RelayStore } from "../persistence/index.js";
 import { DesktopApplicationError } from "./desktop-service.js";
 

@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/runtime/wake-bus.ts
+ * Purpose: Source module for wake-bus.ts.
+ */
 export interface WakeSignal {
   pairId: string;
   source: "opencode" | "chatgpt";

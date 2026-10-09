@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/supervisor/state.ts
+ * Purpose: Source module for state.ts.
+ */
 import type { SupervisorState } from "../types.js";
 
 export const SUPERVISOR_STATES: readonly SupervisorState[] = [

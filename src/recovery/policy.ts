@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/recovery/policy.ts
+ * Purpose: Source module for policy.ts.
+ */
 import type { RecoveryPolicy, SupervisorState } from "../types.js";
 
 export const DEFAULT_RECOVERY_POLICY: RecoveryPolicy = "safe";

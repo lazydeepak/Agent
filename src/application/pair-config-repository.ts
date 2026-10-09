@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/pair-config-repository.ts
+ * Purpose: Source module for pair-config-repository.ts.
+ */
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { randomBytes } from "node:crypto";

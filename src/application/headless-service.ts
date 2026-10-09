@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/headless-service.ts
+ * Purpose: Source module for headless-service.ts.
+ */
 import { dirname, join } from "node:path";
 import { DesktopApplicationService } from "./desktop-service.js";
 import { ProjectPairService } from "./project-pair-service.js";

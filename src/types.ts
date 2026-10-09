@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/types.ts
+ * Purpose: Source module for types.ts.
+ */
 export type WorkerAdapterType = "opencode";
 export type PlannerAdapterType = "chatgpt-browser";
 

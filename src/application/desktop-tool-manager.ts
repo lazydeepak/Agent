@@ -2,7 +2,6 @@
  * Agent-relay codebase — module explanation / info.
  * File: src/application/desktop-tool-manager.ts
  * Purpose: Desktop tool launcher — spawns/attaches an external Chrome (CDP) and `opencode serve` for the Electron shell.
- * NEXT: build code index (upcoming phase — index symbols / files / functions for faster lookup).
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";

@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/service-entry.ts
+ * Purpose: Source module for service-entry.ts.
+ */
 import { runCli } from "./cli.js";
 
 const MANAGED_MODE = process.env.MANAGED_SIDECAR_MODE === "1" || process.env.RELAY_MANAGED_LOCAL === "1";

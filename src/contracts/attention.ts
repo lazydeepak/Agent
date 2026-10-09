@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/contracts/attention.ts
+ * Purpose: Source module for attention.ts.
+ */
 /** Transport-neutral worker attention contract.
  *
  * A worker assistant message can explicitly declare its attention kind

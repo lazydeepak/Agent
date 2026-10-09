@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/validator/readiness.ts
+ * Purpose: Readiness checks for worker/planner pairs.
+ */
 import type { ChatGPTBrowserAdapter } from "../adapters/chatgpt/index.js";
 import type { OpenCodeAdapter } from "../adapters/opencode/index.js";
 import type {

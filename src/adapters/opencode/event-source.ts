@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/adapters/opencode/event-source.ts
+ * Purpose: Source module for event-source.ts.
+ */
 import { interruptibleSleep } from "../../util/async.js";
 import { credentialsAllowed } from "../../util/net.js";
 
@@ -20,6 +25,24 @@ export interface OpenCodeEventSourceOptions {
   now?: () => Date;
   /** See `OpenCodeClientOptions.allowInsecureAuth`. */
   allowInsecureAuth?: boolean;
+}
+
+/** Statuses that will not resolve on retry, so the subscription fails instead of looping forever. */
+const TERMINAL_STATUS_CODES = new Set([400, 401, 403, 404, 405, 501]);
+
+/**
+ * Raised when the event source is rejected in a way that retrying cannot fix (bad credentials, or a
+ * server that does not expose the stream). Callers treat this as a hard degradation rather than a
+ * transient blip, which is what makes `EVENT_SOURCE_DEGRADED` observable.
+ */
+export class OpenCodeEventSourceTerminalError extends Error {
+  constructor(
+    readonly status: number,
+    message: string
+  ) {
+    super(message);
+    this.name = "OpenCodeEventSourceTerminalError";
+  }
 }
 
 export interface OpenCodeEventSource {
@@ -73,6 +96,18 @@ export class HttpOpenCodeEventSource implements OpenCodeEventSource {
         });
 
         if (!response.ok) {
+          // A rejection that will not fix itself must reach the caller. Retrying these forever
+          // hides a dead transport: the stream silently delivers nothing, no EVENT_SOURCE_DEGRADED
+          // is emitted, and the pair quietly falls back to polling with no signal to explain why.
+          if (TERMINAL_STATUS_CODES.has(response.status)) {
+            throw new OpenCodeEventSourceTerminalError(
+              response.status,
+              `OpenCode event source is unavailable (HTTP ${response.status}). ` +
+                (response.status === 401 || response.status === 403
+                  ? "The event source requires credentials; set AGENT_RELAY_OPENCODE_USERNAME and AGENT_RELAY_OPENCODE_PASSWORD."
+                  : "The server does not expose this event route.")
+            );
+          }
           throw new Error(`OpenCode event source returned HTTP ${response.status}`);
         }
 
@@ -123,6 +158,9 @@ export class HttpOpenCodeEventSource implements OpenCodeEventSource {
         if (signal.aborted) {
           return;
         }
+        if (error instanceof OpenCodeEventSourceTerminalError) {
+          throw error;
+        }
         // Stream ended or error occurred; will reconnect below
       }
 
@@ -138,9 +176,14 @@ export class HttpOpenCodeEventSource implements OpenCodeEventSource {
     }
   }
 
-  private buildUrl(sessionId: string, afterSeq?: number): string {
-    const encoded = encodeURIComponent(sessionId);
-    const path = `/api/session/${encoded}/event`;
+  /**
+   * OpenCode exposes one server-wide event stream at `/api/event`; the per-session path this used
+   * to call (`/api/session/{id}/event`) does not exist and answers 404. Because the stream is global,
+   * a subscriber must filter frames down to its own session using the identity the server puts on
+   * each frame.
+   */
+  private buildUrl(_sessionId: string, afterSeq?: number): string {
+    const path = "/api/event";
     if (afterSeq !== undefined) {
       return `${this.baseUrl}${path}?after=${afterSeq}`;
     }
@@ -209,9 +252,15 @@ export class HttpOpenCodeEventSource implements OpenCodeEventSource {
       return null;
     }
 
+    const durable = recordOf(payload.durable);
+    // The stream is server-wide, so frames for other sessions (and frames with no session at all,
+    // such as server.connected / skill.updated / shell.exited) must not wake this subscriber.
+    if (eventSessionId(payload, durable) !== sessionId) {
+      return null;
+    }
+
     const type = nonEmptyString(payload.type) ?? sse.eventType;
     const id = nonEmptyString(payload.id) ?? sse.eventId;
-    const durable = recordOf(payload.durable);
     const seq = validSequence(payload.seq) ?? validSequence(durable?.seq);
     const messageId = this.extractMessageId(payload);
 
@@ -234,6 +283,12 @@ export class HttpOpenCodeEventSource implements OpenCodeEventSource {
       payload.messageID,
       data?.messageId,
       data?.messageID,
+      // Observed on server frames, e.g. session.tool.success carries `assistantMessageID`.
+      data?.assistantMessageID,
+      data?.assistantMessageId,
+      // session.inbox.enqueued identifies the queued user turn this way.
+      data?.inboxID,
+      data?.inboxId,
       message?.id,
       message?.messageId,
       message?.messageID,
@@ -258,6 +313,24 @@ interface SseEvent {
 
 function stripOptionalSpace(value: string): string {
   return value.startsWith(" ") ? value.slice(1) : value;
+}
+
+/**
+ * The session a frame belongs to. Observed frames carry it as `data.sessionID`, with
+ * `durable.aggregateID` as the fallback for durable envelopes.
+ */
+function eventSessionId(
+  payload: Record<string, unknown>,
+  durable: Record<string, unknown> | undefined
+): string | undefined {
+  const data = recordOf(payload.data);
+  return (
+    nonEmptyString(payload.sessionID) ??
+    nonEmptyString(payload.sessionId) ??
+    nonEmptyString(data?.sessionID) ??
+    nonEmptyString(data?.sessionId) ??
+    nonEmptyString(durable?.aggregateID)
+  );
 }
 
 function recordOf(value: unknown): Record<string, unknown> | undefined {

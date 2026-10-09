@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/recovery/schedule.ts
+ * Purpose: Source module for schedule.ts.
+ */
 export interface BackoffPolicy {
   delaysMs: readonly number[];
   maxDelayMs?: number;

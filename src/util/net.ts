@@ -1,4 +1,9 @@
 /**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/util/net.ts
+ * Purpose: Source module for net.ts.
+ */
+/**
  * Transport-neutral URL helpers. Kept in `src/util` so adapters can use them without importing
  * from a higher layer.
  */

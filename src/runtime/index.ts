@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/runtime/index.ts
+ * Purpose: Pair runtime orchestration exports.
+ */
 export {
   RuntimeError,
   RuntimeOrchestrator,

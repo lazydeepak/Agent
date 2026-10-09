@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/sessions/project-pairs.ts
+ * Purpose: Project-pair identity / ownership service.
+ */
 import { isAbsolute } from "node:path";
 import { z } from "zod";
 import type { ProjectPair, ProjectPairsConfig } from "../types.js";

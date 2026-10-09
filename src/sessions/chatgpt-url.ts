@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/sessions/chatgpt-url.ts
+ * Purpose: Source module for chatgpt-url.ts.
+ */
 export type ChatGptUrlErrorCode =
   | "INVALID_URL"
   | "NOT_CHATGPT_HOST"

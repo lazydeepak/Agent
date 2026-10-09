@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/event-log.ts
+ * Purpose: Source module for event-log.ts.
+ */
 import type { EventFilter, EventRecord } from "../contracts/events.js";
 
 export interface EventLogOptions {

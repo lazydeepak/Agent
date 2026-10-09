@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/recovery/index.ts
+ * Purpose: Recovery engine exports.
+ */
 export {
   browserManagerFor,
   ExternalBrowserManager,

@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/supervisor/observation.ts
+ * Purpose: Observation / event correlation utilities.
+ */
 import type { ChatGPTBrowserAdapter } from "../adapters/chatgpt/index.js";
 import type { OpenCodeSessionManager } from "../adapters/opencode/index.js";
 import type {

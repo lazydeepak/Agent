@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/desktop-service.ts
+ * Purpose: Electron desktop service integration.
+ */
 import { dirname, join, resolve } from "node:path";
 import { closeSync, existsSync, fstatSync, openSync, readSync, writeFileSync } from "node:fs";
 import type { EventRecord } from "../contracts/events.js";

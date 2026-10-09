@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/project-pair-service.ts
+ * Purpose: Project-pair identity / ownership service.
+ */
 import { basename, isAbsolute, resolve } from "node:path";
 import { LiveOpenCodeAdapter } from "../adapters/opencode/index.js";
 import {

@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/validator/report.ts
+ * Purpose: Source module for report.ts.
+ */
 import type { PairReadinessReport } from "../types.js";
 
 export function formatReadinessReport(results: PairReadinessReport[]): string {

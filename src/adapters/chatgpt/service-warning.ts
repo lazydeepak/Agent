@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/adapters/chatgpt/service-warning.ts
+ * Purpose: Source module for service-warning.ts.
+ */
 import type { Page } from "playwright-core";
 
 // Conversation prose and hidden/stale UI must not control readiness.

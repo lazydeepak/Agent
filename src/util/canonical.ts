@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/util/canonical.ts
+ * Purpose: Canonicalization helpers (URL, identity, hash).
+ */
 import { createHash } from "node:crypto";
 
 /**

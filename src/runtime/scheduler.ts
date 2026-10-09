@@ -1,4 +1,9 @@
 /**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/runtime/scheduler.ts
+ * Purpose: Source module for scheduler.ts.
+ */
+/**
  * Runtime scheduling primitives.
  *
  * The generic async helpers (`interruptibleSleep`, `FifoMutex`, `LockRegistry`) live in

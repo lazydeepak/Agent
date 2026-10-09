@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/relay-engine.ts
+ * Purpose: Source module for relay-engine.ts.
+ */
 import type { RuntimeOrchestrator, RuntimeStatusSummary } from "../runtime/index.js";
 import type { RuntimePairStatus, SessionPair } from "../types.js";
 import type { PlannerSeedingService } from "./planner-seeding-service.js";

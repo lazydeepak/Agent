@@ -2,7 +2,6 @@
  * Agent-relay codebase — module explanation / info.
  * File: src/adapters/opencode/http.ts
  * Purpose: OpenCode HTTP client — typed request/response DTOs, auth headers, and error mapping for the OpenCode server.
- * NEXT: build code index (upcoming phase — index symbols / files / functions for faster lookup).
  */
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";

@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/cli.ts
+ * Purpose: CLI entrypoint — parses args and starts runtime / service.
+ */
 import { FakeChatGPTBrowserAdapter, LiveChatGPTBrowserAdapter } from "./adapters/chatgpt/index.js";
 import {
   FakeOpenCodeAdapter,

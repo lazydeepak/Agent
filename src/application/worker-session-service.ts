@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/worker-session-service.ts
+ * Purpose: Worker session management service.
+ */
 import { LiveOpenCodeAdapter, type OpenCodeSessionSummary } from "../adapters/opencode/index.js";
 import { scanOpenCodeDesktopActiveSession, OpenCodeDesktopStateError } from "../adapters/opencode/desktop-state.js";
 import { resolve } from "node:path";

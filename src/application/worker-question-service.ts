@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/worker-question-service.ts
+ * Purpose: Source module for worker-question-service.ts.
+ */
 import { resolve } from "node:path";
 import { OpenCodeHttpClient, type OpenCodeClientOptions } from "../adapters/opencode/http.js";
 import type { SessionPair } from "../types.js";

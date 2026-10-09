@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/remote/remote-server.ts
+ * Purpose: Optional HTTP control API (service start only).
+ */
 import { createHash, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { RuntimeStatusSummary } from "../runtime/index.js";

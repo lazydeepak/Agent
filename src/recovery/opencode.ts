@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/recovery/opencode.ts
+ * Purpose: Source module for opencode.ts.
+ */
 import { resolve } from "node:path";
 import type { OpenCodeSessionManager } from "../adapters/opencode/index.js";
 import type { RecoveryErrorCode } from "../types.js";

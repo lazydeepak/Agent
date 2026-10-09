@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/control-plane-adapter.ts
+ * Purpose: Control-plane adapter for worker/planner pairs.
+ */
 import { resolve } from "node:path";
 import { DesktopApplicationService } from "./desktop-service.js";
 import { ProjectPairService } from "./project-pair-service.js";

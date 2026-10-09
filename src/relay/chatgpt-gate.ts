@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/relay/chatgpt-gate.ts
+ * Purpose: Source module for chatgpt-gate.ts.
+ */
 export const DEFAULT_CHATGPT_MIN_SUBMIT_INTERVAL_MS = 30_000;
 export const DEFAULT_CHATGPT_BACKOFF_INITIAL_MS = 30_000;
 export const DEFAULT_CHATGPT_BACKOFF_MAX_MS = 5 * 60_000;

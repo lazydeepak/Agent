@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/automation-governor.ts
+ * Purpose: Source module for automation-governor.ts.
+ */
 import type { AttentionService } from "./attention-service.js";
 import type { AttentionAdvisorProvider } from "../application/advisor-provider.js";
 import type { AiAutomationPolicy } from "../contracts/ai-automation.js";

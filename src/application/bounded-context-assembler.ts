@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/bounded-context-assembler.ts
+ * Purpose: Source module for bounded-context-assembler.ts.
+ */
 import type { DesktopApplicationService } from "./desktop-service.js";
 import type { BoundedContext } from "../contracts/ai-proposal.js";
 

@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/worker-transcript-service.ts
+ * Purpose: Worker transcript / session summary service.
+ */
 import { resolve } from "node:path";
 import { LiveOpenCodeAdapter } from "../adapters/opencode/index.js";
 import { OpenCodeHttpClient, type OpenCodeClientOptions } from "../adapters/opencode/http.js";

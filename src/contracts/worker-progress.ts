@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/contracts/worker-progress.ts
+ * Purpose: Worker progress tracking service.
+ */
 export type WorkerProgressState =
   | "working"
   | "idle"

@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/supervisor/events.ts
+ * Purpose: Source module for events.ts.
+ */
 import { createWriteStream, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { SupervisorState } from "../types.js";

@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/ollama-adapter.ts
+ * Purpose: Source module for ollama-adapter.ts.
+ */
 import type { AttentionAdvisorInput, AttentionAdvisorResult } from "../contracts/ai-proposal.js";
 import type { AttentionAdvisorProvider } from "../application/advisor-provider.js";
 

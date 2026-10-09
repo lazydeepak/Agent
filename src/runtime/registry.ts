@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/runtime/registry.ts
+ * Purpose: Source module for registry.ts.
+ */
 import type { SessionPair } from "../types.js";
 
 export class RegistryError extends Error {

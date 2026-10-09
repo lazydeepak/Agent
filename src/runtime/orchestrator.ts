@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/runtime/orchestrator.ts
+ * Purpose: Source module for orchestrator.ts.
+ */
 import type { RelayStore } from "../persistence/index.js";
 import type { RuntimeEvent, SupervisorEvent, SupervisorLogger } from "../supervisor/events.js";
 import type { SupervisorRecoveryOptions, SupervisorReport } from "../supervisor/supervisor.js";

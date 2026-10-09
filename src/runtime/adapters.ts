@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/runtime/adapters.ts
+ * Purpose: Adapter registry / factory.
+ */
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { FakeChatGPTBrowserAdapter, LiveChatGPTBrowserAdapter } from "../adapters/chatgpt/index.js";

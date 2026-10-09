@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/runtime/logging.ts
+ * Purpose: Source module for logging.ts.
+ */
 import { createWriteStream, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import type { SupervisorLogger, SupervisorEvent, RuntimeEvent } from "../supervisor/events.js";

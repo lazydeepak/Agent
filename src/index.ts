@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/index.ts
+ * Purpose: Module exports for src.
+ */
 import { runCli } from "./cli.js";
 
 await runCli(process.argv.slice(2));

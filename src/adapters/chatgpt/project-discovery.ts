@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/adapters/chatgpt/project-discovery.ts
+ * Purpose: Source module for project-discovery.ts.
+ */
 import { parseChatGptConversationUrl } from "../../sessions/chatgpt-url.js";
 
 export interface CdpListTarget {

@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/persistence/canonical.ts
+ * Purpose: Canonicalization helpers (URL, identity, hash).
+ */
 import type { CanonicalRelayIdentity, RelayDirection, RelayableMessage } from "../types.js";
 import { hashText } from "../util/canonical.js";
 

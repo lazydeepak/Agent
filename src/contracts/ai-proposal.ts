@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/contracts/ai-proposal.ts
+ * Purpose: Source module for ai-proposal.ts.
+ */
 /** AI advisor proposal contract — transport-neutral.
  *
  * The model produces a proposal; Agent remains the authority.

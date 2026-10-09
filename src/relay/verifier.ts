@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/relay/verifier.ts
+ * Purpose: Source module for verifier.ts.
+ */
 import type { ChatGPTBrowserAdapter } from "../adapters/chatgpt/index.js";
 import type { OpenCodeSessionManager } from "../adapters/opencode/index.js";
 import { canonicalizeText } from "../persistence/canonical.js";

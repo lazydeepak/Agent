@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/supervisor/classifier.ts
+ * Purpose: Source module for classifier.ts.
+ */
 import type {
   ObservationSnapshot,
   SupervisorContinuity,

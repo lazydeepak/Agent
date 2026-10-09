@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/supervisor/index.ts
+ * Purpose: Supervisor / observation loop exports.
+ */
 export {
   classify,
   emptyCycleContext,

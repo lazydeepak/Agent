@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/runtime/pair-runtime.ts
+ * Purpose: Per-pair concurrent runtime supervisor.
+ */
 import type { ChatGPTBrowserAdapter } from "../adapters/chatgpt/index.js";
 import type { OpenCodeEventSource, OpenCodeSessionManager } from "../adapters/opencode/index.js";
 import type { RelayStore } from "../persistence/index.js";

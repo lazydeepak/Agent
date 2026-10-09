@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/recovery/browser.ts
+ * Purpose: Source module for browser.ts.
+ */
 import type { BrowserOwnership } from "../types.js";
 
 export interface BrowserStatus {

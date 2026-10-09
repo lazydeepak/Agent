@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/recovery/chatgpt.ts
+ * Purpose: Source module for chatgpt.ts.
+ */
 import {
   type ChatGPTBrowserAdapter
 } from "../adapters/chatgpt/index.js";

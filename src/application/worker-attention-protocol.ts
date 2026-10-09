@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/worker-attention-protocol.ts
+ * Purpose: Source module for worker-attention-protocol.ts.
+ */
 /** Explicit bounded worker-attention protocol.
  *
  * A worker assistant message must declare its attention kind through a

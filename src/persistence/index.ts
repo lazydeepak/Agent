@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/persistence/index.ts
+ * Purpose: Persistence / SQLite store exports.
+ */
 export {
   RelayStoreError,
   SqliteRelayStore,

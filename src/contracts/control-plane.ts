@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/contracts/control-plane.ts
+ * Purpose: Control-plane adapter for worker/planner pairs.
+ */
 /** Transport-neutral control-plane operation contract.
  *
  * The core application exposes typed operations independent of transport.

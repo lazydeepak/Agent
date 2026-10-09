@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/local-agent-planner-prompt.ts
+ * Purpose: Source module for local-agent-planner-prompt.ts.
+ */
 export const LOCAL_AGENT_PLANNER_PROMPT_VERSION = "1";
 
 export const LOCAL_AGENT_PLANNER_PROMPT = `You are the planning and supervision agent for an autonomous software-development relay.

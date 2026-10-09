@@ -1,4 +1,9 @@
 /**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/util/async.ts
+ * Purpose: Async primitives (timeout, retry, bounded backoff).
+ */
+/**
  * Async primitives shared by every layer. These live in `src/util` so adapters and the supervisor
  * never have to import from `src/runtime` (which sits above them).
  */

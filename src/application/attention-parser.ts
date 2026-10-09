@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/attention-parser.ts
+ * Purpose: Source module for attention-parser.ts.
+ */
 /** Explicit bounded worker-attention envelope parser.
  *
  * Workers must emit attention through a bounded machine-readable marker.

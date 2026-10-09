@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/attention-service.ts
+ * Purpose: Source module for attention-service.ts.
+ */
 import type { DesktopApplicationService } from "./desktop-service.js";
 import type { RelayStore } from "../persistence/index.js";
 import { parseWorkerAttentionEnvelope } from "./attention-parser.js";

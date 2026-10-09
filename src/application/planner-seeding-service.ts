@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/application/planner-seeding-service.ts
+ * Purpose: Source module for planner-seeding-service.ts.
+ */
 import { createPairAdapters } from "../runtime/index.js";
 import type { LockRegistry, RuntimeAdapterOptions } from "../runtime/index.js";
 import type { RelayStore } from "../persistence/index.js";

@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/util/readiness.ts
+ * Purpose: Readiness checks for worker/planner pairs.
+ */
 import type { CheckStatus, ReadinessCheck } from "../types.js";
 
 /**

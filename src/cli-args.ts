@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/cli-args.ts
+ * Purpose: CLI argument parsing schema.
+ */
 import { isRecoveryPolicy } from "./recovery/index.js";
 import type { ChatGPTBrowserConfig, OpenCodeServerConfig } from "./types.js";
 

@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/recovery/engine.ts
+ * Purpose: Source module for engine.ts.
+ */
 import { type ChatGPTBrowserAdapter } from "../adapters/chatgpt/index.js";
 import { type OpenCodeSessionManager } from "../adapters/opencode/index.js";
 import type {

@@ -1,3 +1,8 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/supervisor/policy.ts
+ * Purpose: Source module for policy.ts.
+ */
 import type { ObservationSnapshot, SupervisorState } from "../types.js";
 import type { CycleContext } from "./classifier.js";
 
