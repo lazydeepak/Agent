@@ -340,6 +340,8 @@ function renderDashboard(): void {
     renderDashboardAgentHealth(agentHealthContainer);
   }
 
+  void updateBackendHealthStatus();
+
   if (historyContainer) {
     void (async () => {
       const timeline = await window.desktop.getTimeline(undefined, 50);
@@ -1333,4 +1335,70 @@ setPairCardHooks({
 
 setWizardHooks({
   refresh: () => refresh()
+});
+
+async function updateBackendHealthStatus(): Promise<void> {
+  const opencodeStatusEl = document.getElementById("backend-opencode-status");
+  const opencodeDetailEl = document.getElementById("backend-opencode-detail");
+  const chatgptStatusEl = document.getElementById("backend-chatgpt-status");
+  const chatgptDetailEl = document.getElementById("backend-chatgpt-detail");
+
+  try {
+    const opencodeEndpoint = await window.desktop.getOpenCodeEndpoint();
+    if (opencodeDetailEl) opencodeDetailEl.textContent = `Endpoint: ${opencodeEndpoint}`;
+    const opencodeTest = await window.desktop.testWorkerEndpoint({ baseUrl: opencodeEndpoint });
+    if (opencodeStatusEl) {
+      opencodeStatusEl.textContent = opencodeTest.ok ? "ONLINE" : "OFFLINE";
+      opencodeStatusEl.className = `badge ${opencodeTest.ok ? "badge-ok" : "badge-danger"}`;
+    }
+  } catch {
+    if (opencodeStatusEl) {
+      opencodeStatusEl.textContent = "OFFLINE";
+      opencodeStatusEl.className = "badge badge-danger";
+    }
+  }
+
+  try {
+    const chatgptEndpoint = await window.desktop.getChatGptEndpoint();
+    if (chatgptDetailEl) chatgptDetailEl.textContent = `CDP Endpoint: ${chatgptEndpoint}`;
+    const chatgptTest = await window.desktop.testPlannerEndpoint({ cdpUrl: chatgptEndpoint });
+    if (chatgptStatusEl) {
+      chatgptStatusEl.textContent = chatgptTest.ok ? "ONLINE" : "OFFLINE";
+      chatgptStatusEl.className = `badge ${chatgptTest.ok ? "badge-ok" : "badge-danger"}`;
+    }
+  } catch {
+    if (chatgptStatusEl) {
+      chatgptStatusEl.textContent = "OFFLINE";
+      chatgptStatusEl.className = "badge badge-danger";
+    }
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("backend-test-opencode")?.addEventListener("click", async () => {
+    const res = await runAction(() => window.desktop.testWorkerEndpoint());
+    if (res) toast(res.message, res.ok ? "ok" : "error");
+    void updateBackendHealthStatus();
+  });
+  document.getElementById("backend-start-opencode")?.addEventListener("click", async () => {
+    const repoPath = state.pairs[0]?.worker.repoPath || "/tmp";
+    const res = await runAction(() => window.desktop.startWorkerServer({ repoPath }));
+    if (res) toast(res.message, res.ok ? "ok" : "error");
+    void updateBackendHealthStatus();
+  });
+  document.getElementById("backend-update-opencode")?.addEventListener("click", async () => {
+    const res = await runAction(() => window.desktop.updateOpenCode());
+    if (res) toast(res.message, res.ok ? "ok" : "error");
+    void updateBackendHealthStatus();
+  });
+  document.getElementById("backend-test-chatgpt")?.addEventListener("click", async () => {
+    const res = await runAction(() => window.desktop.testPlannerEndpoint());
+    if (res) toast(res.message, res.ok ? "ok" : "error");
+    void updateBackendHealthStatus();
+  });
+  document.getElementById("backend-start-chatgpt")?.addEventListener("click", async () => {
+    const res = await runAction(() => window.desktop.startPlannerBrowser());
+    if (res) toast(res.message, res.ok ? "ok" : "error");
+    void updateBackendHealthStatus();
+  });
 });

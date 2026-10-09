@@ -120,6 +120,43 @@
               </div>
             </div>
 
+            <div class="dashboard-section dashboard-backend-health-section">
+              <div class="section-header">
+                <div>
+                  <h3>Backend Agent Health & Server Controls</h3>
+                  <span class="section-hint">Monitor and manage OpenCode and ChatGPT server/browser daemon endpoints</span>
+                </div>
+              </div>
+              <div class="dashboard-backend-grid">
+                <!-- OpenCode Health & Server Control -->
+                <div class="dashboard-backend-card">
+                  <div class="backend-card-header">
+                    <h4>OpenCode Server</h4>
+                    <span id="backend-opencode-status" class="badge badge-neutral">Checking…</span>
+                  </div>
+                  <p id="backend-opencode-detail" class="backend-card-detail">Endpoint: checking…</p>
+                  <div class="backend-card-actions">
+                    <button id="backend-test-opencode" class="btn btn-sm btn-ghost">Test Endpoint</button>
+                    <button id="backend-start-opencode" class="btn btn-sm btn-primary">Start Server</button>
+                    <button id="backend-update-opencode" class="btn btn-sm btn-ghost">Update</button>
+                  </div>
+                </div>
+
+                <!-- ChatGPT / Planner Health & Server Control -->
+                <div class="dashboard-backend-card">
+                  <div class="backend-card-header">
+                    <h4>ChatGPT / Planner Browser</h4>
+                    <span id="backend-chatgpt-status" class="badge badge-neutral">Checking…</span>
+                  </div>
+                  <p id="backend-chatgpt-detail" class="backend-card-detail">CDP Endpoint: checking…</p>
+                  <div class="backend-card-actions">
+                    <button id="backend-test-chatgpt" class="btn btn-sm btn-ghost">Test Endpoint</button>
+                    <button id="backend-start-chatgpt" class="btn btn-sm btn-primary">Start Browser</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Agent Health Monitoring Section -->
             <div class="dashboard-section dashboard-health-section">
               <div class="section-header">
