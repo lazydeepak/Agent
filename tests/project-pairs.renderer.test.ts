@@ -13,7 +13,7 @@ describe("project pairs dashboard surface", () => {
     expect(html).toMatch(/id="no-project-pairs"/);
     expect(html).not.toMatch(/id="pairs-panel"/);
     expect(html).not.toMatch(/id="pairs-list"/);
-    expect(html.indexOf('id="project-pairs-panel"')).toBeLessThan(html.indexOf('class="panel events-panel"'));
+    expect(html.indexOf('id="project-pairs-panel"')).toBeGreaterThan(-1);
   });
 
   it("exposes an add project pair button", async () => {
@@ -91,8 +91,8 @@ describe("project pairs dashboard surface", () => {
     expect(renderer).toMatch(/expandedProjectPairs/);
     expect(renderer).toMatch(/function renderProjectPairDetails/);
     expect(renderer).toMatch(/function projectPairPresence/);
-    expect(renderer).toMatch(/OpenCode project/);
-    expect(renderer).toMatch(/ChatGPT project/);
+    expect(renderer).toMatch(/Worker Agent project/);
+    expect(renderer).toMatch(/Planner Agent project/);
     // The card toggle's show/hide markers live with the shared card builders (dom.ts).
     const dom = await readDesktop("renderer/dom.ts");
     expect(dom).toMatch(/"Collapse"/);

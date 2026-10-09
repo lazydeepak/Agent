@@ -99,7 +99,7 @@ describe("renderer visibility styles", () => {
 
   it("exposes the open-worker-session action on pair cards", async () => {
     const pairCard = await readFile(new URL("../desktop/renderer/pair-card.ts", import.meta.url), "utf8");
-    expect(pairCard).toMatch(/Open worker session/);
+    expect(pairCard).toMatch(/Open Worker Agent/);
   });
 
   it("wires the show-worker-on-start preference to start actions", async () => {

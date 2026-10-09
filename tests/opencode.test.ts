@@ -207,6 +207,39 @@ describe("OpenCodeHttpClient", () => {
     expect(requests).not.toContain("POST /api/session/ses_worker_1/message");
   });
 
+  it("recognizes OpenCode 2.0.22 as v2 even when /global/health is present", async () => {
+    const requests: string[] = [];
+    const client = new OpenCodeHttpClient({
+      baseUrl: "http://127.0.0.1:4096",
+      fetch: async (input: URL | RequestInfo, init) => {
+        const path = new URL(String(input)).pathname;
+        const method = init?.method ?? "GET";
+        requests.push(`${method} ${path}`);
+        if (path === "/doc") {
+          return jsonResponse({
+            paths: {
+              "/global/health": { get: {} },
+              "/api/health": {},
+              "/api/session": {},
+              "/api/session/{sessionId}/message": { get: {}, post: {} }
+            }
+          });
+        }
+        if (path === "/global/health") {
+          return jsonResponse({ healthy: true, version: "2.0.22" });
+        }
+        if (path === "/api/session/ses_worker_1/message" && method === "POST") {
+          return jsonResponse({});
+        }
+        return new Response("not found", { status: 404, statusText: "Not Found" });
+      }
+    });
+
+    await expect(client.sendSessionMessage("ses_worker_1", "Hello 2.0.22")).resolves.toBeUndefined();
+    expect(requests).toContain("POST /api/session/ses_worker_1/message");
+    expect(requests).not.toContain("POST /session/ses_worker_1/message");
+  });
+
   it("falls back to legacy message writes when v2 posts are unavailable", async () => {
     const requests: string[] = [];
     const client = new OpenCodeHttpClient({

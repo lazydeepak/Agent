@@ -237,7 +237,18 @@ export class OpenCodeHttpClient {
       }
     }
 
-    return this.requestJson("/api/health");
+    try {
+      return await this.requestJson("/api/health");
+    } catch (error) {
+      if (error instanceof OpenCodeHttpError && error.status === 404) {
+        try {
+          return await this.requestJson("/global/health");
+        } catch {
+          // ignore fallback error and throw original
+        }
+      }
+      throw error;
+    }
   }
 
   async serverInfo(): Promise<unknown> {
@@ -256,7 +267,33 @@ export class OpenCodeHttpClient {
       }
     }
 
-    return this.requestJson("/api/server");
+    try {
+      return await this.requestJson("/api/server");
+    } catch {
+      return await this.requestJson("/api/health");
+    }
+  }
+
+  async getVersion(): Promise<string | undefined> {
+    try {
+      const info = (await this.serverInfo()) as { version?: string; data?: { version?: string } };
+      if (info && typeof info === "object") {
+        if (typeof info.version === "string") return info.version;
+        if (info.data && typeof info.data === "object" && typeof info.data.version === "string") {
+          return info.data.version;
+        }
+      }
+      const health = (await this.health()) as { version?: string; data?: { version?: string } };
+      if (health && typeof health === "object") {
+        if (typeof health.version === "string") return health.version;
+        if (health.data && typeof health.data === "object" && typeof health.data.version === "string") {
+          return health.data.version;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return undefined;
   }
 
   async listSessions(options: { repoPath?: string; limit?: number } = {}): Promise<OpenCodeSessionList> {
@@ -267,7 +304,15 @@ export class OpenCodeHttpClient {
       if (options.repoPath) {
         params.set("directory", resolve(options.repoPath));
       }
-      return (await this.requestJson(`/api/session?${params.toString()}`)) as OpenCodeSessionList;
+      const raw = await this.requestJson(`/api/session?${params.toString()}`);
+      if (Array.isArray(raw)) {
+        return { data: raw };
+      }
+      const list = raw as OpenCodeSessionList;
+      return {
+        data: list?.data ?? [],
+        cursor: list?.cursor
+      };
     }
 
     const legacyParams = new URLSearchParams();
@@ -277,19 +322,18 @@ export class OpenCodeHttpClient {
     const suffix = legacyParams.size > 0 ? `?${legacyParams.toString()}` : "";
     const legacySessions = (await this.requestJson(`/session${suffix}`)) as OpenCodeSessionInfo[];
     return {
-      data: legacySessions.slice(0, options.limit ?? legacySessions.length)
+      data: Array.isArray(legacySessions) ? legacySessions.slice(0, options.limit ?? legacySessions.length) : []
     };
   }
 
   async getSession(sessionId: string): Promise<OpenCodeSessionInfo> {
     if ((await this.apiMode()) === "v2") {
-      const response = (await this.requestJson(`/api/session/${encodeURIComponent(sessionId)}`)) as {
-        data?: OpenCodeSessionInfo;
-      };
-      if (!response.data) {
+      const response = await this.requestJson(`/api/session/${encodeURIComponent(sessionId)}`);
+      const session = (response as { data?: OpenCodeSessionInfo })?.data ?? (response as OpenCodeSessionInfo);
+      if (!session || (!session.id && !(session as any).sessionId)) {
         throw new Error(`OpenCode session ${sessionId} response did not include data.`);
       }
-      return response.data;
+      return session;
     }
 
     return (await this.requestJson(`/session/${encodeURIComponent(sessionId)}`)) as OpenCodeSessionInfo;
@@ -297,8 +341,13 @@ export class OpenCodeHttpClient {
 
   async listModels(): Promise<OpenCodeModelInfo[]> {
     if ((await this.apiMode()) !== "v2") return [];
-    const response = (await this.requestJson("/api/model")) as { data?: OpenCodeModelInfo[] };
-    return response.data ?? [];
+    try {
+      const response = (await this.requestJson("/api/model")) as { data?: OpenCodeModelInfo[] } | OpenCodeModelInfo[];
+      if (Array.isArray(response)) return response;
+      return (response as { data?: OpenCodeModelInfo[] })?.data ?? [];
+    } catch {
+      return [];
+    }
   }
 
   async listQuestions(sessionId: string): Promise<OpenCodeQuestion[]> {
@@ -306,8 +355,9 @@ export class OpenCodeHttpClient {
       const result = await this.requestJson("/question") as OpenCodeQuestion[];
       return result.filter(question => question.sessionID === sessionId);
     }
-    const result = await this.requestJson(`/api/session/${encodeURIComponent(sessionId)}/question`) as { data: OpenCodeQuestion[] };
-    return result.data.filter((question) => question.sessionID === sessionId);
+    const result = await this.requestJson(`/api/session/${encodeURIComponent(sessionId)}/question`) as { data: OpenCodeQuestion[] } | OpenCodeQuestion[];
+    const list = Array.isArray(result) ? result : (result as { data: OpenCodeQuestion[] }).data ?? [];
+    return list.filter((question) => question.sessionID === sessionId);
   }
 
   async answerQuestion(sessionId: string, requestId: string, answers: string[][]): Promise<void> {
@@ -336,8 +386,11 @@ export class OpenCodeHttpClient {
 
   async listActiveSessions(): Promise<Record<string, unknown>> {
     if ((await this.activeApiMode()) === "v2") {
-      const response = (await this.requestJson("/api/session/active")) as { data?: Record<string, unknown> };
-      return response.data ?? {};
+      const response = (await this.requestJson("/api/session/active")) as { data?: Record<string, unknown> } | Record<string, unknown>;
+      if (response && typeof response === "object" && "data" in response) {
+        return (response as { data?: Record<string, unknown> }).data ?? {};
+      }
+      return (response as Record<string, unknown>) ?? {};
     }
 
     return (await this.requestJson("/session/status")) as Record<string, unknown>;
@@ -345,17 +398,17 @@ export class OpenCodeHttpClient {
 
   async listSessionMessages(sessionId: string): Promise<OpenCodeMessageInfo[]> {
     if ((await this.readMessageApiMode()) === "v2") {
-      const response = (await this.requestJson(
+      const response = await this.requestJson(
         `/api/session/${encodeURIComponent(sessionId)}/message?order=desc&limit=100`
-      )) as {
-        data?: OpenCodeMessageInfo[];
-      };
-      return response.data ?? [];
+      );
+      if (Array.isArray(response)) return response;
+      return (response as { data?: OpenCodeMessageInfo[] })?.data ?? [];
     }
 
-    return (await this.requestJson(
+    const legacy = await this.requestJson(
       `/session/${encodeURIComponent(sessionId)}/message?limit=100`
-    )) as OpenCodeMessageInfo[];
+    );
+    return Array.isArray(legacy) ? legacy : (legacy as { data?: OpenCodeMessageInfo[] })?.data ?? [];
   }
 
   async sendSessionMessage(sessionId: string, text: string): Promise<void> {
@@ -417,15 +470,33 @@ export class OpenCodeHttpClient {
     }
 
     const path = `/api/session/${encodeURIComponent(sessionId)}/prompt`;
-    const result = (await this.requestJson(path, {
-      method: "POST",
-      body
-    })) as OpenCodePromptResult;
+    try {
+      const result = (await this.requestJson(path, {
+        method: "POST",
+        body
+      })) as OpenCodePromptResult | { id?: string; sessionID?: string };
 
-    if (!result.data || !result.data.id) {
+      if ((result as OpenCodePromptResult)?.data?.id) {
+        return (result as OpenCodePromptResult).data!;
+      }
+      if ((result as any)?.id) {
+        return result as unknown as OpenCodePromptAdmission;
+      }
       throw new OpenCodeUnexpectedResponseError(path, "application/json", JSON.stringify(result).slice(0, 200));
+    } catch (error) {
+      if (error instanceof OpenCodeHttpError && (error.status === 404 || error.status === 405)) {
+        await this.sendSessionMessage(sessionId, input.text);
+        return {
+          id: input.id ?? "",
+          sessionID: sessionId,
+          timeCreated: Date.now() / 1000,
+          type: "user",
+          payload: { text: input.text },
+          delivery: input.delivery
+        };
+      }
+      throw error;
     }
-    return result.data;
   }
 
   async history(sessionId: string, after?: number): Promise<OpenCodeHistoryResult> {
@@ -460,25 +531,28 @@ export class OpenCodeHttpClient {
 
   async createSession(input: CreateOpenCodeSessionInput): Promise<OpenCodeSessionInfo> {
     if ((await this.apiMode()) === "v2") {
+      const resolvedDir = resolve(input.repoPath);
       const response = (await this.requestJson("/api/session", {
         method: "POST",
         body: JSON.stringify({
           id: input.sessionId ?? null,
           title: input.title ?? null,
+          directory: resolvedDir,
           location: {
-            directory: resolve(input.repoPath)
+            directory: resolvedDir
           },
           metadata: {
             createdBy: "agent-relay"
           }
         })
-      })) as { data?: OpenCodeSessionInfo };
+      })) as { data?: OpenCodeSessionInfo } | OpenCodeSessionInfo;
 
-      if (!response.data) {
+      const session = (response as { data?: OpenCodeSessionInfo })?.data ?? (response as OpenCodeSessionInfo);
+      if (!session || (!session.id && !(session as any).sessionId)) {
         throw new Error("OpenCode create session response did not include data.");
       }
 
-      return response.data;
+      return session;
     }
 
     return (await this.requestJson("/session", {
@@ -560,9 +634,8 @@ export class OpenCodeHttpClient {
       return;
     }
 
-    // OpenCode's own UI (Desktop and the server's embedded web client) probes /global/health first
-    // and treats a healthy response as legacy, even when v2 is also available. Match that exactly so
-    // both sides read and write the same message store instead of picking v2 whenever it exists.
+    // OpenCode's own UI probes /global/health first. In OpenCode 1.x, healthy indicates legacy.
+    // In OpenCode 2.0.x (e.g. 2.0.22), it is a V2 server; globalHealthIsLegacy checks for version < 2.
     if (Object.prototype.hasOwnProperty.call(paths, "/global/health") && (await this.globalHealthIsLegacy())) {
       this.pinApiProtocol("legacy");
       return;
@@ -570,7 +643,12 @@ export class OpenCodeHttpClient {
 
     if (
       Object.prototype.hasOwnProperty.call(paths, "/api/session/{sessionID}/prompt") ||
-      Object.prototype.hasOwnProperty.call(paths, "/api/session/{sessionID}/message")
+      Object.prototype.hasOwnProperty.call(paths, "/api/session/{sessionId}/prompt") ||
+      Object.prototype.hasOwnProperty.call(paths, "/api/session/{id}/prompt") ||
+      Object.prototype.hasOwnProperty.call(paths, "/api/session/{sessionID}/message") ||
+      Object.prototype.hasOwnProperty.call(paths, "/api/session/{sessionId}/message") ||
+      Object.prototype.hasOwnProperty.call(paths, "/api/session/{id}/message") ||
+      Object.prototype.hasOwnProperty.call(paths, "/api/session")
     ) {
       this.pinApiProtocol("v2");
       return;
@@ -581,8 +659,13 @@ export class OpenCodeHttpClient {
 
   private async globalHealthIsLegacy(): Promise<boolean> {
     try {
-      const result = (await this.requestJson("/global/health")) as { healthy?: boolean };
-      return result?.healthy === true;
+      const result = (await this.requestJson("/global/health")) as { healthy?: boolean; version?: string };
+      if (!result?.healthy) return false;
+      // In OpenCode 2.0.x (e.g. 2.0.22), version >= 2 is V2 protocol, not legacy.
+      if (typeof result.version === "string" && /^v?2\./.test(result.version.trim())) {
+        return false;
+      }
+      return true;
     } catch {
       return false;
     }

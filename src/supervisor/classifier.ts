@@ -60,7 +60,7 @@ export function classify(input: ClassifyInput): Classification {
     return {
       state: "FAILED",
       reason:
-        "Delivery state is uncertain and requires verification."
+        "Delivery state is uncertain and requires reconciliation and verification."
     };
   }
 

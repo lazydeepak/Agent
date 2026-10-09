@@ -122,16 +122,31 @@ export function openCodeDesktopStateDirectories(
   environment: NodeJS.ProcessEnv = process.env,
   home: string = homedir()
 ): string[] {
+  const dirs: string[] = [];
+
   const appData =
     platform === "darwin"
       ? join(home, "Library", "Application Support")
       : platform === "win32"
         ? environment.APPDATA
         : environment.XDG_CONFIG_HOME ?? join(home, ".config");
-  if (!appData) return [];
-  return ["ai.opencode.desktop", "ai.opencode.desktop.beta", "ai.opencode.desktop.dev", "OpenCode", "opencode"].map(
-    (name) => join(appData, name)
-  );
+
+  if (appData) {
+    for (const name of ["ai.opencode.desktop", "ai.opencode.desktop.beta", "ai.opencode.desktop.dev", "OpenCode", "opencode"]) {
+      dirs.push(join(appData, name));
+    }
+  }
+
+  // OpenCode CLI and 2.0.x on macOS/Linux also store configuration and state in ~/.config/opencode, ~/.local/share/opencode, and ~/.opencode
+  const xdgConfig = environment.XDG_CONFIG_HOME ?? join(home, ".config");
+  dirs.push(join(xdgConfig, "opencode"));
+
+  const xdgData = environment.XDG_DATA_HOME ?? join(home, ".local", "share");
+  dirs.push(join(xdgData, "opencode"));
+
+  dirs.push(join(home, ".opencode"));
+
+  return Array.from(new Set(dirs));
 }
 
 async function isOpenCodeDesktopRunning(): Promise<boolean> {
@@ -139,7 +154,7 @@ async function isOpenCodeDesktopRunning(): Promise<boolean> {
   const args = process.platform === "win32" ? ["/fo", "csv", "/nh"] : ["-ax", "-o", "command="];
   try {
     const output = await execFileText(command, args);
-    return /(?:OpenCode\.app\/Contents\/|ai\.opencode\.desktop|opencode-desktop)/i.test(output);
+    return /(?:OpenCode\.app\/Contents\/|ai\.opencode\.desktop|opencode-desktop|\bopencode\s+serve\b|\bopencode\b)/i.test(output);
   } catch {
     return false;
   }

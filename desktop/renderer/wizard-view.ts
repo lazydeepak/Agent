@@ -528,9 +528,9 @@ export function apiProtocolField(value: "auto" | "legacy" | "v2"): HTMLElement {
   const select = document.createElement("select");
   select.id = "worker-api-protocol";
   const options: Array<{ value: "auto" | "legacy" | "v2"; label: string }> = [
-    { value: "auto", label: "Auto-detect" },
-    { value: "legacy", label: "Legacy (Worker Agent Desktop compatible)" },
-    { value: "v2", label: "v2" }
+    { value: "auto", label: "Auto-detect (Recommended for OpenCode 2.0.22)" },
+    { value: "legacy", label: "Legacy (OpenCode 1.x compatible)" },
+    { value: "v2", label: "v2 (OpenCode 2.0.22 / 2.0.x)" }
   ];
   for (const option of options) {
     const optionEl = document.createElement("option");
@@ -547,7 +547,7 @@ export function apiProtocolField(value: "auto" | "legacy" | "v2"): HTMLElement {
   });
   const hintEl = el("span", "hint");
   hintEl.textContent =
-    "Pin \"Legacy\" if this session is also opened in Worker Agent Desktop, so both sides read and write the same history.";
+    "Auto-detect or v2 is recommended for OpenCode 2.0.22. Pin \"Legacy\" if this session is also opened in OpenCode 1.x Desktop.";
   wrap.appendChild(labelEl);
   wrap.appendChild(select);
   wrap.appendChild(hintEl);

@@ -540,10 +540,10 @@ function fakeCheck(
 
 function toSessionSummary(session: OpenCodeSessionInfo): OpenCodeSessionSummary {
   return {
-    sessionId: session.id,
+    sessionId: session.id ?? (session as any).sessionId,
     title: session.title,
     repoPath: repoPathForSession(session),
-    updatedAt: session.time?.updated,
+    updatedAt: session.time?.updated ?? (session as any).updatedAt ?? (session as any).updated,
     model: session.model
   };
 }
@@ -553,7 +553,8 @@ function repoPathForSession(session: OpenCodeSessionInfo): string | undefined {
     session.location?.project?.canonical ??
     session.location?.project?.directory ??
     session.location?.directory ??
-    session.directory
+    session.directory ??
+    (session as any).repoPath
   );
 }
 

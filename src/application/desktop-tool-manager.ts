@@ -69,7 +69,6 @@ export class LocalDesktopToolLauncher implements DesktopToolLauncher {
   }
 
   private async startOpenCodeOnce(input: OpenCodeToolInput, endpoint: string): Promise<ToolLaunchResult> {
-    const readinessUrl = `${endpoint}/doc`;
     const repoPath = input.repoPath.trim();
     if (!repoPath) throw new DesktopToolError("INVALID_INPUT", "Select an OpenCode session with a repository first.");
     try {
@@ -78,7 +77,7 @@ export class LocalDesktopToolLauncher implements DesktopToolLauncher {
       throw new DesktopToolError("OPENCODE_REPO_NOT_FOUND", `The selected repository does not exist: ${repoPath}`);
     }
 
-    if (await endpointReachable(readinessUrl)) {
+    if (await openCodeEndpointReachable(endpoint)) {
       return { ok: true, endpoint, alreadyRunning: true, message: `OpenCode is already reachable at ${endpoint}.` };
     }
     if (this.openCode) {
@@ -106,7 +105,7 @@ export class LocalDesktopToolLauncher implements DesktopToolLauncher {
       if (this.openCode?.child === child) this.openCode = undefined;
     });
     try {
-      await waitForEndpoint(readinessUrl, child, 12_000);
+      await waitForOpenCodeEndpoint(endpoint, child, 15_000);
     } catch (error) {
       await stopChild(child);
       if (this.openCode?.child === child) this.openCode = undefined;
@@ -163,14 +162,19 @@ export class LocalDesktopToolLauncher implements DesktopToolLauncher {
       throw new DesktopToolError("OPENCODE_EXECUTABLE_NOT_FOUND", "Agent Relay could not find the OpenCode command.");
     }
     if (this.openCode) await this.stopOpenCode();
-    const child = spawn(executable, ["upgrade"], { stdio: "ignore", env: process.env });
+    let child = spawn(executable, ["upgrade"], { stdio: "ignore", env: process.env });
     this.updater = child;
     try {
-      const exitCode = await waitForExit(child, 120_000);
+      let exitCode = await waitForExit(child, 120_000);
+      if (exitCode !== 0) {
+        child = spawn(executable, ["update"], { stdio: "ignore", env: process.env });
+        this.updater = child;
+        exitCode = await waitForExit(child, 120_000);
+      }
       if (exitCode !== 0) {
         throw new DesktopToolError("OPENCODE_UPDATE_FAILED", `OpenCode update exited with code ${exitCode}.`);
       }
-      return { ok: true, message: "OpenCode command updated. Start the OpenCode server again." };
+      return { ok: true, message: "OpenCode command updated for version 2.0.22 compatibility. Start the OpenCode server again." };
     } finally {
       if (this.updater === child) this.updater = undefined;
     }
@@ -248,7 +252,22 @@ function findOpenCodeExecutable(): string | undefined {
   const pathCandidates = (process.env.PATH ?? "").split(delimiter).flatMap((directory) =>
     names.map((name) => join(directory, name))
   );
-  const candidates = [configured, ...names.map((name) => join(homedir(), ".opencode", "bin", name)), ...pathCandidates];
+
+  // Common macOS and Linux installation directories for Homebrew (Apple Silicon + Intel), npm, curl, and XDG local bins
+  const wellKnownCandidates = [
+    "/opt/homebrew/bin/opencode", // macOS Apple Silicon Homebrew
+    "/usr/local/bin/opencode",   // macOS Intel Homebrew / global npm
+    join(homedir(), ".local", "bin", "opencode"),
+    join(homedir(), ".opencode", "bin", "opencode")
+  ];
+
+  const candidates = [
+    configured,
+    ...pathCandidates,
+    ...wellKnownCandidates,
+    ...names.map((name) => join(homedir(), ".opencode", "bin", name))
+  ];
+
   return candidates.find((candidate): candidate is string => {
     if (!candidate || !existsSync(candidate)) return false;
     try {
@@ -277,6 +296,38 @@ async function endpointReachable(url: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * OpenCode 2.0.22 serves its primary health check at /api/health.
+ * Fall back to /global/health and /doc to accommodate different OpenCode server configurations.
+ */
+async function openCodeEndpointReachable(endpoint: string): Promise<boolean> {
+  const normalized = endpoint.endsWith("/") ? endpoint.slice(0, -1) : endpoint;
+  const probeUrls = [
+    `${normalized}/api/health`,
+    `${normalized}/global/health`,
+    `${normalized}/doc`,
+    `${normalized}/`
+  ];
+  for (const url of probeUrls) {
+    if (await endpointReachable(url)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function waitForOpenCodeEndpoint(endpoint: string, child: ChildProcess, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null) {
+      throw new DesktopToolError("TOOL_START_FAILED", "The managed process exited before its endpoint became ready.");
+    }
+    if (await openCodeEndpointReachable(endpoint)) return;
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  throw new DesktopToolError("TOOL_START_TIMEOUT", `Timed out waiting for OpenCode at ${endpoint}.`);
 }
 
 async function waitForEndpoint(url: string, child: ChildProcess, timeoutMs: number): Promise<void> {
