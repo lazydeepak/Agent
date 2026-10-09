@@ -1012,12 +1012,14 @@ async function confirmProjectPairCreation(): Promise<void> {
 
 async function refresh(): Promise<void> {
   try {
-    const [pairs, status, automation] = await Promise.all([
+    const [pairs, status, automation, projectPairs] = await Promise.all([
       window.desktop.listPairs(),
       window.desktop.getStatus(),
-      window.desktop.getAutomationInfo()
+      window.desktop.getAutomationInfo(),
+      window.desktop.listProjectPairs().catch(() => [])
     ]);
     state.pairs = pairs;
+    state.projectPairs = projectPairs ?? [];
     state.automation = automation;
     const statusMap = new Map<string, PeerHealthDto>();
     for (const pair of status.pairs) {
@@ -1192,15 +1194,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.getElementById("sidebar-search-input")?.addEventListener("input", () => {
     renderSidebarProjects();
-  });
-  document.getElementById("dashboard-refresh-btn")?.addEventListener("click", () => {
-    void refresh();
-  });
-  document.getElementById("dashboard-start-all-btn")?.addEventListener("click", () => {
-    void startAll();
-  });
-  document.getElementById("dashboard-stop-all-btn")?.addEventListener("click", () => {
-    void stopAll();
   });
   document.getElementById("clear-history")?.addEventListener("click", () => {
     void (async () => {

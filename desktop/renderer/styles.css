@@ -2124,6 +2124,16 @@ textarea::placeholder {
     overflow-y: auto;
   }
 
+  .dashboard-grid,
+  .dashboard-main-grid,
+  .dashboard-backend-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dashboard-agent-peers {
+    grid-template-columns: 1fr !important;
+  }
+
   .layout.view-sessions.split-view {
     grid-template-columns: 1fr !important;
   }
