@@ -1,0 +1,5622 @@
+{
+  "schema": "agent-relay-code-index-v1",
+  "generated": "2026-10-09T18:30:43.314Z",
+  "scope": "file/module + symbol index",
+  "source": "src/**/*.ts (87 modules)",
+  "totals": {
+    "modules": 87,
+    "symbols": 550,
+    "modulesMissingHeader": 0
+  },
+  "categories": [
+    {
+      "category": "entry",
+      "modules": 2
+    },
+    {
+      "category": "contracts",
+      "modules": 9
+    },
+    {
+      "category": "adapter-opencode",
+      "modules": 4
+    },
+    {
+      "category": "adapter-chatgpt",
+      "modules": 3
+    },
+    {
+      "category": "relay",
+      "modules": 5
+    },
+    {
+      "category": "persistence",
+      "modules": 4
+    },
+    {
+      "category": "validator",
+      "modules": 2
+    },
+    {
+      "category": "supervisor",
+      "modules": 7
+    },
+    {
+      "category": "recovery",
+      "modules": 8
+    },
+    {
+      "category": "runtime",
+      "modules": 8
+    },
+    {
+      "category": "application",
+      "modules": 24
+    },
+    {
+      "category": "remote",
+      "modules": 1
+    },
+    {
+      "category": "util",
+      "modules": 4
+    },
+    {
+      "category": "core",
+      "modules": 6
+    }
+  ],
+  "modules": [
+    {
+      "path": "src/adapters/chatgpt/index.ts",
+      "dir": "src/adapters/chatgpt",
+      "category": "adapter-chatgpt",
+      "purpose": "ChatGPT browser adapter exports.",
+      "hasHeader": true,
+      "symbolCount": 12,
+      "symbols": [
+        {
+          "name": "ChatGPTBrowserAdapter",
+          "kind": "interface",
+          "line": 25,
+          "signature": "export interface ChatGPTBrowserAdapter"
+        },
+        {
+          "name": "PlannerSessionEvent",
+          "kind": "interface",
+          "line": 34,
+          "signature": "export interface PlannerSessionEvent"
+        },
+        {
+          "name": "FakeChatGPTBrowserAdapter",
+          "kind": "class",
+          "line": 40,
+          "signature": "export class FakeChatGPTBrowserAdapter implements ChatGPTBrowserAdapter"
+        },
+        {
+          "name": "ChatGPTReadinessSnapshot",
+          "kind": "interface",
+          "line": 97,
+          "signature": "export interface ChatGPTReadinessSnapshot"
+        },
+        {
+          "name": "ChatGPTReadinessProbe",
+          "kind": "interface",
+          "line": 107,
+          "signature": "export interface ChatGPTReadinessProbe"
+        },
+        {
+          "name": "ChatGPTBrowserDriver",
+          "kind": "interface",
+          "line": 111,
+          "signature": "export interface ChatGPTBrowserDriver extends ChatGPTReadinessProbe"
+        },
+        {
+          "name": "LiveChatGPTBrowserOptions",
+          "kind": "interface",
+          "line": 122,
+          "signature": "export interface LiveChatGPTBrowserOptions extends ChatGPTBrowserConfig"
+        },
+        {
+          "name": "DEFAULT_CHATGPT_RATE_LIMIT_BACKOFF_MS",
+          "kind": "const",
+          "line": 128,
+          "signature": "export const DEFAULT_CHATGPT_RATE_LIMIT_BACKOFF_MS = 5 * 60_000"
+        },
+        {
+          "name": "LiveChatGPTBrowserAdapter",
+          "kind": "class",
+          "line": 130,
+          "signature": "export class LiveChatGPTBrowserAdapter implements ChatGPTBrowserAdapter"
+        },
+        {
+          "name": "PlaywrightChatGPTBrowserDriver",
+          "kind": "class",
+          "line": 220,
+          "signature": "export class PlaywrightChatGPTBrowserDriver implements ChatGPTBrowserDriver"
+        },
+        {
+          "name": "shouldNavigatePlannerPage",
+          "kind": "function",
+          "line": 532,
+          "signature": "export function shouldNavigatePlannerPage(currentUrl: string, conversationId: string): boolean"
+        },
+        {
+          "name": "ChatGPTTemporaryLimitError",
+          "kind": "class",
+          "line": 536,
+          "signature": "export class ChatGPTTemporaryLimitError extends Error"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:fs",
+          "kind": "node"
+        },
+        {
+          "spec": "node:os",
+          "kind": "node"
+        },
+        {
+          "spec": "node:path",
+          "kind": "node"
+        },
+        {
+          "spec": "playwright-core",
+          "kind": "external"
+        },
+        {
+          "spec": "../../util/async.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../../util/readiness.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../../relay/delivery-error.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../../relay/chatgpt-gate.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./service-warning.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/chatgpt/project-discovery.ts",
+      "dir": "src/adapters/chatgpt",
+      "category": "adapter-chatgpt",
+      "purpose": "Source module for project-discovery.ts.",
+      "hasHeader": true,
+      "symbolCount": 7,
+      "symbols": [
+        {
+          "name": "CdpListTarget",
+          "kind": "interface",
+          "line": 9,
+          "signature": "export interface CdpListTarget"
+        },
+        {
+          "name": "ChatGptProjectDiscovery",
+          "kind": "interface",
+          "line": 15,
+          "signature": "export interface ChatGptProjectDiscovery"
+        },
+        {
+          "name": "ChatGptProjectDiscoveryError",
+          "kind": "class",
+          "line": 23,
+          "signature": "export class ChatGptProjectDiscoveryError extends Error"
+        },
+        {
+          "name": "normalizeChatGptProject",
+          "kind": "function",
+          "line": 44,
+          "signature": "export function normalizeChatGptProject(input: string):"
+        },
+        {
+          "name": "listCdpTargets",
+          "kind": "function",
+          "line": 83,
+          "signature": "export async function listCdpTargets( cdpUrl: string, fetchImpl: typeof fetch = fetch ): Promise<CdpListTarget[]>"
+        },
+        {
+          "name": "groupChatGptProjects",
+          "kind": "function",
+          "line": 111,
+          "signature": "export function groupChatGptProjects(targets: CdpListTarget[]): ChatGptProjectDiscovery[]"
+        },
+        {
+          "name": "discoverChatGptProjects",
+          "kind": "function",
+          "line": 160,
+          "signature": "export async function discoverChatGptProjects( cdpUrl: string, fetchImpl: typeof fetch = fetch ): Promise<ChatGptProjectDiscovery[]>"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../../sessions/chatgpt-url.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/chatgpt/service-warning.ts",
+      "dir": "src/adapters/chatgpt",
+      "category": "adapter-chatgpt",
+      "purpose": "Source module for service-warning.ts.",
+      "hasHeader": true,
+      "symbolCount": 1,
+      "symbols": [
+        {
+          "name": "hasVisibleServiceWarning",
+          "kind": "function",
+          "line": 10,
+          "signature": "export async function hasVisibleServiceWarning(page: Page, pattern: RegExp): Promise<boolean>"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "playwright-core",
+          "kind": "external"
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/opencode/desktop-state.ts",
+      "dir": "src/adapters/opencode",
+      "category": "adapter-opencode",
+      "purpose": "Source module for desktop-state.ts.",
+      "hasHeader": true,
+      "symbolCount": 7,
+      "symbols": [
+        {
+          "name": "OpenCodeDesktopSession",
+          "kind": "interface",
+          "line": 15,
+          "signature": "export interface OpenCodeDesktopSession"
+        },
+        {
+          "name": "OpenCodeDesktopScanOptions",
+          "kind": "interface",
+          "line": 21,
+          "signature": "export interface OpenCodeDesktopScanOptions"
+        },
+        {
+          "name": "OpenCodeDesktopStateError",
+          "kind": "class",
+          "line": 26,
+          "signature": "export class OpenCodeDesktopStateError extends Error"
+        },
+        {
+          "name": "discoverOpenCodeServerUrl",
+          "kind": "function",
+          "line": 37,
+          "signature": "export async function discoverOpenCodeServerUrl( options: OpenCodeDesktopScanOptions = {} ): Promise<string | undefined>"
+        },
+        {
+          "name": "scanOpenCodeDesktopActiveSession",
+          "kind": "function",
+          "line": 57,
+          "signature": "export async function scanOpenCodeDesktopActiveSession( options: OpenCodeDesktopScanOptions = {} ): Promise<OpenCodeDesktopSession>"
+        },
+        {
+          "name": "parseOpenCodeDesktopWindowState",
+          "kind": "function",
+          "line": 107,
+          "signature": "export function parseOpenCodeDesktopWindowState(value: unknown): OpenCodeDesktopSession | undefined"
+        },
+        {
+          "name": "openCodeDesktopStateDirectories",
+          "kind": "function",
+          "line": 126,
+          "signature": "export function openCodeDesktopStateDirectories( platform: NodeJS.Platform = process.platform, environment: NodeJS.ProcessEnv = process.env, home: string = home"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:child_process",
+          "kind": "node"
+        },
+        {
+          "spec": "node:fs/promises",
+          "kind": "node"
+        },
+        {
+          "spec": "node:os",
+          "kind": "node"
+        },
+        {
+          "spec": "node:path",
+          "kind": "node"
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/opencode/event-source.ts",
+      "dir": "src/adapters/opencode",
+      "category": "adapter-opencode",
+      "purpose": "Source module for event-source.ts.",
+      "hasHeader": true,
+      "symbolCount": 5,
+      "symbols": [
+        {
+          "name": "OpenCodeSessionEvent",
+          "kind": "interface",
+          "line": 10,
+          "signature": "export interface OpenCodeSessionEvent"
+        },
+        {
+          "name": "OpenCodeEventSourceOptions",
+          "kind": "interface",
+          "line": 19,
+          "signature": "export interface OpenCodeEventSourceOptions"
+        },
+        {
+          "name": "OpenCodeEventSourceTerminalError",
+          "kind": "class",
+          "line": 39,
+          "signature": "export class OpenCodeEventSourceTerminalError extends Error"
+        },
+        {
+          "name": "OpenCodeEventSource",
+          "kind": "interface",
+          "line": 49,
+          "signature": "export interface OpenCodeEventSource"
+        },
+        {
+          "name": "HttpOpenCodeEventSource",
+          "kind": "class",
+          "line": 57,
+          "signature": "export class HttpOpenCodeEventSource implements OpenCodeEventSource"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../../util/async.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../../util/net.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/opencode/http.ts",
+      "dir": "src/adapters/opencode",
+      "category": "adapter-opencode",
+      "purpose": "OpenCode HTTP client — typed request/response DTOs, auth headers, and error mapping for the OpenCode server.",
+      "hasHeader": true,
+      "symbolCount": 15,
+      "symbols": [
+        {
+          "name": "OpenCodeLocationRef",
+          "kind": "interface",
+          "line": 15,
+          "signature": "export interface OpenCodeLocationRef"
+        },
+        {
+          "name": "OpenCodeSessionInfo",
+          "kind": "interface",
+          "line": 20,
+          "signature": "export interface OpenCodeSessionInfo"
+        },
+        {
+          "name": "OpenCodeSessionList",
+          "kind": "interface",
+          "line": 48,
+          "signature": "export interface OpenCodeSessionList"
+        },
+        {
+          "name": "OpenCodeMessageInfo",
+          "kind": "interface",
+          "line": 56,
+          "signature": "export interface OpenCodeMessageInfo"
+        },
+        {
+          "name": "OpenCodePromptAdmission",
+          "kind": "interface",
+          "line": 90,
+          "signature": "export interface OpenCodePromptAdmission"
+        },
+        {
+          "name": "OpenCodePromptResult",
+          "kind": "interface",
+          "line": 105,
+          "signature": "export interface OpenCodePromptResult"
+        },
+        {
+          "name": "OpenCodePromptInput",
+          "kind": "interface",
+          "line": 109,
+          "signature": "export interface OpenCodePromptInput"
+        },
+        {
+          "name": "OpenCodeDurableEvent",
+          "kind": "interface",
+          "line": 119,
+          "signature": "export interface OpenCodeDurableEvent"
+        },
+        {
+          "name": "OpenCodeHistoryResult",
+          "kind": "interface",
+          "line": 127,
+          "signature": "export interface OpenCodeHistoryResult"
+        },
+        {
+          "name": "CreateOpenCodeSessionInput",
+          "kind": "interface",
+          "line": 132,
+          "signature": "export interface CreateOpenCodeSessionInput"
+        },
+        {
+          "name": "OpenCodeClientOptions",
+          "kind": "interface",
+          "line": 138,
+          "signature": "export interface OpenCodeClientOptions extends OpenCodeServerConfig"
+        },
+        {
+          "name": "OpenCodeHttpError",
+          "kind": "class",
+          "line": 149,
+          "signature": "export class OpenCodeHttpError extends Error"
+        },
+        {
+          "name": "OpenCodeUnexpectedResponseError",
+          "kind": "class",
+          "line": 160,
+          "signature": "export class OpenCodeUnexpectedResponseError extends Error"
+        },
+        {
+          "name": "OpenCodeHttpClient",
+          "kind": "class",
+          "line": 192,
+          "signature": "export class OpenCodeHttpClient"
+        },
+        {
+          "name": "OpenCodeWriteUnsupportedError",
+          "kind": "class",
+          "line": 926,
+          "signature": "export class OpenCodeWriteUnsupportedError extends Error"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:http",
+          "kind": "node"
+        },
+        {
+          "spec": "node:https",
+          "kind": "node"
+        },
+        {
+          "spec": "node:path",
+          "kind": "node"
+        },
+        {
+          "spec": "node:buffer",
+          "kind": "node"
+        },
+        {
+          "spec": "../../types.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../../util/net.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../../contracts/worker-question.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/adapters/opencode/index.ts",
+      "dir": "src/adapters/opencode",
+      "category": "adapter-opencode",
+      "purpose": "OpenCode adapter exports (session management, readiness, event source).",
+      "hasHeader": true,
+      "symbolCount": 10,
+      "symbols": [
+        {
+          "name": "HttpOpenCodeEventSource",
+          "kind": "re-export",
+          "line": 32,
+          "signature": "export {",
+          "from": "./event-source.js"
+        },
+        {
+          "name": "OpenCodeEventSource",
+          "kind": "re-export",
+          "line": 32,
+          "signature": "export {",
+          "from": "./event-source.js"
+        },
+        {
+          "name": "OpenCodeEventSourceOptions",
+          "kind": "re-export",
+          "line": 32,
+          "signature": "export {",
+          "from": "./event-source.js"
+        },
+        {
+          "name": "OpenCodeSessionEvent",
+          "kind": "re-export",
+          "line": 32,
+          "signature": "export {",
+          "from": "./event-source.js"
+        },
+        {
+          "name": "OpenCodeAdapter",
+          "kind": "interface",
+          "line": 39,
+          "signature": "export interface OpenCodeAdapter"
+        },
+        {
+          "name": "OpenCodeSessionSummary",
+          "kind": "interface",
+          "line": 43,
+          "signature": "export interface OpenCodeSessionSummary"
+        },
+        {
+          "name": "OpenCodeSessionManager",
+          "kind": "interface",
+          "line": 51,
+          "signature": "export interface OpenCodeSessionManager extends OpenCodeAdapter"
+        },
+        {
+          "name": "FakeOpenCodeAdapter",
+          "kind": "class",
+          "line": 73,
+          "signature": "export class FakeOpenCodeAdapter implements OpenCodeAdapter"
+        },
+        {
+          "name": "LiveOpenCodeAdapter",
+          "kind": "class",
+          "line": 86,
+          "signature": "export class LiveOpenCodeAdapter implements OpenCodeAdapter, OpenCodeSessionManager"
+        },
+        {
+          "name": "StaticOpenCodeAdapter",
+          "kind": "class",
+          "line": 440,
+          "signature": "export class StaticOpenCodeAdapter extends FakeOpenCodeAdapter implements OpenCodeSessionManager"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:path",
+          "kind": "node"
+        },
+        {
+          "spec": "../../util/canonical.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../../util/readiness.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./event-source.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/advisor-provider.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Source module for advisor-provider.ts.",
+      "hasHeader": true,
+      "symbolCount": 1,
+      "symbols": [
+        {
+          "name": "AttentionAdvisorProvider",
+          "kind": "interface",
+          "line": 12,
+          "signature": "export interface AttentionAdvisorProvider"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../contracts/ai-proposal.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/attention-parser.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Source module for attention-parser.ts.",
+      "hasHeader": true,
+      "symbolCount": 1,
+      "symbols": [
+        {
+          "name": "parseWorkerAttentionEnvelope",
+          "kind": "function",
+          "line": 23,
+          "signature": "export function parseWorkerAttentionEnvelope(text: string): WorkerAttentionEnvelope | undefined"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/application/attention-service.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Source module for attention-service.ts.",
+      "hasHeader": true,
+      "symbolCount": 2,
+      "symbols": [
+        {
+          "name": "AttentionServiceOptions",
+          "kind": "interface",
+          "line": 12,
+          "signature": "export interface AttentionServiceOptions"
+        },
+        {
+          "name": "AttentionService",
+          "kind": "class",
+          "line": 17,
+          "signature": "export class AttentionService"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "./desktop-service.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../persistence/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./attention-parser.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../contracts/attention.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/automation-governor.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Source module for automation-governor.ts.",
+      "hasHeader": true,
+      "symbolCount": 3,
+      "symbols": [
+        {
+          "name": "AutomationGovernorOptions",
+          "kind": "interface",
+          "line": 12,
+          "signature": "export interface AutomationGovernorOptions"
+        },
+        {
+          "name": "AutomationGovernorState",
+          "kind": "interface",
+          "line": 19,
+          "signature": "export interface AutomationGovernorState"
+        },
+        {
+          "name": "AutomationGovernor",
+          "kind": "class",
+          "line": 28,
+          "signature": "export class AutomationGovernor"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "./attention-service.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../application/advisor-provider.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../contracts/ai-automation.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../contracts/attention.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/bounded-context-assembler.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Source module for bounded-context-assembler.ts.",
+      "hasHeader": true,
+      "symbolCount": 1,
+      "symbols": [
+        {
+          "name": "buildBoundedContext",
+          "kind": "function",
+          "line": 10,
+          "signature": "export function buildBoundedContext( service: DesktopApplicationService, pairId: string, attentionKind: \"question\" | \"blocked\", attentionId?: string, boundedWor"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "./desktop-service.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../contracts/ai-proposal.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/control-plane-adapter.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Control-plane adapter for worker/planner pairs.",
+      "hasHeader": true,
+      "symbolCount": 3,
+      "symbols": [
+        {
+          "name": "ControlPlaneAdapter",
+          "kind": "class",
+          "line": 29,
+          "signature": "export class ControlPlaneAdapter"
+        },
+        {
+          "name": "SafeRemoteEvent",
+          "kind": "interface",
+          "line": 377,
+          "signature": "export interface SafeRemoteEvent"
+        },
+        {
+          "name": "ControlPlaneOperationError",
+          "kind": "class",
+          "line": 386,
+          "signature": "export class ControlPlaneOperationError extends Error"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:path",
+          "kind": "node"
+        },
+        {
+          "spec": "./desktop-service.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./project-pair-service.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../persistence/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./attention-service.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../adapters/opencode/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./attention-parser.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/desktop-lifecycle.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Source module for desktop-lifecycle.ts.",
+      "hasHeader": true,
+      "symbolCount": 6,
+      "symbols": [
+        {
+          "name": "DesktopLifecycleState",
+          "kind": "type",
+          "line": 51,
+          "signature": "export type DesktopLifecycleState = \"initializing\" | \"ready\" | \"failed\" | \"shutting-down\" | \"stopped\""
+        },
+        {
+          "name": "DesktopBootResult",
+          "kind": "type",
+          "line": 53,
+          "signature": "export type DesktopBootResult = |"
+        },
+        {
+          "name": "DesktopLifecycleService",
+          "kind": "interface",
+          "line": 58,
+          "signature": "export interface DesktopLifecycleService"
+        },
+        {
+          "name": "DisposableWorkerProgress",
+          "kind": "interface",
+          "line": 64,
+          "signature": "export interface DisposableWorkerProgress"
+        },
+        {
+          "name": "DesktopLifecycleHooks",
+          "kind": "interface",
+          "line": 68,
+          "signature": "export interface DesktopLifecycleHooks"
+        },
+        {
+          "name": "DesktopLifecycle",
+          "kind": "class",
+          "line": 91,
+          "signature": "export class DesktopLifecycle"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../persistence/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./desktop-service.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/desktop-service.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Electron desktop service integration.",
+      "hasHeader": true,
+      "symbolCount": 11,
+      "symbols": [
+        {
+          "name": "DesktopServiceOptions",
+          "kind": "interface",
+          "line": 37,
+          "signature": "export interface DesktopServiceOptions"
+        },
+        {
+          "name": "DesktopEventRecord",
+          "kind": "type",
+          "line": 70,
+          "signature": "export type DesktopEventRecord = EventRecord"
+        },
+        {
+          "name": "ProjectLifecycleSummary",
+          "kind": "interface",
+          "line": 72,
+          "signature": "export interface ProjectLifecycleSummary extends RuntimeStatusSummary"
+        },
+        {
+          "name": "(anonymous)",
+          "kind": "type",
+          "line": 100,
+          "signature": "export type"
+        },
+        {
+          "name": "DesktopApplicationError",
+          "kind": "class",
+          "line": 124,
+          "signature": "export class DesktopApplicationError extends Error"
+        },
+        {
+          "name": "toDesktopApplicationError",
+          "kind": "function",
+          "line": 136,
+          "signature": "export function toDesktopApplicationError(error: unknown): DesktopApplicationError"
+        },
+        {
+          "name": "RecentEventsFilter",
+          "kind": "interface",
+          "line": 161,
+          "signature": "export interface RecentEventsFilter"
+        },
+        {
+          "name": "DesktopApplicationService",
+          "kind": "class",
+          "line": 166,
+          "signature": "export class DesktopApplicationService"
+        },
+        {
+          "name": "fingerprintPairs",
+          "kind": "function",
+          "line": 1354,
+          "signature": "export function fingerprintPairs(pairs: SessionPair[]): string"
+        },
+        {
+          "name": "ManagedState",
+          "kind": "type",
+          "line": 1394,
+          "signature": "export type ManagedState = \"RUNNING\" | \"ARMED\" | \"FAILED\" | \"STOPPED\""
+        },
+        {
+          "name": "deriveManagedState",
+          "kind": "function",
+          "line": 1396,
+          "signature": "export function deriveManagedState(summary: RuntimeStatusSummary): ManagedState"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:path",
+          "kind": "node"
+        },
+        {
+          "spec": "node:fs",
+          "kind": "node"
+        },
+        {
+          "spec": "../contracts/events.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./event-log.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./planner-seeding-service.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./worker-session-service.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./worker-question-service.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./worker-transcript-service.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../adapters/chatgpt/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../adapters/opencode/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../persistence/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../recovery/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../runtime/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../sessions/pairs.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../sessions/chatgpt-url.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../validator/readiness.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./pair-config-repository.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../supervisor/supervisor.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./universal-planner-prompt.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./relay-engine.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/desktop-tool-manager.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Desktop tool launcher — spawns/attaches an external Chrome (CDP) and `opencode serve` for the Electron shell.",
+      "hasHeader": true,
+      "symbolCount": 7,
+      "symbols": [
+        {
+          "name": "ToolLaunchResult",
+          "kind": "interface",
+          "line": 14,
+          "signature": "export interface ToolLaunchResult"
+        },
+        {
+          "name": "ToolActionResult",
+          "kind": "interface",
+          "line": 23,
+          "signature": "export interface ToolActionResult"
+        },
+        {
+          "name": "OpenCodeToolInput",
+          "kind": "interface",
+          "line": 28,
+          "signature": "export interface OpenCodeToolInput"
+        },
+        {
+          "name": "BrowserToolInput",
+          "kind": "interface",
+          "line": 33,
+          "signature": "export interface BrowserToolInput"
+        },
+        {
+          "name": "DesktopToolLauncher",
+          "kind": "interface",
+          "line": 37,
+          "signature": "export interface DesktopToolLauncher"
+        },
+        {
+          "name": "DesktopToolError",
+          "kind": "class",
+          "line": 45,
+          "signature": "export class DesktopToolError extends Error"
+        },
+        {
+          "name": "LocalDesktopToolLauncher",
+          "kind": "class",
+          "line": 57,
+          "signature": "export class LocalDesktopToolLauncher implements DesktopToolLauncher"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:child_process",
+          "kind": "node"
+        },
+        {
+          "spec": "node:crypto",
+          "kind": "node"
+        },
+        {
+          "spec": "node:fs",
+          "kind": "node"
+        },
+        {
+          "spec": "node:fs/promises",
+          "kind": "node"
+        },
+        {
+          "spec": "node:os",
+          "kind": "node"
+        },
+        {
+          "spec": "node:path",
+          "kind": "node"
+        }
+      ]
+    },
+    {
+      "path": "src/application/event-log.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Source module for event-log.ts.",
+      "hasHeader": true,
+      "symbolCount": 3,
+      "symbols": [
+        {
+          "name": "EventLogOptions",
+          "kind": "interface",
+          "line": 9,
+          "signature": "export interface EventLogOptions"
+        },
+        {
+          "name": "RecordEventOptions",
+          "kind": "interface",
+          "line": 15,
+          "signature": "export interface RecordEventOptions"
+        },
+        {
+          "name": "EventLog",
+          "kind": "class",
+          "line": 35,
+          "signature": "export class EventLog"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../contracts/events.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/headless-service.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Source module for headless-service.ts.",
+      "hasHeader": true,
+      "symbolCount": 2,
+      "symbols": [
+        {
+          "name": "HeadlessServiceOptions",
+          "kind": "interface",
+          "line": 18,
+          "signature": "export interface HeadlessServiceOptions"
+        },
+        {
+          "name": "HeadlessService",
+          "kind": "class",
+          "line": 27,
+          "signature": "export class HeadlessService"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:path",
+          "kind": "node"
+        },
+        {
+          "spec": "./desktop-service.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./project-pair-service.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./control-plane-adapter.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../remote/remote-server.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../persistence/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./pair-config-repository.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../runtime/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./relay-engine.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/local-agent-planner-prompt.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Source module for local-agent-planner-prompt.ts.",
+      "hasHeader": true,
+      "symbolCount": 2,
+      "symbols": [
+        {
+          "name": "LOCAL_AGENT_PLANNER_PROMPT_VERSION",
+          "kind": "const",
+          "line": 7,
+          "signature": "export const LOCAL_AGENT_PLANNER_PROMPT_VERSION = \"1\""
+        },
+        {
+          "name": "LOCAL_AGENT_PLANNER_PROMPT",
+          "kind": "const",
+          "line": 9,
+          "signature": "export const LOCAL_AGENT_PLANNER_PROMPT = `You are the planning and supervision agent for an autonomous software-development relay. A coding worker executes you"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/application/ollama-adapter.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Source module for ollama-adapter.ts.",
+      "hasHeader": true,
+      "symbolCount": 2,
+      "symbols": [
+        {
+          "name": "OllamaAdvisorOptions",
+          "kind": "interface",
+          "line": 10,
+          "signature": "export interface OllamaAdvisorOptions"
+        },
+        {
+          "name": "OllamaAdvisorProvider",
+          "kind": "class",
+          "line": 17,
+          "signature": "export class OllamaAdvisorProvider implements AttentionAdvisorProvider"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../contracts/ai-proposal.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../application/advisor-provider.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/pair-config-repository.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Source module for pair-config-repository.ts.",
+      "hasHeader": true,
+      "symbolCount": 4,
+      "symbols": [
+        {
+          "name": "PairConfigErrorCode",
+          "kind": "type",
+          "line": 13,
+          "signature": "export type PairConfigErrorCode = | \"CONFIG_UNREADABLE\" | \"CONFIG_INVALID\" | \"CONFIG_UNWRITABLE\" | \"PAIR_NOT_FOUND\" | \"PAIR_ALREADY_EXISTS\" | \"DUPLICATE_OWNERSH"
+        },
+        {
+          "name": "PairConfigError",
+          "kind": "class",
+          "line": 23,
+          "signature": "export class PairConfigError extends Error"
+        },
+        {
+          "name": "PairEdits",
+          "kind": "interface",
+          "line": 33,
+          "signature": "export interface PairEdits"
+        },
+        {
+          "name": "PairConfigRepository",
+          "kind": "class",
+          "line": 49,
+          "signature": "export class PairConfigRepository"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:fs/promises",
+          "kind": "node"
+        },
+        {
+          "spec": "node:path",
+          "kind": "node"
+        },
+        {
+          "spec": "node:crypto",
+          "kind": "node"
+        },
+        {
+          "spec": "../sessions/pairs.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/planner-seeding-service.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Source module for planner-seeding-service.ts.",
+      "hasHeader": true,
+      "symbolCount": 2,
+      "symbols": [
+        {
+          "name": "PlannerSeedingContext",
+          "kind": "interface",
+          "line": 27,
+          "signature": "export interface PlannerSeedingContext"
+        },
+        {
+          "name": "PlannerSeedingService",
+          "kind": "class",
+          "line": 44,
+          "signature": "export class PlannerSeedingService"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../runtime/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../persistence/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../relay/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./desktop-service.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./universal-planner-prompt.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./local-agent-planner-prompt.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/project-pair-repository.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Project-pair identity / ownership service.",
+      "hasHeader": true,
+      "symbolCount": 3,
+      "symbols": [
+        {
+          "name": "ProjectPairConfigErrorCode",
+          "kind": "type",
+          "line": 13,
+          "signature": "export type ProjectPairConfigErrorCode = | \"CONFIG_UNREADABLE\" | \"CONFIG_INVALID\" | \"CONFIG_UNWRITABLE\" | \"PROJECT_PAIR_NOT_FOUND\" | \"PROJECT_PAIR_ALREADY_EXIST"
+        },
+        {
+          "name": "ProjectPairRepositoryError",
+          "kind": "class",
+          "line": 21,
+          "signature": "export class ProjectPairRepositoryError extends Error"
+        },
+        {
+          "name": "ProjectPairRepository",
+          "kind": "class",
+          "line": 39,
+          "signature": "export class ProjectPairRepository"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:fs/promises",
+          "kind": "node"
+        },
+        {
+          "spec": "node:path",
+          "kind": "node"
+        },
+        {
+          "spec": "node:crypto",
+          "kind": "node"
+        },
+        {
+          "spec": "../sessions/project-pairs.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/project-pair-service.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Project-pair identity / ownership service.",
+      "hasHeader": true,
+      "symbolCount": 5,
+      "symbols": [
+        {
+          "name": "ProjectPairServiceOptions",
+          "kind": "interface",
+          "line": 29,
+          "signature": "export interface ProjectPairServiceOptions"
+        },
+        {
+          "name": "CreateProjectPairInput",
+          "kind": "interface",
+          "line": 38,
+          "signature": "export interface CreateProjectPairInput"
+        },
+        {
+          "name": "OpenCodeProjectDiscovery",
+          "kind": "interface",
+          "line": 50,
+          "signature": "export interface OpenCodeProjectDiscovery"
+        },
+        {
+          "name": "ProjectPairService",
+          "kind": "class",
+          "line": 65,
+          "signature": "export class ProjectPairService"
+        },
+        {
+          "name": "suggestProjectPairId",
+          "kind": "function",
+          "line": 271,
+          "signature": "export function suggestProjectPairId(repoPath: string, projectSlug: string): string"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:path",
+          "kind": "node"
+        },
+        {
+          "spec": "../adapters/opencode/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../sessions/project-pairs.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./desktop-service.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/relay-engine.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Source module for relay-engine.ts.",
+      "hasHeader": true,
+      "symbolCount": 2,
+      "symbols": [
+        {
+          "name": "RelayEngineOptions",
+          "kind": "interface",
+          "line": 11,
+          "signature": "export interface RelayEngineOptions"
+        },
+        {
+          "name": "RelayEngine",
+          "kind": "class",
+          "line": 28,
+          "signature": "export class RelayEngine"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../runtime/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./planner-seeding-service.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/universal-planner-prompt.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Source module for universal-planner-prompt.ts.",
+      "hasHeader": true,
+      "symbolCount": 2,
+      "symbols": [
+        {
+          "name": "UNIVERSAL_PLANNER_PROMPT_VERSION",
+          "kind": "const",
+          "line": 7,
+          "signature": "export const UNIVERSAL_PLANNER_PROMPT_VERSION = \"1\""
+        },
+        {
+          "name": "UNIVERSAL_PLANNER_PROMPT",
+          "kind": "const",
+          "line": 9,
+          "signature": "export const UNIVERSAL_PLANNER_PROMPT = `You are the autonomous planning and supervision agent for this software project. An OpenCode worker executes your instr"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/application/worker-attention-protocol.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Source module for worker-attention-protocol.ts.",
+      "hasHeader": true,
+      "symbolCount": 2,
+      "symbols": [
+        {
+          "name": "ATTENTION_PROTOCOL_VERSION",
+          "kind": "const",
+          "line": 13,
+          "signature": "export const ATTENTION_PROTOCOL_VERSION = \"1\""
+        },
+        {
+          "name": "ATTENTION_PROTOCOL_INSTRUCTION",
+          "kind": "const",
+          "line": 15,
+          "signature": "export const ATTENTION_PROTOCOL_INSTRUCTION = ` Agent attention protocol (v${ATTENTION_PROTOCOL_VERSION}): When your response requires planner input, is blocked"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/application/worker-progress.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Worker progress tracking service.",
+      "hasHeader": true,
+      "symbolCount": 2,
+      "symbols": [
+        {
+          "name": "WorkerProgressServiceOptions",
+          "kind": "interface",
+          "line": 23,
+          "signature": "export interface WorkerProgressServiceOptions"
+        },
+        {
+          "name": "WorkerProgressService",
+          "kind": "class",
+          "line": 68,
+          "signature": "export class WorkerProgressService"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../persistence/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../adapters/opencode/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../adapters/opencode/http.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/worker-question-service.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Source module for worker-question-service.ts.",
+      "hasHeader": true,
+      "symbolCount": 1,
+      "symbols": [
+        {
+          "name": "WorkerQuestionService",
+          "kind": "class",
+          "line": 12,
+          "signature": "export class WorkerQuestionService"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:path",
+          "kind": "node"
+        },
+        {
+          "spec": "../adapters/opencode/http.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/worker-session-service.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Worker session management service.",
+      "hasHeader": true,
+      "symbolCount": 2,
+      "symbols": [
+        {
+          "name": "WorkerSessionContext",
+          "kind": "interface",
+          "line": 34,
+          "signature": "export interface WorkerSessionContext"
+        },
+        {
+          "name": "WorkerSessionService",
+          "kind": "class",
+          "line": 68,
+          "signature": "export class WorkerSessionService"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../adapters/opencode/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../adapters/opencode/desktop-state.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "node:path",
+          "kind": "node"
+        },
+        {
+          "spec": "../runtime/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./desktop-tool-manager.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./desktop-service.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/worker-transcript-service.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "Worker transcript / session summary service.",
+      "hasHeader": true,
+      "symbolCount": 1,
+      "symbols": [
+        {
+          "name": "readWorkerTranscript",
+          "kind": "function",
+          "line": 14,
+          "signature": "export async function readWorkerTranscript(pair: SessionPair, options: OpenCodeClientOptions = {}): Promise<WorkerTranscript>"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:path",
+          "kind": "node"
+        },
+        {
+          "spec": "../adapters/opencode/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../adapters/opencode/http.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../contracts/worker-transcript.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/cli-args.ts",
+      "dir": "src",
+      "category": "entry",
+      "purpose": "CLI argument parsing schema.",
+      "hasHeader": true,
+      "symbolCount": 4,
+      "symbols": [
+        {
+          "name": "CliError",
+          "kind": "class",
+          "line": 11,
+          "signature": "export class CliError extends Error"
+        },
+        {
+          "name": "ParsedArgs",
+          "kind": "interface",
+          "line": 18,
+          "signature": "export interface ParsedArgs"
+        },
+        {
+          "name": "parseArgs",
+          "kind": "function",
+          "line": 49,
+          "signature": "export function parseArgs(args: string[]): ParsedArgs"
+        },
+        {
+          "name": "hasChatGPTBrowserConfig",
+          "kind": "function",
+          "line": 476,
+          "signature": "export function hasChatGPTBrowserConfig(config?: ChatGPTBrowserConfig): boolean"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "./recovery/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/cli.ts",
+      "dir": "src",
+      "category": "entry",
+      "purpose": "CLI entrypoint — parses args and starts runtime / service.",
+      "hasHeader": true,
+      "symbolCount": 4,
+      "symbols": [
+        {
+          "name": "parseArgs",
+          "kind": "re-export",
+          "line": 50,
+          "signature": "export { parseArgs } from \"./cli-args.js\"",
+          "from": "./cli-args.js"
+        },
+        {
+          "name": "(anonymous)",
+          "kind": "type",
+          "line": 51,
+          "signature": "export type"
+        },
+        {
+          "name": "runCli",
+          "kind": "function",
+          "line": 53,
+          "signature": "export async function runCli(args: string[]): Promise<void>"
+        },
+        {
+          "name": "recoveryOptions",
+          "kind": "function",
+          "line": 1060,
+          "signature": "export function recoveryOptions( args: ParsedArgs, pair: SessionPair, launcher: LocalDesktopToolLauncher ): SupervisorRecoveryOptions | undefined"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "./adapters/chatgpt/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./relay/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./recovery/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./sessions/pairs.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./runtime/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./validator/report.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./validator/readiness.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./application/local-agent-planner-prompt.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./application/pair-config-repository.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./application/desktop-tool-manager.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./supervisor/supervisor.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./cli-args.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./application/headless-service.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/contracts/ai-automation.ts",
+      "dir": "src/contracts",
+      "category": "contracts",
+      "purpose": "Source module for ai-automation.ts.",
+      "hasHeader": true,
+      "symbolCount": 2,
+      "symbols": [
+        {
+          "name": "AiAutomationMode",
+          "kind": "type",
+          "line": 13,
+          "signature": "export type AiAutomationMode = | \"off\" | \"manual\" | \"auto_propose\""
+        },
+        {
+          "name": "AiAutomationPolicy",
+          "kind": "interface",
+          "line": 18,
+          "signature": "export interface AiAutomationPolicy"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/contracts/ai-proposal.ts",
+      "dir": "src/contracts",
+      "category": "contracts",
+      "purpose": "Source module for ai-proposal.ts.",
+      "hasHeader": true,
+      "symbolCount": 4,
+      "symbols": [
+        {
+          "name": "ProposalDisposition",
+          "kind": "type",
+          "line": 15,
+          "signature": "export type ProposalDisposition = | \"propose_answer\" | \"needs_human\" | \"no_action\""
+        },
+        {
+          "name": "AttentionAdvisorInput",
+          "kind": "interface",
+          "line": 20,
+          "signature": "export interface AttentionAdvisorInput"
+        },
+        {
+          "name": "BoundedContext",
+          "kind": "interface",
+          "line": 29,
+          "signature": "export interface BoundedContext"
+        },
+        {
+          "name": "AttentionAdvisorResult",
+          "kind": "interface",
+          "line": 38,
+          "signature": "export interface AttentionAdvisorResult"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/contracts/attention.ts",
+      "dir": "src/contracts",
+      "category": "contracts",
+      "purpose": "Source module for attention.ts.",
+      "hasHeader": true,
+      "symbolCount": 7,
+      "symbols": [
+        {
+          "name": "WorkerAttentionKind",
+          "kind": "type",
+          "line": 15,
+          "signature": "export type WorkerAttentionKind = \"report\" | \"question\" | \"blocked\" | \"completed\""
+        },
+        {
+          "name": "AttentionStatus",
+          "kind": "type",
+          "line": 17,
+          "signature": "export type AttentionStatus = \"open\" | \"acknowledged\" | \"resolved\""
+        },
+        {
+          "name": "WorkerAttentionEnvelope",
+          "kind": "interface",
+          "line": 19,
+          "signature": "export interface WorkerAttentionEnvelope"
+        },
+        {
+          "name": "AttentionItem",
+          "kind": "interface",
+          "line": 24,
+          "signature": "export interface AttentionItem"
+        },
+        {
+          "name": "ListAttentionPayload",
+          "kind": "interface",
+          "line": 39,
+          "signature": "export interface ListAttentionPayload"
+        },
+        {
+          "name": "AcknowledgeAttentionPayload",
+          "kind": "interface",
+          "line": 44,
+          "signature": "export interface AcknowledgeAttentionPayload"
+        },
+        {
+          "name": "ResolveAttentionPayload",
+          "kind": "interface",
+          "line": 48,
+          "signature": "export interface ResolveAttentionPayload"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/contracts/control-plane.ts",
+      "dir": "src/contracts",
+      "category": "contracts",
+      "purpose": "Control-plane adapter for worker/planner pairs.",
+      "hasHeader": true,
+      "symbolCount": 28,
+      "symbols": [
+        {
+          "name": "ControlPlaneOperationType",
+          "kind": "type",
+          "line": 14,
+          "signature": "export type ControlPlaneOperationType = | \"getStatus\" | \"getTimeline\" | \"startProject\" | \"pauseProject\" | \"listAttention\" | \"acknowledgeAttention\" | \"resolveAtt"
+        },
+        {
+          "name": "ControlPlaneOperation",
+          "kind": "interface",
+          "line": 46,
+          "signature": "export interface ControlPlaneOperation"
+        },
+        {
+          "name": "GetStatusPayload",
+          "kind": "interface",
+          "line": 51,
+          "signature": "export interface GetStatusPayload"
+        },
+        {
+          "name": "GetTimelinePayload",
+          "kind": "interface",
+          "line": 55,
+          "signature": "export interface GetTimelinePayload"
+        },
+        {
+          "name": "StartProjectPayload",
+          "kind": "interface",
+          "line": 60,
+          "signature": "export interface StartProjectPayload"
+        },
+        {
+          "name": "PauseProjectPayload",
+          "kind": "interface",
+          "line": 64,
+          "signature": "export interface PauseProjectPayload"
+        },
+        {
+          "name": "ListAttentionPayload",
+          "kind": "interface",
+          "line": 68,
+          "signature": "export interface ListAttentionPayload"
+        },
+        {
+          "name": "AcknowledgeAttentionPayload",
+          "kind": "interface",
+          "line": 73,
+          "signature": "export interface AcknowledgeAttentionPayload"
+        },
+        {
+          "name": "ResolveAttentionPayload",
+          "kind": "interface",
+          "line": 77,
+          "signature": "export interface ResolveAttentionPayload"
+        },
+        {
+          "name": "RejectAttentionProposalPayload",
+          "kind": "interface",
+          "line": 82,
+          "signature": "export interface RejectAttentionProposalPayload"
+        },
+        {
+          "name": "CreateAttentionProposalPayload",
+          "kind": "interface",
+          "line": 86,
+          "signature": "export interface CreateAttentionProposalPayload"
+        },
+        {
+          "name": "ApproveAttentionProposalPayload",
+          "kind": "interface",
+          "line": 93,
+          "signature": "export interface ApproveAttentionProposalPayload"
+        },
+        {
+          "name": "ListProposalsPayload",
+          "kind": "interface",
+          "line": 101,
+          "signature": "export interface ListProposalsPayload"
+        },
+        {
+          "name": "GetProposalPayload",
+          "kind": "interface",
+          "line": 106,
+          "signature": "export interface GetProposalPayload"
+        },
+        {
+          "name": "CreateProjectPairPayload",
+          "kind": "interface",
+          "line": 110,
+          "signature": "export interface CreateProjectPairPayload"
+        },
+        {
+          "name": "RemoveProjectPairPayload",
+          "kind": "interface",
+          "line": 116,
+          "signature": "export interface RemoveProjectPairPayload"
+        },
+        {
+          "name": "ListProjectPairsPayload",
+          "kind": "interface",
+          "line": 120,
+          "signature": "export interface ListProjectPairsPayload"
+        },
+        {
+          "name": "CreatePairPayload",
+          "kind": "interface",
+          "line": 124,
+          "signature": "export interface CreatePairPayload"
+        },
+        {
+          "name": "UpdatePairPayload",
+          "kind": "interface",
+          "line": 132,
+          "signature": "export interface UpdatePairPayload"
+        },
+        {
+          "name": "RemovePairPayload",
+          "kind": "interface",
+          "line": 141,
+          "signature": "export interface RemovePairPayload"
+        },
+        {
+          "name": "ValidatePairPayload",
+          "kind": "interface",
+          "line": 145,
+          "signature": "export interface ValidatePairPayload"
+        },
+        {
+          "name": "GetPairPayload",
+          "kind": "interface",
+          "line": 149,
+          "signature": "export interface GetPairPayload"
+        },
+        {
+          "name": "DiscoverWorkerSessionsPayload",
+          "kind": "interface",
+          "line": 153,
+          "signature": "export interface DiscoverWorkerSessionsPayload"
+        },
+        {
+          "name": "BindWorkerSessionPayload",
+          "kind": "interface",
+          "line": 158,
+          "signature": "export interface BindWorkerSessionPayload"
+        },
+        {
+          "name": "UpdateProjectPairPayload",
+          "kind": "interface",
+          "line": 163,
+          "signature": "export interface UpdateProjectPairPayload"
+        },
+        {
+          "name": "ArchiveProjectPairPayload",
+          "kind": "interface",
+          "line": 169,
+          "signature": "export interface ArchiveProjectPairPayload"
+        },
+        {
+          "name": "ListWorkerModelsPayload",
+          "kind": "interface",
+          "line": 173,
+          "signature": "export interface ListWorkerModelsPayload"
+        },
+        {
+          "name": "SetWorkerModelPayload",
+          "kind": "interface",
+          "line": 177,
+          "signature": "export interface SetWorkerModelPayload"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/contracts/desktop.ts",
+      "dir": "src/contracts",
+      "category": "contracts",
+      "purpose": "Source module for desktop.ts.",
+      "hasHeader": true,
+      "symbolCount": 55,
+      "symbols": [
+        {
+          "name": "CheckStatusDto",
+          "kind": "type",
+          "line": 16,
+          "signature": "export type CheckStatusDto = \"PASS\" | \"FAIL\""
+        },
+        {
+          "name": "ReadinessCheckDto",
+          "kind": "interface",
+          "line": 18,
+          "signature": "export interface ReadinessCheckDto"
+        },
+        {
+          "name": "ValidationResultDto",
+          "kind": "interface",
+          "line": 24,
+          "signature": "export interface ValidationResultDto"
+        },
+        {
+          "name": "EventRecordDto",
+          "kind": "interface",
+          "line": 31,
+          "signature": "export interface EventRecordDto"
+        },
+        {
+          "name": "RecentEventsFilterDto",
+          "kind": "interface",
+          "line": 40,
+          "signature": "export interface RecentEventsFilterDto"
+        },
+        {
+          "name": "DesktopErrorDto",
+          "kind": "interface",
+          "line": 45,
+          "signature": "export interface DesktopErrorDto"
+        },
+        {
+          "name": "PeerHealthDto",
+          "kind": "interface",
+          "line": 51,
+          "signature": "export interface PeerHealthDto"
+        },
+        {
+          "name": "StatusSummaryDto",
+          "kind": "interface",
+          "line": 72,
+          "signature": "export interface StatusSummaryDto"
+        },
+        {
+          "name": "PairIdentityDto",
+          "kind": "interface",
+          "line": 81,
+          "signature": "export interface PairIdentityDto"
+        },
+        {
+          "name": "OpenCodeSessionInfoDto",
+          "kind": "interface",
+          "line": 101,
+          "signature": "export interface OpenCodeSessionInfoDto"
+        },
+        {
+          "name": "OpenCodeEndpointDto",
+          "kind": "interface",
+          "line": 108,
+          "signature": "export interface OpenCodeEndpointDto"
+        },
+        {
+          "name": "OpenCodeEndpointTestDto",
+          "kind": "interface",
+          "line": 112,
+          "signature": "export interface OpenCodeEndpointTestDto extends OpenCodeEndpointDto"
+        },
+        {
+          "name": "CreateOpenCodeSessionDto",
+          "kind": "interface",
+          "line": 117,
+          "signature": "export interface CreateOpenCodeSessionDto extends OpenCodeEndpointDto"
+        },
+        {
+          "name": "StartOpenCodeServerDto",
+          "kind": "interface",
+          "line": 122,
+          "signature": "export interface StartOpenCodeServerDto extends OpenCodeEndpointDto"
+        },
+        {
+          "name": "ToolLaunchResultDto",
+          "kind": "interface",
+          "line": 127,
+          "signature": "export interface ToolLaunchResultDto"
+        },
+        {
+          "name": "ToolActionResultDto",
+          "kind": "interface",
+          "line": 134,
+          "signature": "export interface ToolActionResultDto"
+        },
+        {
+          "name": "WorkerSessionOpenResultDto",
+          "kind": "interface",
+          "line": 139,
+          "signature": "export interface WorkerSessionOpenResultDto"
+        },
+        {
+          "name": "WorkerModelDto",
+          "kind": "interface",
+          "line": 146,
+          "signature": "export interface WorkerModelDto"
+        },
+        {
+          "name": "SwitchWorkerModelDto",
+          "kind": "interface",
+          "line": 153,
+          "signature": "export interface SwitchWorkerModelDto"
+        },
+        {
+          "name": "WorkerModelSwitchResultDto",
+          "kind": "interface",
+          "line": 159,
+          "signature": "export interface WorkerModelSwitchResultDto extends WorkerModelDto"
+        },
+        {
+          "name": "ParsedChatGptUrlDto",
+          "kind": "interface",
+          "line": 165,
+          "signature": "export interface ParsedChatGptUrlDto"
+        },
+        {
+          "name": "PlannerEndpointDto",
+          "kind": "interface",
+          "line": 171,
+          "signature": "export interface PlannerEndpointDto"
+        },
+        {
+          "name": "EndpointTestResultDto",
+          "kind": "interface",
+          "line": 176,
+          "signature": "export interface EndpointTestResultDto"
+        },
+        {
+          "name": "PairStartPriming",
+          "kind": "type",
+          "line": 182,
+          "signature": "export type PairStartPriming = \"from-worker\" | \"from-planner\" | \"from-trigger\""
+        },
+        {
+          "name": "AutomationInfoDto",
+          "kind": "interface",
+          "line": 184,
+          "signature": "export interface AutomationInfoDto"
+        },
+        {
+          "name": "PlannerSeedResultDto",
+          "kind": "interface",
+          "line": 190,
+          "signature": "export interface PlannerSeedResultDto"
+        },
+        {
+          "name": "LocalAgentFeedResultDto",
+          "kind": "interface",
+          "line": 196,
+          "signature": "export interface LocalAgentFeedResultDto"
+        },
+        {
+          "name": "CandidatePairDto",
+          "kind": "interface",
+          "line": 203,
+          "signature": "export interface CandidatePairDto"
+        },
+        {
+          "name": "UpdatePairDto",
+          "kind": "interface",
+          "line": 218,
+          "signature": "export interface UpdatePairDto"
+        },
+        {
+          "name": "ProjectPairDto",
+          "kind": "interface",
+          "line": 230,
+          "signature": "export interface ProjectPairDto"
+        },
+        {
+          "name": "CreateProjectPairDto",
+          "kind": "interface",
+          "line": 242,
+          "signature": "export interface CreateProjectPairDto"
+        },
+        {
+          "name": "OpenCodeProjectDto",
+          "kind": "interface",
+          "line": 254,
+          "signature": "export interface OpenCodeProjectDto"
+        },
+        {
+          "name": "ChatGptProjectDto",
+          "kind": "interface",
+          "line": 260,
+          "signature": "export interface ChatGptProjectDto"
+        },
+        {
+          "name": "ChatGptProjectsDiscoveryInput",
+          "kind": "interface",
+          "line": 268,
+          "signature": "export interface ChatGptProjectsDiscoveryInput"
+        },
+        {
+          "name": "ArchivedPairSummaryDto",
+          "kind": "interface",
+          "line": 272,
+          "signature": "export interface ArchivedPairSummaryDto"
+        },
+        {
+          "name": "WorkerModelInfo",
+          "kind": "interface",
+          "line": 281,
+          "signature": "export interface WorkerModelInfo extends OpenCodeModelInfo"
+        },
+        {
+          "name": "WorkerSessionDesktopAlignmentDto",
+          "kind": "interface",
+          "line": 285,
+          "signature": "export interface WorkerSessionDesktopAlignmentDto"
+        },
+        {
+          "name": "ChatGptUrlInputDto",
+          "kind": "interface",
+          "line": 293,
+          "signature": "export interface ChatGptUrlInputDto"
+        },
+        {
+          "name": "PairDetail",
+          "kind": "type",
+          "line": 298,
+          "signature": "export type PairDetail = PairIdentityDto"
+        },
+        {
+          "name": "OpenCodeSessionInfo",
+          "kind": "type",
+          "line": 299,
+          "signature": "export type OpenCodeSessionInfo = OpenCodeSessionInfoDto"
+        },
+        {
+          "name": "OpenCodeEndpointInput",
+          "kind": "type",
+          "line": 300,
+          "signature": "export type OpenCodeEndpointInput = OpenCodeEndpointDto"
+        },
+        {
+          "name": "OpenCodeEndpointTestInput",
+          "kind": "type",
+          "line": 301,
+          "signature": "export type OpenCodeEndpointTestInput = OpenCodeEndpointTestDto"
+        },
+        {
+          "name": "CreateOpenCodeSessionInput",
+          "kind": "type",
+          "line": 302,
+          "signature": "export type CreateOpenCodeSessionInput = CreateOpenCodeSessionDto"
+        },
+        {
+          "name": "ChatGptUrlInput",
+          "kind": "type",
+          "line": 303,
+          "signature": "export type ChatGptUrlInput = ChatGptUrlInputDto"
+        },
+        {
+          "name": "ParsedChatGptUrl",
+          "kind": "type",
+          "line": 304,
+          "signature": "export type ParsedChatGptUrl = ParsedChatGptUrlDto"
+        },
+        {
+          "name": "PlannerEndpointInput",
+          "kind": "type",
+          "line": 305,
+          "signature": "export type PlannerEndpointInput = PlannerEndpointDto"
+        },
+        {
+          "name": "StartOpenCodeServerInput",
+          "kind": "type",
+          "line": 306,
+          "signature": "export type StartOpenCodeServerInput = StartOpenCodeServerDto"
+        },
+        {
+          "name": "EndpointTestResult",
+          "kind": "type",
+          "line": 307,
+          "signature": "export type EndpointTestResult = EndpointTestResultDto"
+        },
+        {
+          "name": "WorkerSessionDesktopAlignment",
+          "kind": "type",
+          "line": 308,
+          "signature": "export type WorkerSessionDesktopAlignment = WorkerSessionDesktopAlignmentDto"
+        },
+        {
+          "name": "AutomationInfo",
+          "kind": "type",
+          "line": 309,
+          "signature": "export type AutomationInfo = AutomationInfoDto"
+        },
+        {
+          "name": "PlannerSeedResult",
+          "kind": "type",
+          "line": 310,
+          "signature": "export type PlannerSeedResult = PlannerSeedResultDto"
+        },
+        {
+          "name": "LocalAgentFeedResult",
+          "kind": "type",
+          "line": 311,
+          "signature": "export type LocalAgentFeedResult = LocalAgentFeedResultDto"
+        },
+        {
+          "name": "CandidatePairInput",
+          "kind": "type",
+          "line": 312,
+          "signature": "export type CandidatePairInput = CandidatePairDto"
+        },
+        {
+          "name": "UpdatePairInput",
+          "kind": "type",
+          "line": 313,
+          "signature": "export type UpdatePairInput = UpdatePairDto"
+        },
+        {
+          "name": "ValidatedPair",
+          "kind": "type",
+          "line": 314,
+          "signature": "export type ValidatedPair = ValidationResultDto"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/contracts/events.ts",
+      "dir": "src/contracts",
+      "category": "contracts",
+      "purpose": "Source module for events.ts.",
+      "hasHeader": true,
+      "symbolCount": 2,
+      "symbols": [
+        {
+          "name": "EventRecord",
+          "kind": "interface",
+          "line": 8,
+          "signature": "export interface EventRecord"
+        },
+        {
+          "name": "EventFilter",
+          "kind": "interface",
+          "line": 19,
+          "signature": "export interface EventFilter"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/contracts/worker-progress.ts",
+      "dir": "src/contracts",
+      "category": "contracts",
+      "purpose": "Worker progress tracking service.",
+      "hasHeader": true,
+      "symbolCount": 10,
+      "symbols": [
+        {
+          "name": "WorkerProgressState",
+          "kind": "type",
+          "line": 7,
+          "signature": "export type WorkerProgressState = | \"working\" | \"idle\" | \"completed\" | \"failed\" | \"disconnected\" | \"reconnecting\" | \"waiting\""
+        },
+        {
+          "name": "WorkerProgressTodo",
+          "kind": "interface",
+          "line": 16,
+          "signature": "export interface WorkerProgressTodo"
+        },
+        {
+          "name": "FileChangeStatus",
+          "kind": "type",
+          "line": 24,
+          "signature": "export type FileChangeStatus = \"added\" | \"modified\" | \"deleted\" | \"renamed\""
+        },
+        {
+          "name": "WorkerProgressFileChange",
+          "kind": "interface",
+          "line": 26,
+          "signature": "export interface WorkerProgressFileChange"
+        },
+        {
+          "name": "WorkerProgressChangeSummary",
+          "kind": "interface",
+          "line": 34,
+          "signature": "export interface WorkerProgressChangeSummary"
+        },
+        {
+          "name": "WorkerProgressToolCall",
+          "kind": "interface",
+          "line": 41,
+          "signature": "export interface WorkerProgressToolCall"
+        },
+        {
+          "name": "WorkerProgressTimelineEntry",
+          "kind": "interface",
+          "line": 52,
+          "signature": "export interface WorkerProgressTimelineEntry"
+        },
+        {
+          "name": "WorkerProgressLive",
+          "kind": "interface",
+          "line": 77,
+          "signature": "export interface WorkerProgressLive"
+        },
+        {
+          "name": "WorkerProgressDto",
+          "kind": "interface",
+          "line": 94,
+          "signature": "export interface WorkerProgressDto"
+        },
+        {
+          "name": "WorkerProgressSummary",
+          "kind": "interface",
+          "line": 108,
+          "signature": "export interface WorkerProgressSummary"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/contracts/worker-question.ts",
+      "dir": "src/contracts",
+      "category": "contracts",
+      "purpose": "Source module for worker-question.ts.",
+      "hasHeader": true,
+      "symbolCount": 1,
+      "symbols": [
+        {
+          "name": "WorkerQuestion",
+          "kind": "interface",
+          "line": 7,
+          "signature": "export interface WorkerQuestion"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/contracts/worker-transcript.ts",
+      "dir": "src/contracts",
+      "category": "contracts",
+      "purpose": "Worker transcript / session summary service.",
+      "hasHeader": true,
+      "symbolCount": 1,
+      "symbols": [
+        {
+          "name": "WorkerTranscript",
+          "kind": "interface",
+          "line": 7,
+          "signature": "export interface WorkerTranscript"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/index.ts",
+      "dir": "src",
+      "category": "core",
+      "purpose": "Module exports for src.",
+      "hasHeader": true,
+      "symbolCount": 0,
+      "symbols": [],
+      "dependencies": [
+        {
+          "spec": "./cli.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/persistence/archive.ts",
+      "dir": "src/persistence",
+      "category": "persistence",
+      "purpose": "Source module for archive.ts.",
+      "hasHeader": true,
+      "symbolCount": 6,
+      "symbols": [
+        {
+          "name": "ArchivedConfigSnapshot",
+          "kind": "interface",
+          "line": 17,
+          "signature": "export interface ArchivedConfigSnapshot"
+        },
+        {
+          "name": "ArchivedPairPayload",
+          "kind": "interface",
+          "line": 35,
+          "signature": "export interface ArchivedPairPayload"
+        },
+        {
+          "name": "ArchivedPairSummary",
+          "kind": "interface",
+          "line": 48,
+          "signature": "export interface ArchivedPairSummary"
+        },
+        {
+          "name": "ArchiveStore",
+          "kind": "interface",
+          "line": 57,
+          "signature": "export interface ArchiveStore"
+        },
+        {
+          "name": "ArchiveError",
+          "kind": "class",
+          "line": 65,
+          "signature": "export class ArchiveError extends Error"
+        },
+        {
+          "name": "PairArchive",
+          "kind": "class",
+          "line": 80,
+          "signature": "export class PairArchive implements ArchiveStore"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:fs/promises",
+          "kind": "node"
+        },
+        {
+          "spec": "node:path",
+          "kind": "node"
+        }
+      ]
+    },
+    {
+      "path": "src/persistence/canonical.ts",
+      "dir": "src/persistence",
+      "category": "persistence",
+      "purpose": "Canonicalization helpers (URL, identity, hash).",
+      "hasHeader": true,
+      "symbolCount": 3,
+      "symbols": [
+        {
+          "name": "canonicalizeText",
+          "kind": "re-export",
+          "line": 12,
+          "signature": "export { canonicalizeText, hashText } from \"../util/canonical.js\"",
+          "from": "../util/canonical.js"
+        },
+        {
+          "name": "hashText",
+          "kind": "re-export",
+          "line": 12,
+          "signature": "export { canonicalizeText, hashText } from \"../util/canonical.js\"",
+          "from": "../util/canonical.js"
+        },
+        {
+          "name": "canonicalRelayIdentity",
+          "kind": "function",
+          "line": 14,
+          "signature": "export function canonicalRelayIdentity( pairId: string, direction: RelayDirection, message: Pick<RelayableMessage, \"id\" | \"text\"> ): CanonicalRelayIdentity"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../util/canonical.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/persistence/index.ts",
+      "dir": "src/persistence",
+      "category": "persistence",
+      "purpose": "Persistence / SQLite store exports.",
+      "hasHeader": true,
+      "symbolCount": 14,
+      "symbols": [
+        {
+          "name": "RelayStoreError",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./store.js"
+        },
+        {
+          "name": "SqliteRelayStore",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./store.js"
+        },
+        {
+          "name": "ensureDbParent",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./store.js"
+        },
+        {
+          "name": "resolveDbPath",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./store.js"
+        },
+        {
+          "name": "RelayStore",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./store.js"
+        },
+        {
+          "name": "canonicalRelayIdentity",
+          "kind": "re-export",
+          "line": 14,
+          "signature": "export { canonicalRelayIdentity, canonicalizeText, hashText } from \"./canonical.js\"",
+          "from": "./canonical.js"
+        },
+        {
+          "name": "canonicalizeText",
+          "kind": "re-export",
+          "line": 14,
+          "signature": "export { canonicalRelayIdentity, canonicalizeText, hashText } from \"./canonical.js\"",
+          "from": "./canonical.js"
+        },
+        {
+          "name": "hashText",
+          "kind": "re-export",
+          "line": 14,
+          "signature": "export { canonicalRelayIdentity, canonicalizeText, hashText } from \"./canonical.js\"",
+          "from": "./canonical.js"
+        },
+        {
+          "name": "ArchiveError",
+          "kind": "re-export",
+          "line": 15,
+          "signature": "export {",
+          "from": "./archive.js"
+        },
+        {
+          "name": "PairArchive",
+          "kind": "re-export",
+          "line": 15,
+          "signature": "export {",
+          "from": "./archive.js"
+        },
+        {
+          "name": "ArchiveStore",
+          "kind": "re-export",
+          "line": 15,
+          "signature": "export {",
+          "from": "./archive.js"
+        },
+        {
+          "name": "ArchivedConfigSnapshot",
+          "kind": "re-export",
+          "line": 15,
+          "signature": "export {",
+          "from": "./archive.js"
+        },
+        {
+          "name": "ArchivedPairPayload",
+          "kind": "re-export",
+          "line": 15,
+          "signature": "export {",
+          "from": "./archive.js"
+        },
+        {
+          "name": "ArchivedPairSummary",
+          "kind": "re-export",
+          "line": 15,
+          "signature": "export {",
+          "from": "./archive.js"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "./store.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./canonical.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./archive.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/persistence/store.ts",
+      "dir": "src/persistence",
+      "category": "persistence",
+      "purpose": "Source module for store.ts.",
+      "hasHeader": true,
+      "symbolCount": 5,
+      "symbols": [
+        {
+          "name": "RelayStore",
+          "kind": "interface",
+          "line": 27,
+          "signature": "export interface RelayStore"
+        },
+        {
+          "name": "RelayStoreError",
+          "kind": "class",
+          "line": 156,
+          "signature": "export class RelayStoreError extends Error"
+        },
+        {
+          "name": "SqliteRelayStore",
+          "kind": "class",
+          "line": 306,
+          "signature": "export class SqliteRelayStore implements RelayStore"
+        },
+        {
+          "name": "resolveDbPath",
+          "kind": "function",
+          "line": 1208,
+          "signature": "export function resolveDbPath(configuredPath?: string): string"
+        },
+        {
+          "name": "ensureDbParent",
+          "kind": "function",
+          "line": 1215,
+          "signature": "export async function ensureDbParent(dbPath: string): Promise<void>"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:fs/promises",
+          "kind": "node"
+        },
+        {
+          "spec": "node:path",
+          "kind": "node"
+        },
+        {
+          "spec": "node:sqlite",
+          "kind": "node"
+        }
+      ]
+    },
+    {
+      "path": "src/recovery/browser.ts",
+      "dir": "src/recovery",
+      "category": "recovery",
+      "purpose": "Source module for browser.ts.",
+      "hasHeader": true,
+      "symbolCount": 7,
+      "symbols": [
+        {
+          "name": "BrowserStatus",
+          "kind": "interface",
+          "line": 9,
+          "signature": "export interface BrowserStatus"
+        },
+        {
+          "name": "BrowserManager",
+          "kind": "interface",
+          "line": 15,
+          "signature": "export interface BrowserManager"
+        },
+        {
+          "name": "ExternalBrowserManager",
+          "kind": "class",
+          "line": 25,
+          "signature": "export class ExternalBrowserManager implements BrowserManager"
+        },
+        {
+          "name": "ManagedBrowserHandle",
+          "kind": "interface",
+          "line": 50,
+          "signature": "export interface ManagedBrowserHandle"
+        },
+        {
+          "name": "ManagedBrowserLens",
+          "kind": "interface",
+          "line": 54,
+          "signature": "export interface ManagedBrowserLens"
+        },
+        {
+          "name": "ManagedBrowserManager",
+          "kind": "class",
+          "line": 58,
+          "signature": "export class ManagedBrowserManager implements BrowserManager"
+        },
+        {
+          "name": "browserManagerFor",
+          "kind": "function",
+          "line": 106,
+          "signature": "export function browserManagerFor( config: { cdpUrl?: string; executablePath?: string } | undefined, lens?: ManagedBrowserLens ): BrowserManager"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/recovery/chatgpt.ts",
+      "dir": "src/recovery",
+      "category": "recovery",
+      "purpose": "Source module for chatgpt.ts.",
+      "hasHeader": true,
+      "symbolCount": 3,
+      "symbols": [
+        {
+          "name": "ChatGPTRecoveryOutcome",
+          "kind": "type",
+          "line": 14,
+          "signature": "export type ChatGPTRecoveryOutcome = |"
+        },
+        {
+          "name": "ChatGPTRecoveryInput",
+          "kind": "interface",
+          "line": 18,
+          "signature": "export interface ChatGPTRecoveryInput"
+        },
+        {
+          "name": "recoverChatGPT",
+          "kind": "function",
+          "line": 27,
+          "signature": "export async function recoverChatGPT(input: ChatGPTRecoveryInput): Promise<ChatGPTRecoveryOutcome>"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "./browser.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./schedule.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/recovery/engine.ts",
+      "dir": "src/recovery",
+      "category": "recovery",
+      "purpose": "Source module for engine.ts.",
+      "hasHeader": true,
+      "symbolCount": 3,
+      "symbols": [
+        {
+          "name": "RecoveryEngineDeps",
+          "kind": "interface",
+          "line": 25,
+          "signature": "export interface RecoveryEngineDeps"
+        },
+        {
+          "name": "RecoveryRunResult",
+          "kind": "interface",
+          "line": 44,
+          "signature": "export interface RecoveryRunResult"
+        },
+        {
+          "name": "RecoveryEngine",
+          "kind": "class",
+          "line": 62,
+          "signature": "export class RecoveryEngine"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../adapters/chatgpt/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../adapters/opencode/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../persistence/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../supervisor/events.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./browser.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./chatgpt.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./opencode.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./policy.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./schedule.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./reasons.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/recovery/index.ts",
+      "dir": "src/recovery",
+      "category": "recovery",
+      "purpose": "Recovery engine exports.",
+      "hasHeader": true,
+      "symbolCount": 24,
+      "symbols": [
+        {
+          "name": "browserManagerFor",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./browser.js"
+        },
+        {
+          "name": "ExternalBrowserManager",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./browser.js"
+        },
+        {
+          "name": "ManagedBrowserManager",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./browser.js"
+        },
+        {
+          "name": "BrowserManager",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./browser.js"
+        },
+        {
+          "name": "BrowserStatus",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./browser.js"
+        },
+        {
+          "name": "ManagedBrowserHandle",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./browser.js"
+        },
+        {
+          "name": "ManagedBrowserLens",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./browser.js"
+        },
+        {
+          "name": "recoverChatGPT",
+          "kind": "re-export",
+          "line": 16,
+          "signature": "export { recoverChatGPT, type ChatGPTRecoveryOutcome } from \"./chatgpt.js\"",
+          "from": "./chatgpt.js"
+        },
+        {
+          "name": "ChatGPTRecoveryOutcome",
+          "kind": "re-export",
+          "line": 16,
+          "signature": "export { recoverChatGPT, type ChatGPTRecoveryOutcome } from \"./chatgpt.js\"",
+          "from": "./chatgpt.js"
+        },
+        {
+          "name": "RecoveryEngine",
+          "kind": "re-export",
+          "line": 17,
+          "signature": "export { RecoveryEngine, type RecoveryRunResult, type RecoveryEngineDeps } from \"./engine.js\"",
+          "from": "./engine.js"
+        },
+        {
+          "name": "RecoveryRunResult",
+          "kind": "re-export",
+          "line": 17,
+          "signature": "export { RecoveryEngine, type RecoveryRunResult, type RecoveryEngineDeps } from \"./engine.js\"",
+          "from": "./engine.js"
+        },
+        {
+          "name": "RecoveryEngineDeps",
+          "kind": "re-export",
+          "line": 17,
+          "signature": "export { RecoveryEngine, type RecoveryRunResult, type RecoveryEngineDeps } from \"./engine.js\"",
+          "from": "./engine.js"
+        },
+        {
+          "name": "recoverOpenCode",
+          "kind": "re-export",
+          "line": 18,
+          "signature": "export { recoverOpenCode, type OpenCodeRecoveryOutcome } from \"./opencode.js\"",
+          "from": "./opencode.js"
+        },
+        {
+          "name": "OpenCodeRecoveryOutcome",
+          "kind": "re-export",
+          "line": 18,
+          "signature": "export { recoverOpenCode, type OpenCodeRecoveryOutcome } from \"./opencode.js\"",
+          "from": "./opencode.js"
+        },
+        {
+          "name": "DEFAULT_RECOVERY_POLICY",
+          "kind": "re-export",
+          "line": 19,
+          "signature": "export { DEFAULT_RECOVERY_POLICY, recoveryActionForState, isRecoveryPolicy, type RecoveryAction } from \"./policy.js\"",
+          "from": "./policy.js"
+        },
+        {
+          "name": "recoveryActionForState",
+          "kind": "re-export",
+          "line": 19,
+          "signature": "export { DEFAULT_RECOVERY_POLICY, recoveryActionForState, isRecoveryPolicy, type RecoveryAction } from \"./policy.js\"",
+          "from": "./policy.js"
+        },
+        {
+          "name": "isRecoveryPolicy",
+          "kind": "re-export",
+          "line": 19,
+          "signature": "export { DEFAULT_RECOVERY_POLICY, recoveryActionForState, isRecoveryPolicy, type RecoveryAction } from \"./policy.js\"",
+          "from": "./policy.js"
+        },
+        {
+          "name": "RecoveryAction",
+          "kind": "re-export",
+          "line": 19,
+          "signature": "export { DEFAULT_RECOVERY_POLICY, recoveryActionForState, isRecoveryPolicy, type RecoveryAction } from \"./policy.js\"",
+          "from": "./policy.js"
+        },
+        {
+          "name": "abortError",
+          "kind": "re-export",
+          "line": 20,
+          "signature": "export { abortError, DEFAULT_BACKOFF_POLICY, delayForAttempt, interruptibleSleep, type BackoffPolicy } from \"./schedule.js\"",
+          "from": "./schedule.js"
+        },
+        {
+          "name": "DEFAULT_BACKOFF_POLICY",
+          "kind": "re-export",
+          "line": 20,
+          "signature": "export { abortError, DEFAULT_BACKOFF_POLICY, delayForAttempt, interruptibleSleep, type BackoffPolicy } from \"./schedule.js\"",
+          "from": "./schedule.js"
+        },
+        {
+          "name": "delayForAttempt",
+          "kind": "re-export",
+          "line": 20,
+          "signature": "export { abortError, DEFAULT_BACKOFF_POLICY, delayForAttempt, interruptibleSleep, type BackoffPolicy } from \"./schedule.js\"",
+          "from": "./schedule.js"
+        },
+        {
+          "name": "interruptibleSleep",
+          "kind": "re-export",
+          "line": 20,
+          "signature": "export { abortError, DEFAULT_BACKOFF_POLICY, delayForAttempt, interruptibleSleep, type BackoffPolicy } from \"./schedule.js\"",
+          "from": "./schedule.js"
+        },
+        {
+          "name": "BackoffPolicy",
+          "kind": "re-export",
+          "line": 20,
+          "signature": "export { abortError, DEFAULT_BACKOFF_POLICY, delayForAttempt, interruptibleSleep, type BackoffPolicy } from \"./schedule.js\"",
+          "from": "./schedule.js"
+        },
+        {
+          "name": "humanReason",
+          "kind": "re-export",
+          "line": 21,
+          "signature": "export { humanReason } from \"./reasons.js\"",
+          "from": "./reasons.js"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "./browser.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./chatgpt.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./engine.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./opencode.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./policy.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./schedule.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./reasons.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/recovery/opencode.ts",
+      "dir": "src/recovery",
+      "category": "recovery",
+      "purpose": "Source module for opencode.ts.",
+      "hasHeader": true,
+      "symbolCount": 5,
+      "symbols": [
+        {
+          "name": "OpenCodeServerLauncher",
+          "kind": "type",
+          "line": 12,
+          "signature": "export type OpenCodeServerLauncher = (repoPath: string, baseUrl: string) => Promise<"
+        },
+        {
+          "name": "OpenCodeRecoveryInput",
+          "kind": "interface",
+          "line": 14,
+          "signature": "export interface OpenCodeRecoveryInput"
+        },
+        {
+          "name": "OpenCodeStartOutcome",
+          "kind": "interface",
+          "line": 29,
+          "signature": "export interface OpenCodeStartOutcome"
+        },
+        {
+          "name": "OpenCodeRecoveryOutcome",
+          "kind": "type",
+          "line": 35,
+          "signature": "export type OpenCodeRecoveryOutcome = |"
+        },
+        {
+          "name": "recoverOpenCode",
+          "kind": "function",
+          "line": 39,
+          "signature": "export async function recoverOpenCode( input: OpenCodeRecoveryInput ): Promise<OpenCodeRecoveryOutcome>"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:path",
+          "kind": "node"
+        },
+        {
+          "spec": "../adapters/opencode/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./schedule.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/recovery/policy.ts",
+      "dir": "src/recovery",
+      "category": "recovery",
+      "purpose": "Source module for policy.ts.",
+      "hasHeader": true,
+      "symbolCount": 4,
+      "symbols": [
+        {
+          "name": "DEFAULT_RECOVERY_POLICY",
+          "kind": "const",
+          "line": 9,
+          "signature": "export const DEFAULT_RECOVERY_POLICY: RecoveryPolicy = \"safe\""
+        },
+        {
+          "name": "RecoveryAction",
+          "kind": "type",
+          "line": 11,
+          "signature": "export type RecoveryAction = | \"none\" | \"reconnect-transport\" | \"relaunch-browser\" | \"reopen-conversation\" | \"reobserve-session\" | \"verify-only\" | \"intervention"
+        },
+        {
+          "name": "isRecoveryPolicy",
+          "kind": "function",
+          "line": 20,
+          "signature": "export function isRecoveryPolicy(value: unknown): value is RecoveryPolicy"
+        },
+        {
+          "name": "recoveryActionForState",
+          "kind": "function",
+          "line": 24,
+          "signature": "export function recoveryActionForState(state: SupervisorState | undefined): RecoveryAction"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/recovery/reasons.ts",
+      "dir": "src/recovery",
+      "category": "recovery",
+      "purpose": "Source module for reasons.ts.",
+      "hasHeader": true,
+      "symbolCount": 1,
+      "symbols": [
+        {
+          "name": "humanReason",
+          "kind": "function",
+          "line": 9,
+          "signature": "export function humanReason(code: RecoveryErrorCode): string"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/recovery/schedule.ts",
+      "dir": "src/recovery",
+      "category": "recovery",
+      "purpose": "Source module for schedule.ts.",
+      "hasHeader": true,
+      "symbolCount": 5,
+      "symbols": [
+        {
+          "name": "BackoffPolicy",
+          "kind": "interface",
+          "line": 7,
+          "signature": "export interface BackoffPolicy"
+        },
+        {
+          "name": "DEFAULT_BACKOFF_POLICY",
+          "kind": "const",
+          "line": 12,
+          "signature": "export const DEFAULT_BACKOFF_POLICY: BackoffPolicy ="
+        },
+        {
+          "name": "delayForAttempt",
+          "kind": "function",
+          "line": 16,
+          "signature": "export function delayForAttempt(attempt: number, policy: BackoffPolicy = DEFAULT_BACKOFF_POLICY): number"
+        },
+        {
+          "name": "abortError",
+          "kind": "function",
+          "line": 23,
+          "signature": "export function abortError(): Error"
+        },
+        {
+          "name": "interruptibleSleep",
+          "kind": "function",
+          "line": 27,
+          "signature": "export function interruptibleSleep(milliseconds: number, signal?: AbortSignal): Promise<void>"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/relay/chatgpt-gate.ts",
+      "dir": "src/relay",
+      "category": "relay",
+      "purpose": "Source module for chatgpt-gate.ts.",
+      "hasHeader": true,
+      "symbolCount": 12,
+      "symbols": [
+        {
+          "name": "DEFAULT_CHATGPT_MIN_SUBMIT_INTERVAL_MS",
+          "kind": "const",
+          "line": 7,
+          "signature": "export const DEFAULT_CHATGPT_MIN_SUBMIT_INTERVAL_MS = 30_000"
+        },
+        {
+          "name": "DEFAULT_CHATGPT_BACKOFF_INITIAL_MS",
+          "kind": "const",
+          "line": 8,
+          "signature": "export const DEFAULT_CHATGPT_BACKOFF_INITIAL_MS = 30_000"
+        },
+        {
+          "name": "DEFAULT_CHATGPT_BACKOFF_MAX_MS",
+          "kind": "const",
+          "line": 9,
+          "signature": "export const DEFAULT_CHATGPT_BACKOFF_MAX_MS = 5 * 60_000"
+        },
+        {
+          "name": "DEFAULT_CHATGPT_BACKOFF_BASE",
+          "kind": "const",
+          "line": 10,
+          "signature": "export const DEFAULT_CHATGPT_BACKOFF_BASE = 2"
+        },
+        {
+          "name": "ChatGptSubmissionGateOptions",
+          "kind": "interface",
+          "line": 12,
+          "signature": "export interface ChatGptSubmissionGateOptions"
+        },
+        {
+          "name": "ChatGptSubmissionDecision",
+          "kind": "interface",
+          "line": 22,
+          "signature": "export interface ChatGptSubmissionDecision"
+        },
+        {
+          "name": "ChatGptSubmissionOutcome",
+          "kind": "interface",
+          "line": 31,
+          "signature": "export interface ChatGptSubmissionOutcome"
+        },
+        {
+          "name": "ChatGptSubmissionGate",
+          "kind": "class",
+          "line": 55,
+          "signature": "export class ChatGptSubmissionGate"
+        },
+        {
+          "name": "defaultIsRateLimited",
+          "kind": "function",
+          "line": 165,
+          "signature": "export function defaultIsRateLimited(error: unknown): boolean"
+        },
+        {
+          "name": "delay",
+          "kind": "function",
+          "line": 174,
+          "signature": "export function delay(ms: number, sleep: (m: number) => Promise<void>): Promise<void>"
+        },
+        {
+          "name": "interruptible",
+          "kind": "function",
+          "line": 178,
+          "signature": "export async function interruptible(task: Promise<void>, signal?: AbortSignal): Promise<void>"
+        },
+        {
+          "name": "plannerControlMessage",
+          "kind": "function",
+          "line": 193,
+          "signature": "export function plannerControlMessage(text: string): \"complete\" | \"blocked\" | undefined"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/relay/delivery-error.ts",
+      "dir": "src/relay",
+      "category": "relay",
+      "purpose": "Source module for delivery-error.ts.",
+      "hasHeader": true,
+      "symbolCount": 1,
+      "symbols": [
+        {
+          "name": "SubmissionNotAttemptedError",
+          "kind": "class",
+          "line": 13,
+          "signature": "export class SubmissionNotAttemptedError extends Error"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/relay/index.ts",
+      "dir": "src/relay",
+      "category": "relay",
+      "purpose": "Relay core exports (identity, verification, ledger).",
+      "hasHeader": true,
+      "symbolCount": 11,
+      "symbols": [
+        {
+          "name": "*",
+          "kind": "re-export",
+          "line": 10,
+          "signature": "export * from \"./chatgpt-gate.js\"",
+          "from": "./chatgpt-gate.js"
+        },
+        {
+          "name": "RelayAdapters",
+          "kind": "interface",
+          "line": 25,
+          "signature": "export interface RelayAdapters"
+        },
+        {
+          "name": "MAX_RELAY_ATTEMPTS",
+          "kind": "const",
+          "line": 37,
+          "signature": "export const MAX_RELAY_ATTEMPTS = 20"
+        },
+        {
+          "name": "RelayOutcome",
+          "kind": "type",
+          "line": 39,
+          "signature": "export type RelayOutcome = | \"DELIVERED\" | \"SKIPPED_DUPLICATE\" | \"AMBIGUOUS\" | \"FAILED\" | \"NOOP\" | \"NOT_READY\" | \"HELD\" | \"RATE_LIMITED\""
+        },
+        {
+          "name": "RelayResult",
+          "kind": "interface",
+          "line": 49,
+          "signature": "export interface RelayResult"
+        },
+        {
+          "name": "RelayPersistence",
+          "kind": "interface",
+          "line": 64,
+          "signature": "export interface RelayPersistence"
+        },
+        {
+          "name": "RelayOptions",
+          "kind": "interface",
+          "line": 68,
+          "signature": "export interface RelayOptions"
+        },
+        {
+          "name": "relayWorkerToPlanner",
+          "kind": "function",
+          "line": 258,
+          "signature": "export async function relayWorkerToPlanner( pair: SessionPair, adapters: RelayAdapters, options: RelayOptions = {} ): Promise<RelayResult>"
+        },
+        {
+          "name": "relayPlannerToWorker",
+          "kind": "function",
+          "line": 278,
+          "signature": "export async function relayPlannerToWorker( pair: SessionPair, adapters: RelayAdapters, options: RelayOptions = {} ): Promise<RelayResult>"
+        },
+        {
+          "name": "extractModelInstruction",
+          "kind": "function",
+          "line": 319,
+          "signature": "export function extractModelInstruction(text: string):"
+        },
+        {
+          "name": "formatRelayResult",
+          "kind": "function",
+          "line": 329,
+          "signature": "export function formatRelayResult(result: RelayResult): string"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../adapters/chatgpt/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../adapters/opencode/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../persistence/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./chatgpt-gate.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../validator/readiness.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./delivery-error.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../application/attention-parser.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./message-classifier.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/relay/message-classifier.ts",
+      "dir": "src/relay",
+      "category": "relay",
+      "purpose": "Source module for message-classifier.ts.",
+      "hasHeader": true,
+      "symbolCount": 2,
+      "symbols": [
+        {
+          "name": "classifyWorkerMessage",
+          "kind": "function",
+          "line": 26,
+          "signature": "export function classifyWorkerMessage(text: string): WorkerMessageClassification"
+        },
+        {
+          "name": "questionNature",
+          "kind": "function",
+          "line": 51,
+          "signature": "export function questionNature(text: string): WorkerQuestionNature | undefined"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../application/attention-parser.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/relay/verifier.ts",
+      "dir": "src/relay",
+      "category": "relay",
+      "purpose": "Source module for verifier.ts.",
+      "hasHeader": true,
+      "symbolCount": 3,
+      "symbols": [
+        {
+          "name": "VerifierAdapters",
+          "kind": "interface",
+          "line": 12,
+          "signature": "export interface VerifierAdapters"
+        },
+        {
+          "name": "VerificationResult",
+          "kind": "interface",
+          "line": 17,
+          "signature": "export interface VerificationResult"
+        },
+        {
+          "name": "RelayVerifier",
+          "kind": "class",
+          "line": 27,
+          "signature": "export class RelayVerifier"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../adapters/chatgpt/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../adapters/opencode/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../persistence/canonical.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/remote/remote-server.ts",
+      "dir": "src/remote",
+      "category": "remote",
+      "purpose": "Optional HTTP control API (service start only).",
+      "hasHeader": true,
+      "symbolCount": 4,
+      "symbols": [
+        {
+          "name": "RemoteTimelineEntry",
+          "kind": "interface",
+          "line": 12,
+          "signature": "export interface RemoteTimelineEntry"
+        },
+        {
+          "name": "RemoteServiceOptions",
+          "kind": "interface",
+          "line": 23,
+          "signature": "export interface RemoteServiceOptions"
+        },
+        {
+          "name": "RemoteResponse",
+          "kind": "type",
+          "line": 44,
+          "signature": "export type RemoteResponse = |"
+        },
+        {
+          "name": "createRemoteServer",
+          "kind": "function",
+          "line": 130,
+          "signature": "export function createRemoteServer(options: RemoteServiceOptions):"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:crypto",
+          "kind": "node"
+        },
+        {
+          "spec": "node:http",
+          "kind": "node"
+        },
+        {
+          "spec": "../runtime/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../application/control-plane-adapter.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/runtime/adapters.ts",
+      "dir": "src/runtime",
+      "category": "runtime",
+      "purpose": "Adapter registry / factory.",
+      "hasHeader": true,
+      "symbolCount": 4,
+      "symbols": [
+        {
+          "name": "RuntimeAdapterOptions",
+          "kind": "interface",
+          "line": 20,
+          "signature": "export interface RuntimeAdapterOptions"
+        },
+        {
+          "name": "PairAdapters",
+          "kind": "interface",
+          "line": 28,
+          "signature": "export interface PairAdapters"
+        },
+        {
+          "name": "createPairAdapters",
+          "kind": "function",
+          "line": 34,
+          "signature": "export function createPairAdapters(pair: SessionPair, options: RuntimeAdapterOptions = {}): PairAdapters"
+        },
+        {
+          "name": "browserLockKey",
+          "kind": "function",
+          "line": 56,
+          "signature": "export function browserLockKey(pair: SessionPair): string"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:os",
+          "kind": "node"
+        },
+        {
+          "spec": "node:path",
+          "kind": "node"
+        },
+        {
+          "spec": "../adapters/chatgpt/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../adapters/opencode/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./scheduler.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/runtime/index.ts",
+      "dir": "src/runtime",
+      "category": "runtime",
+      "purpose": "Pair runtime orchestration exports.",
+      "hasHeader": true,
+      "symbolCount": 26,
+      "symbols": [
+        {
+          "name": "RuntimeError",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./orchestrator.js"
+        },
+        {
+          "name": "RuntimeOrchestrator",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./orchestrator.js"
+        },
+        {
+          "name": "isHealthyRuntime",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./orchestrator.js"
+        },
+        {
+          "name": "isFailedRuntime",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./orchestrator.js"
+        },
+        {
+          "name": "RuntimeOrchestratorOptions",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./orchestrator.js"
+        },
+        {
+          "name": "RuntimeStatusSummary",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./orchestrator.js"
+        },
+        {
+          "name": "PairRuntime",
+          "kind": "re-export",
+          "line": 15,
+          "signature": "export { PairRuntime, type PairRuntimeOptions, type PairRuntimeStatusSet } from \"./pair-runtime.js\"",
+          "from": "./pair-runtime.js"
+        },
+        {
+          "name": "PairRuntimeOptions",
+          "kind": "re-export",
+          "line": 15,
+          "signature": "export { PairRuntime, type PairRuntimeOptions, type PairRuntimeStatusSet } from \"./pair-runtime.js\"",
+          "from": "./pair-runtime.js"
+        },
+        {
+          "name": "PairRuntimeStatusSet",
+          "kind": "re-export",
+          "line": 15,
+          "signature": "export { PairRuntime, type PairRuntimeOptions, type PairRuntimeStatusSet } from \"./pair-runtime.js\"",
+          "from": "./pair-runtime.js"
+        },
+        {
+          "name": "PairRegistry",
+          "kind": "re-export",
+          "line": 16,
+          "signature": "export { PairRegistry, RegistryError, validateUnique } from \"./registry.js\"",
+          "from": "./registry.js"
+        },
+        {
+          "name": "RegistryError",
+          "kind": "re-export",
+          "line": 16,
+          "signature": "export { PairRegistry, RegistryError, validateUnique } from \"./registry.js\"",
+          "from": "./registry.js"
+        },
+        {
+          "name": "validateUnique",
+          "kind": "re-export",
+          "line": 16,
+          "signature": "export { PairRegistry, RegistryError, validateUnique } from \"./registry.js\"",
+          "from": "./registry.js"
+        },
+        {
+          "name": "FifoMutex",
+          "kind": "re-export",
+          "line": 17,
+          "signature": "export { FifoMutex, LockRegistry, interruptibleSleep, type SleepFn } from \"./scheduler.js\"",
+          "from": "./scheduler.js"
+        },
+        {
+          "name": "LockRegistry",
+          "kind": "re-export",
+          "line": 17,
+          "signature": "export { FifoMutex, LockRegistry, interruptibleSleep, type SleepFn } from \"./scheduler.js\"",
+          "from": "./scheduler.js"
+        },
+        {
+          "name": "interruptibleSleep",
+          "kind": "re-export",
+          "line": 17,
+          "signature": "export { FifoMutex, LockRegistry, interruptibleSleep, type SleepFn } from \"./scheduler.js\"",
+          "from": "./scheduler.js"
+        },
+        {
+          "name": "SleepFn",
+          "kind": "re-export",
+          "line": 17,
+          "signature": "export { FifoMutex, LockRegistry, interruptibleSleep, type SleepFn } from \"./scheduler.js\"",
+          "from": "./scheduler.js"
+        },
+        {
+          "name": "MultiSinkSupervisorLogger",
+          "kind": "re-export",
+          "line": 18,
+          "signature": "export { MultiSinkSupervisorLogger, defaultPerPairLogRoot } from \"./logging.js\"",
+          "from": "./logging.js"
+        },
+        {
+          "name": "defaultPerPairLogRoot",
+          "kind": "re-export",
+          "line": 18,
+          "signature": "export { MultiSinkSupervisorLogger, defaultPerPairLogRoot } from \"./logging.js\"",
+          "from": "./logging.js"
+        },
+        {
+          "name": "WakeBus",
+          "kind": "re-export",
+          "line": 19,
+          "signature": "export { WakeBus, type WakeSignal, type WakeSubscriber } from \"./wake-bus.js\"",
+          "from": "./wake-bus.js"
+        },
+        {
+          "name": "WakeSignal",
+          "kind": "re-export",
+          "line": 19,
+          "signature": "export { WakeBus, type WakeSignal, type WakeSubscriber } from \"./wake-bus.js\"",
+          "from": "./wake-bus.js"
+        },
+        {
+          "name": "WakeSubscriber",
+          "kind": "re-export",
+          "line": 19,
+          "signature": "export { WakeBus, type WakeSignal, type WakeSubscriber } from \"./wake-bus.js\"",
+          "from": "./wake-bus.js"
+        },
+        {
+          "name": "createPairAdapters",
+          "kind": "re-export",
+          "line": 20,
+          "signature": "export { createPairAdapters, browserLockKey, type PairAdapters, type RuntimeAdapterOptions } from \"./adapters.js\"",
+          "from": "./adapters.js"
+        },
+        {
+          "name": "browserLockKey",
+          "kind": "re-export",
+          "line": 20,
+          "signature": "export { createPairAdapters, browserLockKey, type PairAdapters, type RuntimeAdapterOptions } from \"./adapters.js\"",
+          "from": "./adapters.js"
+        },
+        {
+          "name": "PairAdapters",
+          "kind": "re-export",
+          "line": 20,
+          "signature": "export { createPairAdapters, browserLockKey, type PairAdapters, type RuntimeAdapterOptions } from \"./adapters.js\"",
+          "from": "./adapters.js"
+        },
+        {
+          "name": "RuntimeAdapterOptions",
+          "kind": "re-export",
+          "line": 20,
+          "signature": "export { createPairAdapters, browserLockKey, type PairAdapters, type RuntimeAdapterOptions } from \"./adapters.js\"",
+          "from": "./adapters.js"
+        },
+        {
+          "name": "(anonymous)",
+          "kind": "type",
+          "line": 21,
+          "signature": "export type"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "./orchestrator.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./pair-runtime.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./registry.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./scheduler.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./logging.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./wake-bus.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./adapters.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/runtime/logging.ts",
+      "dir": "src/runtime",
+      "category": "runtime",
+      "purpose": "Source module for logging.ts.",
+      "hasHeader": true,
+      "symbolCount": 2,
+      "symbols": [
+        {
+          "name": "defaultPerPairLogRoot",
+          "kind": "const",
+          "line": 11,
+          "signature": "export const defaultPerPairLogRoot = () => resolve(\"logs\", \"pairs\")"
+        },
+        {
+          "name": "MultiSinkSupervisorLogger",
+          "kind": "class",
+          "line": 13,
+          "signature": "export class MultiSinkSupervisorLogger implements SupervisorLogger"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:fs",
+          "kind": "node"
+        },
+        {
+          "spec": "node:path",
+          "kind": "node"
+        },
+        {
+          "spec": "../supervisor/events.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/runtime/orchestrator.ts",
+      "dir": "src/runtime",
+      "category": "runtime",
+      "purpose": "Source module for orchestrator.ts.",
+      "hasHeader": true,
+      "symbolCount": 7,
+      "symbols": [
+        {
+          "name": "RuntimeError",
+          "kind": "class",
+          "line": 19,
+          "signature": "export class RuntimeError extends Error"
+        },
+        {
+          "name": "RuntimeOrchestratorOptions",
+          "kind": "interface",
+          "line": 26,
+          "signature": "export interface RuntimeOrchestratorOptions"
+        },
+        {
+          "name": "RuntimeStatusSummary",
+          "kind": "interface",
+          "line": 44,
+          "signature": "export interface RuntimeStatusSummary"
+        },
+        {
+          "name": "OrchestratorEvent",
+          "kind": "type",
+          "line": 53,
+          "signature": "export type OrchestratorEvent = RuntimeEvent | SupervisorEvent"
+        },
+        {
+          "name": "RuntimeOrchestrator",
+          "kind": "class",
+          "line": 55,
+          "signature": "export class RuntimeOrchestrator"
+        },
+        {
+          "name": "isHealthyRuntime",
+          "kind": "function",
+          "line": 328,
+          "signature": "export function isHealthyRuntime(status: RuntimePairStatus): boolean"
+        },
+        {
+          "name": "isFailedRuntime",
+          "kind": "function",
+          "line": 339,
+          "signature": "export function isFailedRuntime(status: RuntimePairStatus): boolean"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../persistence/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../supervisor/events.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../supervisor/supervisor.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./adapters.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./logging.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./pair-runtime.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./registry.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./scheduler.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./wake-bus.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/runtime/pair-runtime.ts",
+      "dir": "src/runtime",
+      "category": "runtime",
+      "purpose": "Per-pair concurrent runtime supervisor.",
+      "hasHeader": true,
+      "symbolCount": 3,
+      "symbols": [
+        {
+          "name": "PairRuntimeOptions",
+          "kind": "interface",
+          "line": 29,
+          "signature": "export interface PairRuntimeOptions"
+        },
+        {
+          "name": "PairRuntimeStatusSet",
+          "kind": "interface",
+          "line": 51,
+          "signature": "export interface PairRuntimeStatusSet"
+        },
+        {
+          "name": "PairRuntime",
+          "kind": "class",
+          "line": 60,
+          "signature": "export class PairRuntime"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../adapters/chatgpt/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../adapters/opencode/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../persistence/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../supervisor/supervisor.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../supervisor/events.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../supervisor/state.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../supervisor/policy.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./scheduler.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./wake-bus.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/runtime/registry.ts",
+      "dir": "src/runtime",
+      "category": "runtime",
+      "purpose": "Source module for registry.ts.",
+      "hasHeader": true,
+      "symbolCount": 3,
+      "symbols": [
+        {
+          "name": "RegistryError",
+          "kind": "class",
+          "line": 9,
+          "signature": "export class RegistryError extends Error"
+        },
+        {
+          "name": "PairRegistry",
+          "kind": "class",
+          "line": 19,
+          "signature": "export class PairRegistry"
+        },
+        {
+          "name": "validateUnique",
+          "kind": "function",
+          "line": 62,
+          "signature": "export function validateUnique( pairId: string, sessionId: string, conversationId: string, existing: ReadonlyMap<string, SessionPair> ): void"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/runtime/scheduler.ts",
+      "dir": "src/runtime",
+      "category": "runtime",
+      "purpose": "Source module for scheduler.ts.",
+      "hasHeader": true,
+      "symbolCount": 4,
+      "symbols": [
+        {
+          "name": "FifoMutex",
+          "kind": "re-export",
+          "line": 14,
+          "signature": "export { FifoMutex, LockRegistry, interruptibleSleep, type SleepFn } from \"../util/async.js\"",
+          "from": "../util/async.js"
+        },
+        {
+          "name": "LockRegistry",
+          "kind": "re-export",
+          "line": 14,
+          "signature": "export { FifoMutex, LockRegistry, interruptibleSleep, type SleepFn } from \"../util/async.js\"",
+          "from": "../util/async.js"
+        },
+        {
+          "name": "interruptibleSleep",
+          "kind": "re-export",
+          "line": 14,
+          "signature": "export { FifoMutex, LockRegistry, interruptibleSleep, type SleepFn } from \"../util/async.js\"",
+          "from": "../util/async.js"
+        },
+        {
+          "name": "SleepFn",
+          "kind": "re-export",
+          "line": 14,
+          "signature": "export { FifoMutex, LockRegistry, interruptibleSleep, type SleepFn } from \"../util/async.js\"",
+          "from": "../util/async.js"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../util/async.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/runtime/wake-bus.ts",
+      "dir": "src/runtime",
+      "category": "runtime",
+      "purpose": "Source module for wake-bus.ts.",
+      "hasHeader": true,
+      "symbolCount": 3,
+      "symbols": [
+        {
+          "name": "WakeSignal",
+          "kind": "interface",
+          "line": 7,
+          "signature": "export interface WakeSignal"
+        },
+        {
+          "name": "WakeSubscriber",
+          "kind": "type",
+          "line": 16,
+          "signature": "export type WakeSubscriber = (signal: WakeSignal) => void"
+        },
+        {
+          "name": "WakeBus",
+          "kind": "class",
+          "line": 18,
+          "signature": "export class WakeBus"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/service-entry.ts",
+      "dir": "src",
+      "category": "core",
+      "purpose": "Source module for service-entry.ts.",
+      "hasHeader": true,
+      "symbolCount": 0,
+      "symbols": [],
+      "dependencies": [
+        {
+          "spec": "./cli.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/sessions/chatgpt-url.ts",
+      "dir": "src/sessions",
+      "category": "core",
+      "purpose": "Source module for chatgpt-url.ts.",
+      "hasHeader": true,
+      "symbolCount": 5,
+      "symbols": [
+        {
+          "name": "ChatGptUrlErrorCode",
+          "kind": "type",
+          "line": 7,
+          "signature": "export type ChatGptUrlErrorCode = | \"INVALID_URL\" | \"NOT_CHATGPT_HOST\" | \"MISSING_CONVERSATION_SEGMENT\" | \"MISSING_CONVERSATION_ID\""
+        },
+        {
+          "name": "ChatGptUrlError",
+          "kind": "class",
+          "line": 13,
+          "signature": "export class ChatGptUrlError extends Error"
+        },
+        {
+          "name": "ParsedChatGptConversation",
+          "kind": "interface",
+          "line": 23,
+          "signature": "export interface ParsedChatGptConversation"
+        },
+        {
+          "name": "parseChatGptConversationUrl",
+          "kind": "function",
+          "line": 40,
+          "signature": "export function parseChatGptConversationUrl(input: string): ParsedChatGptConversation"
+        },
+        {
+          "name": "conversationUrlMatchesId",
+          "kind": "function",
+          "line": 88,
+          "signature": "export function conversationUrlMatchesId(input: string, conversationId: string): boolean"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/sessions/pairs.ts",
+      "dir": "src/sessions",
+      "category": "core",
+      "purpose": "Source module for pairs.ts.",
+      "hasHeader": true,
+      "symbolCount": 5,
+      "symbols": [
+        {
+          "name": "ConfigError",
+          "kind": "class",
+          "line": 107,
+          "signature": "export class ConfigError extends Error"
+        },
+        {
+          "name": "loadPairsConfig",
+          "kind": "function",
+          "line": 117,
+          "signature": "export async function loadPairsConfig(configPath: string): Promise<PairsConfig>"
+        },
+        {
+          "name": "bindOpenCodeSession",
+          "kind": "function",
+          "line": 138,
+          "signature": "export async function bindOpenCodeSession( configPath: string, pairId: string, sessionId: string ): Promise<PairsConfig>"
+        },
+        {
+          "name": "parsePairsConfig",
+          "kind": "function",
+          "line": 169,
+          "signature": "export function parsePairsConfig(input: unknown): PairsConfig"
+        },
+        {
+          "name": "deriveChatGptConversationId",
+          "kind": "function",
+          "line": 186,
+          "signature": "export function deriveChatGptConversationId(conversationUrl: string): string | undefined"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:fs/promises",
+          "kind": "node"
+        },
+        {
+          "spec": "zod",
+          "kind": "external"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/sessions/project-pairs.ts",
+      "dir": "src/sessions",
+      "category": "core",
+      "purpose": "Project-pair identity / ownership service.",
+      "hasHeader": true,
+      "symbolCount": 3,
+      "symbols": [
+        {
+          "name": "chatGptProjectSlugPattern",
+          "kind": "const",
+          "line": 17,
+          "signature": "export const chatGptProjectSlugPattern = /^g-p-[A-Za-z0-9_-]+$/"
+        },
+        {
+          "name": "ProjectPairConfigError",
+          "kind": "class",
+          "line": 79,
+          "signature": "export class ProjectPairConfigError extends Error"
+        },
+        {
+          "name": "parseProjectPairsConfig",
+          "kind": "function",
+          "line": 89,
+          "signature": "export function parseProjectPairsConfig(input: unknown): ProjectPairsConfig"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:path",
+          "kind": "node"
+        },
+        {
+          "spec": "zod",
+          "kind": "external"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/supervisor/classifier.ts",
+      "dir": "src/supervisor",
+      "category": "supervisor",
+      "purpose": "Source module for classifier.ts.",
+      "hasHeader": true,
+      "symbolCount": 7,
+      "symbols": [
+        {
+          "name": "DEFAULT_STUCK_AFTER_MS",
+          "kind": "const",
+          "line": 14,
+          "signature": "export const DEFAULT_STUCK_AFTER_MS = 10 * 60_000"
+        },
+        {
+          "name": "CycleContext",
+          "kind": "interface",
+          "line": 16,
+          "signature": "export interface CycleContext"
+        },
+        {
+          "name": "ClassifyOptions",
+          "kind": "interface",
+          "line": 31,
+          "signature": "export interface ClassifyOptions"
+        },
+        {
+          "name": "ClassifyInput",
+          "kind": "interface",
+          "line": 35,
+          "signature": "export interface ClassifyInput"
+        },
+        {
+          "name": "Classification",
+          "kind": "interface",
+          "line": 42,
+          "signature": "export interface Classification"
+        },
+        {
+          "name": "emptyCycleContext",
+          "kind": "function",
+          "line": 47,
+          "signature": "export function emptyCycleContext(): CycleContext"
+        },
+        {
+          "name": "classify",
+          "kind": "function",
+          "line": 54,
+          "signature": "export function classify(input: ClassifyInput): Classification"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "./state.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/supervisor/events.ts",
+      "dir": "src/supervisor",
+      "category": "supervisor",
+      "purpose": "Source module for events.ts.",
+      "hasHeader": true,
+      "symbolCount": 8,
+      "symbols": [
+        {
+          "name": "RuntimeEventType",
+          "kind": "type",
+          "line": 11,
+          "signature": "export type RuntimeEventType = | \"RUNTIME_STARTED\" | \"RUNTIME_STOPPED\" | \"PAIR_RUNTIME_STARTED\" | \"PAIR_RUNTIME_STOPPED\" | \"PAIR_RUNTIME_FAILED\" | \"PAIR_RUNTIME"
+        },
+        {
+          "name": "SupervisorEventType",
+          "kind": "type",
+          "line": 22,
+          "signature": "export type SupervisorEventType = | \"WATCH_STARTED\" | \"WATCH_STOPPED\" | \"STATE_CHANGED\" | \"STUCK_DETECTED\" | \"WORKER_MESSAGE_RELAYED\" | \"PLANNER_MESSAGE_RELAYED"
+        },
+        {
+          "name": "SupervisorEvent",
+          "kind": "interface",
+          "line": 61,
+          "signature": "export interface SupervisorEvent"
+        },
+        {
+          "name": "RuntimeEvent",
+          "kind": "interface",
+          "line": 71,
+          "signature": "export interface RuntimeEvent"
+        },
+        {
+          "name": "SupervisorLogger",
+          "kind": "interface",
+          "line": 79,
+          "signature": "export interface SupervisorLogger"
+        },
+        {
+          "name": "MemorySupervisorLogger",
+          "kind": "class",
+          "line": 84,
+          "signature": "export class MemorySupervisorLogger implements SupervisorLogger"
+        },
+        {
+          "name": "defaultSupervisorLogPath",
+          "kind": "const",
+          "line": 96,
+          "signature": "export const defaultSupervisorLogPath = () => resolve(\"logs\", \"supervisor.ndjson\")"
+        },
+        {
+          "name": "JsonLineSupervisorLogger",
+          "kind": "class",
+          "line": 98,
+          "signature": "export class JsonLineSupervisorLogger implements SupervisorLogger"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:fs",
+          "kind": "node"
+        },
+        {
+          "spec": "node:path",
+          "kind": "node"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/supervisor/index.ts",
+      "dir": "src/supervisor",
+      "category": "supervisor",
+      "purpose": "Supervisor / observation loop exports.",
+      "hasHeader": true,
+      "symbolCount": 28,
+      "symbols": [
+        {
+          "name": "classify",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./classifier.js"
+        },
+        {
+          "name": "emptyCycleContext",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./classifier.js"
+        },
+        {
+          "name": "DEFAULT_STUCK_AFTER_MS",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./classifier.js"
+        },
+        {
+          "name": "ClassifyInput",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./classifier.js"
+        },
+        {
+          "name": "ClassifyOptions",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./classifier.js"
+        },
+        {
+          "name": "Classification",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./classifier.js"
+        },
+        {
+          "name": "CycleContext",
+          "kind": "re-export",
+          "line": 7,
+          "signature": "export {",
+          "from": "./classifier.js"
+        },
+        {
+          "name": "JsonLineSupervisorLogger",
+          "kind": "re-export",
+          "line": 16,
+          "signature": "export {",
+          "from": "./events.js"
+        },
+        {
+          "name": "MemorySupervisorLogger",
+          "kind": "re-export",
+          "line": 16,
+          "signature": "export {",
+          "from": "./events.js"
+        },
+        {
+          "name": "defaultSupervisorLogPath",
+          "kind": "re-export",
+          "line": 16,
+          "signature": "export {",
+          "from": "./events.js"
+        },
+        {
+          "name": "SupervisorEvent",
+          "kind": "re-export",
+          "line": 16,
+          "signature": "export {",
+          "from": "./events.js"
+        },
+        {
+          "name": "SupervisorEventType",
+          "kind": "re-export",
+          "line": 16,
+          "signature": "export {",
+          "from": "./events.js"
+        },
+        {
+          "name": "SupervisorLogger",
+          "kind": "re-export",
+          "line": 16,
+          "signature": "export {",
+          "from": "./events.js"
+        },
+        {
+          "name": "collectObservation",
+          "kind": "re-export",
+          "line": 24,
+          "signature": "export { collectObservation, makeObservationClock } from \"./observation.js\"",
+          "from": "./observation.js"
+        },
+        {
+          "name": "makeObservationClock",
+          "kind": "re-export",
+          "line": 24,
+          "signature": "export { collectObservation, makeObservationClock } from \"./observation.js\"",
+          "from": "./observation.js"
+        },
+        {
+          "name": "decideRelays",
+          "kind": "re-export",
+          "line": 25,
+          "signature": "export { decideRelays, type PolicyInput, type RelayDecisions, type SuperviseMode } from \"./policy.js\"",
+          "from": "./policy.js"
+        },
+        {
+          "name": "PolicyInput",
+          "kind": "re-export",
+          "line": 25,
+          "signature": "export { decideRelays, type PolicyInput, type RelayDecisions, type SuperviseMode } from \"./policy.js\"",
+          "from": "./policy.js"
+        },
+        {
+          "name": "RelayDecisions",
+          "kind": "re-export",
+          "line": 25,
+          "signature": "export { decideRelays, type PolicyInput, type RelayDecisions, type SuperviseMode } from \"./policy.js\"",
+          "from": "./policy.js"
+        },
+        {
+          "name": "SuperviseMode",
+          "kind": "re-export",
+          "line": 25,
+          "signature": "export { decideRelays, type PolicyInput, type RelayDecisions, type SuperviseMode } from \"./policy.js\"",
+          "from": "./policy.js"
+        },
+        {
+          "name": "isBusyState",
+          "kind": "re-export",
+          "line": 26,
+          "signature": "export { isBusyState, isSupervisorState, isTerminalFailure, SUPERVISOR_STATES } from \"./state.js\"",
+          "from": "./state.js"
+        },
+        {
+          "name": "isSupervisorState",
+          "kind": "re-export",
+          "line": 26,
+          "signature": "export { isBusyState, isSupervisorState, isTerminalFailure, SUPERVISOR_STATES } from \"./state.js\"",
+          "from": "./state.js"
+        },
+        {
+          "name": "isTerminalFailure",
+          "kind": "re-export",
+          "line": 26,
+          "signature": "export { isBusyState, isSupervisorState, isTerminalFailure, SUPERVISOR_STATES } from \"./state.js\"",
+          "from": "./state.js"
+        },
+        {
+          "name": "SUPERVISOR_STATES",
+          "kind": "re-export",
+          "line": 26,
+          "signature": "export { isBusyState, isSupervisorState, isTerminalFailure, SUPERVISOR_STATES } from \"./state.js\"",
+          "from": "./state.js"
+        },
+        {
+          "name": "Supervisor",
+          "kind": "re-export",
+          "line": 27,
+          "signature": "export {",
+          "from": "./supervisor.js"
+        },
+        {
+          "name": "DEFAULT_POLL_INTERVAL_MS",
+          "kind": "re-export",
+          "line": 27,
+          "signature": "export {",
+          "from": "./supervisor.js"
+        },
+        {
+          "name": "buildCycle",
+          "kind": "re-export",
+          "line": 27,
+          "signature": "export {",
+          "from": "./supervisor.js"
+        },
+        {
+          "name": "SupervisorDeps",
+          "kind": "re-export",
+          "line": 27,
+          "signature": "export {",
+          "from": "./supervisor.js"
+        },
+        {
+          "name": "SupervisorReport",
+          "kind": "re-export",
+          "line": 27,
+          "signature": "export {",
+          "from": "./supervisor.js"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "./classifier.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./events.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./observation.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./policy.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./state.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./supervisor.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/supervisor/observation.ts",
+      "dir": "src/supervisor",
+      "category": "supervisor",
+      "purpose": "Observation / event correlation utilities.",
+      "hasHeader": true,
+      "symbolCount": 4,
+      "symbols": [
+        {
+          "name": "makeObservationClock",
+          "kind": "function",
+          "line": 16,
+          "signature": "export function makeObservationClock(): () => Date"
+        },
+        {
+          "name": "collectObservation",
+          "kind": "function",
+          "line": 20,
+          "signature": "export async function collectObservation( pair: SessionPair, worker: OpenCodeSessionManager, planner: ChatGPTBrowserAdapter, clock: () => Date = makeObservation"
+        },
+        {
+          "name": "observeWorkerSession",
+          "kind": "function",
+          "line": 39,
+          "signature": "export async function observeWorkerSession(pair: SessionPair, worker: OpenCodeSessionManager): Promise<WorkerObservation>"
+        },
+        {
+          "name": "observePlannerConversation",
+          "kind": "function",
+          "line": 43,
+          "signature": "export async function observePlannerConversation(pair: SessionPair, planner: ChatGPTBrowserAdapter): Promise<PlannerObservation>"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../adapters/chatgpt/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../adapters/opencode/index.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/supervisor/policy.ts",
+      "dir": "src/supervisor",
+      "category": "supervisor",
+      "purpose": "Source module for policy.ts.",
+      "hasHeader": true,
+      "symbolCount": 4,
+      "symbols": [
+        {
+          "name": "SuperviseMode",
+          "kind": "type",
+          "line": 10,
+          "signature": "export type SuperviseMode = \"observe\" | \"relay\""
+        },
+        {
+          "name": "RelayDecisions",
+          "kind": "interface",
+          "line": 12,
+          "signature": "export interface RelayDecisions"
+        },
+        {
+          "name": "PolicyInput",
+          "kind": "interface",
+          "line": 17,
+          "signature": "export interface PolicyInput"
+        },
+        {
+          "name": "decideRelays",
+          "kind": "function",
+          "line": 26,
+          "signature": "export function decideRelays(input: PolicyInput): RelayDecisions"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./classifier.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/supervisor/state.ts",
+      "dir": "src/supervisor",
+      "category": "supervisor",
+      "purpose": "Source module for state.ts.",
+      "hasHeader": true,
+      "symbolCount": 4,
+      "symbols": [
+        {
+          "name": "SUPERVISOR_STATES",
+          "kind": "const",
+          "line": 9,
+          "signature": "export const SUPERVISOR_STATES: readonly SupervisorState[] = [ \"READY\", \"WORKING\", \"WAITING_PLANNER\", \"WAITING_WORKER\", \"IDLE\", \"COMPLETED\", \"WAITING_INPUT\", \"S"
+        },
+        {
+          "name": "isBusyState",
+          "kind": "function",
+          "line": 23,
+          "signature": "export function isBusyState(state: SupervisorState | undefined): boolean"
+        },
+        {
+          "name": "isTerminalFailure",
+          "kind": "function",
+          "line": 27,
+          "signature": "export function isTerminalFailure(state: SupervisorState): boolean"
+        },
+        {
+          "name": "isSupervisorState",
+          "kind": "function",
+          "line": 31,
+          "signature": "export function isSupervisorState(value: string): value is SupervisorState"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/supervisor/supervisor.ts",
+      "dir": "src/supervisor",
+      "category": "supervisor",
+      "purpose": "Source module for supervisor.ts.",
+      "hasHeader": true,
+      "symbolCount": 8,
+      "symbols": [
+        {
+          "name": "DEFAULT_POLL_INTERVAL_MS",
+          "kind": "const",
+          "line": 46,
+          "signature": "export const DEFAULT_POLL_INTERVAL_MS = 5_000"
+        },
+        {
+          "name": "SupervisorRecoveryOptions",
+          "kind": "interface",
+          "line": 48,
+          "signature": "export interface SupervisorRecoveryOptions"
+        },
+        {
+          "name": "SupervisorDeps",
+          "kind": "interface",
+          "line": 57,
+          "signature": "export interface SupervisorDeps"
+        },
+        {
+          "name": "SupervisorReport",
+          "kind": "interface",
+          "line": 75,
+          "signature": "export interface SupervisorReport"
+        },
+        {
+          "name": "Supervisor",
+          "kind": "class",
+          "line": 100,
+          "signature": "export class Supervisor"
+        },
+        {
+          "name": "buildCycle",
+          "kind": "function",
+          "line": 774,
+          "signature": "export function buildCycle( store: RelayStore, pairId: string, snapshot: ObservationSnapshot, continuity: SupervisorContinuity ): CycleContext"
+        },
+        {
+          "name": "WorkerRelayStability",
+          "kind": "interface",
+          "line": 819,
+          "signature": "export interface WorkerRelayStability"
+        },
+        {
+          "name": "computeWorkerRelayStability",
+          "kind": "function",
+          "line": 826,
+          "signature": "export function computeWorkerRelayStability(input: { continuity: SupervisorContinuity; snapshot: ObservationSnapshot; nowIso: string; stabilityMs: number; }): W"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../adapters/chatgpt/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../adapters/opencode/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../persistence/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../relay/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../relay/message-classifier.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../application/attention-parser.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../recovery/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../recovery/schedule.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../recovery/opencode.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../relay/chatgpt-gate.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../relay/verifier.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../util/async.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./policy.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/types.ts",
+      "dir": "src",
+      "category": "core",
+      "purpose": "Source module for types.ts.",
+      "hasHeader": true,
+      "symbolCount": 45,
+      "symbols": [
+        {
+          "name": "WorkerAdapterType",
+          "kind": "type",
+          "line": 7,
+          "signature": "export type WorkerAdapterType = \"opencode\""
+        },
+        {
+          "name": "PlannerAdapterType",
+          "kind": "type",
+          "line": 8,
+          "signature": "export type PlannerAdapterType = \"chatgpt-browser\""
+        },
+        {
+          "name": "CheckStatus",
+          "kind": "type",
+          "line": 10,
+          "signature": "export type CheckStatus = \"PASS\" | \"FAIL\""
+        },
+        {
+          "name": "ReadinessStatus",
+          "kind": "type",
+          "line": 11,
+          "signature": "export type ReadinessStatus = \"READY\" | \"NOT_READY\""
+        },
+        {
+          "name": "ReadinessCheck",
+          "kind": "interface",
+          "line": 13,
+          "signature": "export interface ReadinessCheck"
+        },
+        {
+          "name": "ReadinessOverrides",
+          "kind": "type",
+          "line": 20,
+          "signature": "export type ReadinessOverrides = Record<string, boolean | string>"
+        },
+        {
+          "name": "OpenCodeServerConfig",
+          "kind": "interface",
+          "line": 22,
+          "signature": "export interface OpenCodeServerConfig"
+        },
+        {
+          "name": "ChatGPTBrowserConfig",
+          "kind": "interface",
+          "line": 31,
+          "signature": "export interface ChatGPTBrowserConfig"
+        },
+        {
+          "name": "WorkerIdentity",
+          "kind": "interface",
+          "line": 39,
+          "signature": "export interface WorkerIdentity"
+        },
+        {
+          "name": "PlannerIdentity",
+          "kind": "interface",
+          "line": 47,
+          "signature": "export interface PlannerIdentity"
+        },
+        {
+          "name": "OpenCodeModelRef",
+          "kind": "interface",
+          "line": 59,
+          "signature": "export interface OpenCodeModelRef"
+        },
+        {
+          "name": "OpenCodeModelInfo",
+          "kind": "interface",
+          "line": 64,
+          "signature": "export interface OpenCodeModelInfo extends OpenCodeModelRef"
+        },
+        {
+          "name": "SessionPair",
+          "kind": "interface",
+          "line": 69,
+          "signature": "export interface SessionPair"
+        },
+        {
+          "name": "PairsConfig",
+          "kind": "interface",
+          "line": 81,
+          "signature": "export interface PairsConfig"
+        },
+        {
+          "name": "ProjectPair",
+          "kind": "interface",
+          "line": 90,
+          "signature": "export interface ProjectPair"
+        },
+        {
+          "name": "ProjectPairsConfig",
+          "kind": "interface",
+          "line": 102,
+          "signature": "export interface ProjectPairsConfig"
+        },
+        {
+          "name": "PairReadinessReport",
+          "kind": "interface",
+          "line": 106,
+          "signature": "export interface PairReadinessReport"
+        },
+        {
+          "name": "RelayableMessage",
+          "kind": "interface",
+          "line": 113,
+          "signature": "export interface RelayableMessage"
+        },
+        {
+          "name": "RelayReceipt",
+          "kind": "interface",
+          "line": 121,
+          "signature": "export interface RelayReceipt"
+        },
+        {
+          "name": "WorkerPromptState",
+          "kind": "type",
+          "line": 134,
+          "signature": "export type WorkerPromptState = \"PERSISTED\" | \"ADMITTED\" | \"PROMOTED\" | \"COMPLETED\""
+        },
+        {
+          "name": "RelayDirection",
+          "kind": "type",
+          "line": 136,
+          "signature": "export type RelayDirection = \"worker-to-planner\" | \"planner-to-worker\""
+        },
+        {
+          "name": "DeliveryStatus",
+          "kind": "type",
+          "line": 138,
+          "signature": "export type DeliveryStatus = \"DISCOVERED\" | \"DELIVERING\" | \"DELIVERED\" | \"FAILED\""
+        },
+        {
+          "name": "WorkerMessageClassification",
+          "kind": "type",
+          "line": 141,
+          "signature": "export type WorkerMessageClassification = \"report\" | \"question\""
+        },
+        {
+          "name": "WorkerQuestionNature",
+          "kind": "type",
+          "line": 144,
+          "signature": "export type WorkerQuestionNature = \"planner_input_required\""
+        },
+        {
+          "name": "CanonicalRelayIdentity",
+          "kind": "interface",
+          "line": 146,
+          "signature": "export interface CanonicalRelayIdentity"
+        },
+        {
+          "name": "RelayRecord",
+          "kind": "interface",
+          "line": 153,
+          "signature": "export interface RelayRecord"
+        },
+        {
+          "name": "PairRelayState",
+          "kind": "interface",
+          "line": 170,
+          "signature": "export interface PairRelayState"
+        },
+        {
+          "name": "SupervisorState",
+          "kind": "type",
+          "line": 180,
+          "signature": "export type SupervisorState = | \"READY\" | \"WORKING\" | \"WAITING_PLANNER\" | \"WAITING_WORKER\" | \"IDLE\" | \"COMPLETED\" | \"WAITING_INPUT\" | \"STUCK\" | \"FAILED\" | \"DISC"
+        },
+        {
+          "name": "WorkerObservation",
+          "kind": "interface",
+          "line": 193,
+          "signature": "export interface WorkerObservation"
+        },
+        {
+          "name": "PlannerObservation",
+          "kind": "interface",
+          "line": 209,
+          "signature": "export interface PlannerObservation"
+        },
+        {
+          "name": "ObservationSnapshot",
+          "kind": "interface",
+          "line": 222,
+          "signature": "export interface ObservationSnapshot"
+        },
+        {
+          "name": "SupervisorContinuity",
+          "kind": "interface",
+          "line": 229,
+          "signature": "export interface SupervisorContinuity"
+        },
+        {
+          "name": "RecoveryPolicy",
+          "kind": "type",
+          "line": 255,
+          "signature": "export type RecoveryPolicy = \"none\" | \"safe\""
+        },
+        {
+          "name": "RecoveryErrorCode",
+          "kind": "type",
+          "line": 257,
+          "signature": "export type RecoveryErrorCode = | \"OPENCODE_UNREACHABLE\" | \"OPENCODE_SESSION_MISSING\" | \"OPENCODE_REPO_MISMATCH\" | \"OPENCODE_TIMEOUT\" | \"CHATGPT_CDP_UNREACHABLE"
+        },
+        {
+          "name": "BrowserOwnership",
+          "kind": "type",
+          "line": 271,
+          "signature": "export type BrowserOwnership = \"external\" | \"managed\""
+        },
+        {
+          "name": "RecoveryMetadata",
+          "kind": "interface",
+          "line": 273,
+          "signature": "export interface RecoveryMetadata"
+        },
+        {
+          "name": "PairRuntimeState",
+          "kind": "type",
+          "line": 284,
+          "signature": "export type PairRuntimeState = \"STOPPED\" | \"STARTING\" | \"RUNNING\" | \"PAUSED\" | \"STOPPING\" | \"ERROR\""
+        },
+        {
+          "name": "PeerHealth",
+          "kind": "type",
+          "line": 286,
+          "signature": "export type PeerHealth = \"connected\" | \"degraded\" | \"failed\" | \"unknown\""
+        },
+        {
+          "name": "PeerActivity",
+          "kind": "type",
+          "line": 289,
+          "signature": "export type PeerActivity = \"idle\" | \"working\""
+        },
+        {
+          "name": "PeerFailureReason",
+          "kind": "type",
+          "line": 296,
+          "signature": "export type PeerFailureReason = \"transport\" | \"session\""
+        },
+        {
+          "name": "RuntimePairStatus",
+          "kind": "interface",
+          "line": 298,
+          "signature": "export interface RuntimePairStatus"
+        },
+        {
+          "name": "SchedulerMode",
+          "kind": "type",
+          "line": 325,
+          "signature": "export type SchedulerMode = \"ACTIVE\" | \"DORMANT_WATCH\""
+        },
+        {
+          "name": "RuntimeMetadata",
+          "kind": "interface",
+          "line": 327,
+          "signature": "export interface RuntimeMetadata"
+        },
+        {
+          "name": "RelayCycleStatus",
+          "kind": "type",
+          "line": 339,
+          "signature": "export type RelayCycleStatus = | \"DISPATCHED\" | \"WORKER_RESPONDED\" | \"DELIVERED\" | \"FAILED\""
+        },
+        {
+          "name": "RelayCycle",
+          "kind": "interface",
+          "line": 345,
+          "signature": "export interface RelayCycle"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/util/async.ts",
+      "dir": "src/util",
+      "category": "util",
+      "purpose": "Async primitives (timeout, retry, bounded backoff).",
+      "hasHeader": true,
+      "symbolCount": 4,
+      "symbols": [
+        {
+          "name": "SleepFn",
+          "kind": "type",
+          "line": 12,
+          "signature": "export type SleepFn = (ms: number, signal?: AbortSignal) => Promise<void>"
+        },
+        {
+          "name": "interruptibleSleep",
+          "kind": "function",
+          "line": 14,
+          "signature": "export function interruptibleSleep(ms: number, signal?: AbortSignal): Promise<void>"
+        },
+        {
+          "name": "FifoMutex",
+          "kind": "class",
+          "line": 41,
+          "signature": "export class FifoMutex"
+        },
+        {
+          "name": "LockRegistry",
+          "kind": "class",
+          "line": 59,
+          "signature": "export class LockRegistry"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/util/canonical.ts",
+      "dir": "src/util",
+      "category": "util",
+      "purpose": "Canonicalization helpers (URL, identity, hash).",
+      "hasHeader": true,
+      "symbolCount": 2,
+      "symbols": [
+        {
+          "name": "canonicalizeText",
+          "kind": "function",
+          "line": 13,
+          "signature": "export function canonicalizeText(text: string): string"
+        },
+        {
+          "name": "hashText",
+          "kind": "function",
+          "line": 22,
+          "signature": "export function hashText(text: string): string"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "node:crypto",
+          "kind": "node"
+        }
+      ]
+    },
+    {
+      "path": "src/util/net.ts",
+      "dir": "src/util",
+      "category": "util",
+      "purpose": "Source module for net.ts.",
+      "hasHeader": true,
+      "symbolCount": 4,
+      "symbols": [
+        {
+          "name": "normalizeHostname",
+          "kind": "function",
+          "line": 14,
+          "signature": "export function normalizeHostname(hostname: string): string"
+        },
+        {
+          "name": "isLoopbackHostname",
+          "kind": "function",
+          "line": 18,
+          "signature": "export function isLoopbackHostname(hostname: string): boolean"
+        },
+        {
+          "name": "isHttpUrl",
+          "kind": "function",
+          "line": 23,
+          "signature": "export function isHttpUrl(value: string): boolean"
+        },
+        {
+          "name": "credentialsAllowed",
+          "kind": "function",
+          "line": 39,
+          "signature": "export function credentialsAllowed(url: string, allowInsecureAuth?: boolean): boolean"
+        }
+      ],
+      "dependencies": []
+    },
+    {
+      "path": "src/util/readiness.ts",
+      "dir": "src/util",
+      "category": "util",
+      "purpose": "Readiness checks for worker/planner pairs.",
+      "hasHeader": true,
+      "symbolCount": 3,
+      "symbols": [
+        {
+          "name": "readinessCheck",
+          "kind": "function",
+          "line": 13,
+          "signature": "export function readinessCheck(name: string, status: CheckStatus, reason: string): ReadinessCheck"
+        },
+        {
+          "name": "pass",
+          "kind": "function",
+          "line": 17,
+          "signature": "export function pass(name: string, reason = \"OK\"): ReadinessCheck"
+        },
+        {
+          "name": "fail",
+          "kind": "function",
+          "line": 21,
+          "signature": "export function fail(name: string, reason: string): ReadinessCheck"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/validator/readiness.ts",
+      "dir": "src/validator",
+      "category": "validator",
+      "purpose": "Readiness checks for worker/planner pairs.",
+      "hasHeader": true,
+      "symbolCount": 4,
+      "symbols": [
+        {
+          "name": "ValidatorAdapters",
+          "kind": "interface",
+          "line": 17,
+          "signature": "export interface ValidatorAdapters"
+        },
+        {
+          "name": "validatePair",
+          "kind": "function",
+          "line": 22,
+          "signature": "export async function validatePair( pair: SessionPair, adapters: ValidatorAdapters, now: Date = new Date() ): Promise<PairReadinessReport>"
+        },
+        {
+          "name": "fail",
+          "kind": "re-export",
+          "line": 78,
+          "signature": "export { fail, pass } from \"../util/readiness.js\"",
+          "from": "../util/readiness.js"
+        },
+        {
+          "name": "pass",
+          "kind": "re-export",
+          "line": 78,
+          "signature": "export { fail, pass } from \"../util/readiness.js\"",
+          "from": "../util/readiness.js"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../adapters/chatgpt/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../adapters/opencode/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../util/readiness.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/validator/report.ts",
+      "dir": "src/validator",
+      "category": "validator",
+      "purpose": "Source module for report.ts.",
+      "hasHeader": true,
+      "symbolCount": 2,
+      "symbols": [
+        {
+          "name": "formatReadinessReport",
+          "kind": "function",
+          "line": 9,
+          "signature": "export function formatReadinessReport(results: PairReadinessReport[]): string"
+        },
+        {
+          "name": "formatPairReadinessReport",
+          "kind": "function",
+          "line": 13,
+          "signature": "export function formatPairReadinessReport(result: PairReadinessReport): string"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    }
+  ]
+}

@@ -1,3 +1,9 @@
+/**
+ * Agent-relay codebase — module explanation / info.
+ * File: src/adapters/opencode/http.ts
+ * Purpose: OpenCode HTTP client — typed request/response DTOs, auth headers, and error mapping for the OpenCode server.
+ * NEXT: build code index (upcoming phase — index symbols / files / functions for faster lookup).
+ */
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { resolve } from "node:path";
@@ -188,6 +194,8 @@ export class OpenCodeHttpClient {
   private readonly fetchImpl: typeof fetch;
   private readonly authHeader?: string;
   private readonly usesInjectedFetch: boolean;
+  /** Explicit operator selection, when one was supplied. Authorises legacy writes. */
+  private readonly pinnedMode?: "v2" | "legacy";
   private signal?: AbortSignal;
   private mode?: "v2" | "legacy";
   private messageMode?: "v2" | "legacy";
@@ -199,6 +207,7 @@ export class OpenCodeHttpClient {
   constructor(options: OpenCodeClientOptions = {}) {
     // Pin reads, writes and activity together; endpoint families may not share history.
     if (options.apiProtocol) {
+      this.pinnedMode = options.apiProtocol;
       this.pinApiProtocol(options.apiProtocol);
     }
     this.baseUrl = normalizeBaseUrl(options.baseUrl ?? process.env.AGENT_RELAY_OPENCODE_BASE_URL);
@@ -446,55 +455,105 @@ export class OpenCodeHttpClient {
   }
 
   async sendSessionMessage(sessionId: string, text: string): Promise<void> {
-    const body = JSON.stringify({
-      parts: [
-        {
-          type: "text",
-          text
-        }
-      ]
-    });
-
+    // v2 write route (verified against OpenCode v2.0.26's own OpenAPI spec): a flat `{ text }` body.
     const mode = await this.messageApiMode();
-    const v2Path = `/api/session/${encodeURIComponent(sessionId)}/message`;
-    const legacyPath = `/session/${encodeURIComponent(sessionId)}/message`;
-    const path = mode === "v2" ? v2Path : legacyPath;
+    await this.writeMessage({
+      sessionId,
+      text,
+      mode,
+      fallbackAllowed: async () => this.legacyWriteIndependentlySupported()
+    });
+  }
 
-    try {
+  /**
+   * Writes one user turn, refusing to guess between protocols.
+   *
+   * A rejected write is only retried elsewhere when the alternative protocol was *independently*
+   * established -- from the published spec, or an explicit operator pin -- and when the rejection
+   * proves the endpoint does not exist. Anything that could mean the turn was already accepted
+   * (including a malformed-body 400) is surfaced instead of retried, because retrying would risk
+   * delivering the same instruction twice.
+   *
+   * The legacy branch is retained as a historical contract. It is NOT verified against the installed
+   * server: OpenCode v2.0.26 publishes no non-`/api` session routes and answers 405 on
+   * `POST /session/{id}/message`, so this path is only exercised when legacy is explicitly selected.
+   */
+  private async writeMessage(input: {
+    sessionId: string;
+    text: string;
+    mode: "v2" | "legacy";
+    fallbackAllowed: () => Promise<boolean>;
+    extraBody?: Record<string, unknown>;
+  }): Promise<{ admittedId?: string }> {
+    const encoded = encodeURIComponent(input.sessionId);
+    const v2Path = `/api/session/${encoded}/prompt`;
+    const legacyPath = `/session/${encoded}/message`;
+
+    const post = async (path: string, payload: string): Promise<unknown> => {
       if (this.usesInjectedFetch) {
-        await this.requestJson(path, { method: "POST", body }, { readOkBody: false });
-        return;
+        // Tests inject fetch, so read the body to recover the admission id.
+        return this.requestJson(path, { method: "POST", body: payload });
       }
-      await this.postAndIgnoreSuccessBody(path, body);
+      return this.postAndReadJson(path, payload);
+    };
+
+    if (input.mode === "legacy") {
+      // Legacy body is `parts`, not the flat `text` the v2 route requires.
+      await post(legacyPath, JSON.stringify({ parts: [{ type: "text", text: input.text }] }));
+      return {};
+    }
+
+    const v2Body = JSON.stringify({ ...(input.extraBody ?? {}), text: input.text });
+    try {
+      const result = await post(v2Path, v2Body);
+      return { admittedId: admittedMessageId(result) };
     } catch (error) {
-      if (mode !== "v2" || !legacyWriteFallback(error)) {
+      if (!endpointUnsupported(error)) {
         throw error;
       }
-      // Some servers expose v2 reads and legacy writes only; fall back and stay on legacy I/O.
-      this.pinApiProtocol("legacy");
-      if (this.usesInjectedFetch) {
-        await this.requestJson(legacyPath, { method: "POST", body }, { readOkBody: false });
-        return;
+      if (!(await input.fallbackAllowed())) {
+        throw new OpenCodeWriteUnsupportedError(
+          v2Path,
+          "The OpenCode server does not expose a v2 prompt route, and legacy message writes are not " +
+            "independently confirmed for this server. Refusing to retry the write on another " +
+            "protocol because the turn may already have been admitted.",
+          error instanceof Error ? error.message : undefined
+        );
       }
-      await this.postAndIgnoreSuccessBody(legacyPath, body);
+      await post(legacyPath, JSON.stringify({ parts: [{ type: "text", text: input.text }] }));
+      return {};
     }
   }
 
   async submitPrompt(sessionId: string, input: OpenCodePromptInput): Promise<OpenCodePromptAdmission> {
+    // The current OpenCode prompt route takes a flat { text } body. The previous shape
+    // ({ id, prompt: { text } }) is rejected with 400 "Missing key at [\"text\"]".
     const body = JSON.stringify({
-      id: input.id ?? null,
-      prompt: {
-        text: input.text,
-        ...(input.agents ? { agents: input.agents } : {})
-      },
+      ...(input.id ? { id: input.id } : {}),
+      text: input.text,
+      ...(input.agents ? { agents: input.agents } : {}),
       ...(input.delivery ? { delivery: input.delivery } : {}),
-      ...(input.resume === undefined ? {} : { resume: input.resume }),
+      ...(input.resume === undefined ? {} : { resume: input.resume })
     });
 
-    if ((await this.submitApiMode()) === "legacy") {
-      await this.sendSessionMessage(sessionId, input.text);
+    const mode = await this.submitApiMode();
+    const extraBody: Record<string, unknown> = {
+      ...(input.agents ? { agents: input.agents } : {}),
+      ...(input.delivery ? { delivery: input.delivery } : {}),
+      ...(input.resume === undefined ? {} : { resume: input.resume })
+    };
+
+    const outcome = await this.writeMessage({
+      sessionId,
+      text: input.text,
+      mode,
+      extraBody,
+      fallbackAllowed: async () => this.legacyWriteIndependentlySupported()
+    });
+
+    if (outcome.admittedId) {
       return {
-        id: "",
+        id: outcome.admittedId,
         sessionID: sessionId,
         timeCreated: Date.now() / 1000,
         type: "user",
@@ -502,35 +561,27 @@ export class OpenCodeHttpClient {
         delivery: input.delivery
       };
     }
+    // Legacy write: the endpoint returns no admission identifier.
+    return {
+      id: input.id ?? "",
+      sessionID: sessionId,
+      timeCreated: Date.now() / 1000,
+      type: "user",
+      payload: { text: input.text },
+      delivery: input.delivery
+    };
+  }
 
-    const path = `/api/session/${encodeURIComponent(sessionId)}/prompt`;
-    try {
-      const result = (await this.requestJson(path, {
-        method: "POST",
-        body
-      })) as OpenCodePromptResult | { id?: string; sessionID?: string };
-
-      if ((result as OpenCodePromptResult)?.data?.id) {
-        return (result as OpenCodePromptResult).data!;
-      }
-      if ((result as any)?.id) {
-        return result as unknown as OpenCodePromptAdmission;
-      }
-      throw new OpenCodeUnexpectedResponseError(path, "application/json", JSON.stringify(result).slice(0, 200));
-    } catch (error) {
-      if (error instanceof OpenCodeHttpError && (error.status === 404 || error.status === 405)) {
-        await this.sendSessionMessage(sessionId, input.text);
-        return {
-          id: input.id ?? "",
-          sessionID: sessionId,
-          timeCreated: Date.now() / 1000,
-          type: "user",
-          payload: { text: input.text },
-          delivery: input.delivery
-        };
-      }
-      throw error;
+  /**
+   * True only when this server independently advertises a legacy write route, or an operator pinned
+   * legacy explicitly. A rejected v2 write on its own is never enough to justify the retry.
+   */
+  private async legacyWriteIndependentlySupported(): Promise<boolean> {
+    if (this.pinnedMode === "legacy") {
+      return true;
     }
+    const paths = await this.openApiPaths();
+    return Object.keys(paths).some((path) => /^\/session\/\{[^}]*\}\/message$/.test(path));
   }
 
   async history(sessionId: string, after?: number): Promise<OpenCodeHistoryResult> {
@@ -789,12 +840,31 @@ export class OpenCodeHttpClient {
     return text ? JSON.parse(text) : {};
   }
 
-  private async postAndIgnoreSuccessBody(path: string, body: string): Promise<void> {
+    /**
+   * POSTs and returns the parsed admission body. The v2 prompt route answers with the admitted
+   * message, and callers need that id to confirm the turn actually landed, so the body is read
+   * rather than discarded.
+   */
+  private async postAndReadJson(path: string, body: string): Promise<unknown> {
     const url = new URL(path, this.baseUrl);
     const requestImpl = url.protocol === "https:" ? httpsRequest : httpRequest;
 
-    await new Promise<void>((resolveRequest, rejectRequest) => {
+    return new Promise<unknown>((resolveRequest, rejectRequest) => {
       let settled = false;
+      let responseBody = "";
+      let resolveOnce = (value: unknown) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        resolveRequest(value);
+      };
+      const rejectOnce = (error: Error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        rejectRequest(error);
+      };
+
       const request = requestImpl(
         url,
         {
@@ -808,66 +878,77 @@ export class OpenCodeHttpClient {
           }
         },
         (response: any) => {
-          if ((response.statusCode ?? 0) >= 200 && (response.statusCode ?? 0) < 300) {
-            let responseBody = "";
-            response.setEncoding("utf8");
-            response.on("data", (chunk: string) => {
-              responseBody += chunk;
-            });
-            response.on("end", () => {
-              settle(resolveRequest);
-            });
-            return;
-          }
-
-          let responseBody = "";
+          const status = response.statusCode ?? 0;
           response.setEncoding("utf8");
           response.on("data", (chunk: string) => {
             responseBody += chunk;
           });
           response.on("end", () => {
-            settle(
-              resolveRequest,
-              new OpenCodeHttpError(response.statusCode ?? 0, response.statusMessage ?? "", responseBody)
-            );
+            if (status >= 200 && status < 300) {
+              const contentType = String(response.headers?.["content-type"] ?? "");
+              if (responseBody && !contentType.includes("application/json")) {
+                rejectOnce(new OpenCodeUnexpectedResponseError(path, contentType, responseBody.slice(0, 200)));
+                return;
+              }
+              try {
+                resolveOnce(responseBody ? JSON.parse(responseBody) : {});
+              } catch {
+                // A 2xx with an unparseable body still means the write was accepted.
+                resolveOnce({});
+              }
+              return;
+            }
+            rejectOnce(new OpenCodeHttpError(status, response.statusMessage ?? "", responseBody));
           });
         }
       );
 
-      const acceptedTimer = setTimeout(() => {
-        if (!settled) {
-          settle(
-            rejectRequest,
-            new OpenCodeHttpError(0, "Request Timeout", "OpenCode did not complete the request response in time.")
-          );
-        }
+      const timeout = setTimeout(() => {
+        // Ambiguous: the request may have been admitted, so the caller must not retry it elsewhere.
+        rejectOnce(
+          new OpenCodeHttpError(0, "Request Timeout", "OpenCode did not complete the write response in time.")
+        );
       }, 30_000);
 
-      request.on("error", (error: any) => {
-        if (!settled) {
-          settle(rejectRequest, error);
-        }
-      });
+      request.on("error", rejectOnce);
       request.end(body);
-
-      function settle(callback: (value?: never) => void, error?: Error): void {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        clearTimeout(acceptedTimer);
-        if (error) {
-          rejectRequest(error);
-          return;
-        }
-        callback();
-      }
     });
   }
 }
 
-function legacyWriteFallback(error: unknown): boolean {
+/**
+ * Raised when a write cannot be completed and must not be retried elsewhere.
+ *
+ * Either the rejection was ambiguous (so the turn may already have been admitted) or the
+ * alternative protocol was never independently established. Silently re-POSTing in either case
+ * risks executing the same instruction twice.
+ */
+export class OpenCodeWriteUnsupportedError extends Error {
+  constructor(
+    readonly path: string,
+    message: string,
+    readonly cause?: string
+  ) {
+    super(message);
+    this.name = "OpenCodeWriteUnsupportedError";
+  }
+}
+
+/**
+ * True only when the server positively states the route does not exist. A 400 means the route
+ * exists and rejected the payload, which says nothing about whether the write landed.
+ */
+function endpointUnsupported(error: unknown): boolean {
   return error instanceof OpenCodeHttpError && (error.status === 404 || error.status === 405 || error.status === 501);
+}
+
+/** Extracts the admitted message id from a v2 prompt response, tolerating bare or wrapped shapes. */
+function admittedMessageId(result: unknown): string | undefined {
+  if (!result || typeof result !== "object") return undefined;
+  const outer = result as { data?: unknown; id?: unknown };
+  const data = outer.data as { id?: unknown } | undefined;
+  const id = data?.id ?? outer.id;
+  return typeof id === "string" && id ? id : undefined;
 }
 
 function normalizeBaseUrl(baseUrl?: string): string {
