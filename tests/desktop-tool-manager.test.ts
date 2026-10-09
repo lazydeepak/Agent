@@ -96,10 +96,15 @@ describe("launcher ownership", () => {
     }) as unknown as ChildProcess;
     vi.mocked(spawn).mockReturnValue(child);
     vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
-    let fetchCalls = 0;
+    // Reachability tracks the spawn itself rather than a call count, so this simulation stays
+    // correct regardless of how many probe paths the launcher tries per poll.
+    let serverUp = false;
+    vi.mocked(spawn).mockImplementation(() => {
+      serverUp = true;
+      return child;
+    });
     vi.stubGlobal("fetch", vi.fn(async () => {
-      fetchCalls++;
-      if (fetchCalls <= 4) throw new Error("offline");
+      if (!serverUp) throw new Error("offline");
       return new Response("{}", { status: 200 });
     }));
 
@@ -122,10 +127,15 @@ describe("launcher ownership", () => {
     }) as unknown as ChildProcess;
     vi.mocked(spawn).mockReturnValue(child);
     vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
-    let fetchCalls = 0;
+    // Reachability tracks the spawn itself rather than a call count, so this simulation stays
+    // correct regardless of how many probe paths the launcher tries per poll.
+    let serverUp = false;
+    vi.mocked(spawn).mockImplementation(() => {
+      serverUp = true;
+      return child;
+    });
     vi.stubGlobal("fetch", vi.fn(async () => {
-      fetchCalls++;
-      if (fetchCalls <= 4) throw new Error("offline");
+      if (!serverUp) throw new Error("offline");
       return new Response("{}", { status: 200 });
     }));
 
@@ -146,10 +156,15 @@ describe("launcher ownership", () => {
     }) as unknown as ChildProcess;
     vi.mocked(spawn).mockReturnValue(child);
     vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
-    let fetchCalls = 0;
+    // Reachability tracks the spawn itself rather than a call count, so this simulation stays
+    // correct regardless of how many probe paths the launcher tries per poll.
+    let serverUp = false;
+    vi.mocked(spawn).mockImplementation(() => {
+      serverUp = true;
+      return child;
+    });
     vi.stubGlobal("fetch", vi.fn(async () => {
-      fetchCalls++;
-      if (fetchCalls <= 4) throw new Error("offline");
+      if (!serverUp) throw new Error("offline");
       return new Response("{}", { status: 200 });
     }));
 
@@ -172,20 +187,23 @@ describe("launcher ownership", () => {
     }) as unknown as ChildProcess;
 
     let fakeChild = makeFakeChild();
-    vi.mocked(spawn).mockReturnValue(fakeChild);
     vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
-    let fetchCalls = 0;
+    // Reachability tracks the spawn itself rather than a call count, so this simulation stays
+    // correct regardless of how many probe paths the launcher tries per poll.
+    let serverUp = false;
+    vi.mocked(spawn).mockImplementation(() => {
+      serverUp = true;
+      return fakeChild;
+    });
     vi.stubGlobal("fetch", vi.fn(async () => {
-      fetchCalls++;
-      if (fetchCalls <= 4) throw new Error("offline");
+      if (!serverUp) throw new Error("offline");
       return new Response("{}", { status: 200 });
     }));
 
     await first.startOpenCode({ repoPath: "/tmp", baseUrl: "http://127.0.0.1:4096" });
 
     fakeChild = makeFakeChild();
-    vi.mocked(spawn).mockReturnValue(fakeChild);
-    fetchCalls = 0;
+    serverUp = false;
     await second.startOpenCode({ repoPath: "/tmp", baseUrl: "http://127.0.0.1:4097" });
 
     first.releaseOpenCode();

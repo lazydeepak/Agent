@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { existsSync, accessSync, constants } from "node:fs";
 import { mkdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -115,7 +116,7 @@ export class LocalDesktopToolLauncher implements DesktopToolLauncher {
       ok: true,
       endpoint,
       alreadyRunning: false,
-      secured: Boolean(resolveOpenCodeServerPassword()),
+      secured: true,
       message: `OpenCode server started for ${basename(repoPath)}.`
     };
   }
@@ -206,22 +207,32 @@ export class LocalDesktopToolLauncher implements DesktopToolLauncher {
  * Resolves the password used to secure a locally launched OpenCode server. Both names are read:
  * `AGENT_RELAY_OPENCODE_PASSWORD` is the Agent spelling, `OPENCODE_SERVER_PASSWORD` is the
  * variable OpenCode itself checks (and therefore the one commonly set in `.env`).
+ *
+ * OpenCode >= 2 always authenticates its API and, when no password is supplied, prints a randomly
+ * generated one to stdout (`server password <value>`) that no client can discover. So when the
+ * operator has not configured one we mint it here and publish it to `process.env`, which keeps the
+ * spawned server and the in-process OpenCode client in agreement instead of leaving the launcher
+ * holding a server it cannot authenticate against.
  */
-function resolveOpenCodeServerPassword(): string | undefined {
-  const relay = process.env.AGENT_RELAY_OPENCODE_PASSWORD?.trim();
-  if (relay) return relay;
-  const opencode = process.env.OPENCODE_SERVER_PASSWORD?.trim();
-  return opencode ? opencode : undefined;
+function resolveOpenCodeServerPassword(): string {
+  const configured = process.env.AGENT_RELAY_OPENCODE_PASSWORD?.trim() || process.env.OPENCODE_SERVER_PASSWORD?.trim();
+  if (configured) return configured;
+  if (!generatedOpenCodePassword) {
+    generatedOpenCodePassword = randomBytes(24).toString("base64url");
+    process.env.OPENCODE_SERVER_PASSWORD = generatedOpenCodePassword;
+  }
+  return generatedOpenCodePassword;
 }
 
+let generatedOpenCodePassword: string | undefined;
+
 /**
- * Environment for a spawned `opencode serve`. When a password is configured it is passed
- * explicitly so the server never starts unsecured just because the launcher was started from a
- * shell that had not sourced `.env`.
+ * Environment for a spawned `opencode serve`. The resolved password is always passed explicitly so
+ * the server starts with the same credential the in-process client will present, whether or not the
+ * launching shell had sourced `.env`.
  */
 function openCodeServerEnv(): NodeJS.ProcessEnv {
-  const password = resolveOpenCodeServerPassword();
-  return password ? { ...process.env, OPENCODE_SERVER_PASSWORD: password } : { ...process.env };
+  return { ...process.env, OPENCODE_SERVER_PASSWORD: resolveOpenCodeServerPassword() };
 }
 
 function loopbackEndpoint(value: string, label: string): string {
@@ -299,23 +310,37 @@ async function endpointReachable(url: string): Promise<boolean> {
 }
 
 /**
+ * Authenticated reachability probe for the OpenCode server. OpenCode authenticates its `/api/*`
+ * surface, so an unauthenticated probe answers 401 and a naive `status < 500` check would report a
+ * server that rejects every real request as ready. Only a genuine non-401 response counts.
+ */
+async function openCodeEndpointReachableAuthenticated(endpoint: string): Promise<boolean> {
+  const normalized = endpoint.endsWith("/") ? endpoint.slice(0, -1) : endpoint;
+  const password = resolveOpenCodeServerPassword();
+  const headers: Record<string, string> = {
+    authorization: `Basic ${Buffer.from(`opencode:${password}`).toString("base64")}`
+  };
+  for (const path of ["/api/health", "/api/session", "/global/health", "/doc", "/"]) {
+    try {
+      const response = await fetch(`${normalized}${path}`, {
+        signal: AbortSignal.timeout(750),
+        headers
+      });
+      if (response.status === 401 || response.status === 403) continue;
+      if (response.status < 500) return true;
+    } catch {
+      // Try the next probe path; the server may not implement this one.
+    }
+  }
+  return false;
+}
+
+/**
  * OpenCode 2.0.22 serves its primary health check at /api/health.
  * Fall back to /global/health and /doc to accommodate different OpenCode server configurations.
  */
 async function openCodeEndpointReachable(endpoint: string): Promise<boolean> {
-  const normalized = endpoint.endsWith("/") ? endpoint.slice(0, -1) : endpoint;
-  const probeUrls = [
-    `${normalized}/api/health`,
-    `${normalized}/global/health`,
-    `${normalized}/doc`,
-    `${normalized}/`
-  ];
-  for (const url of probeUrls) {
-    if (await endpointReachable(url)) {
-      return true;
-    }
-  }
-  return false;
+  return openCodeEndpointReachableAuthenticated(endpoint);
 }
 
 async function waitForOpenCodeEndpoint(endpoint: string, child: ChildProcess, timeoutMs: number): Promise<void> {
@@ -324,7 +349,7 @@ async function waitForOpenCodeEndpoint(endpoint: string, child: ChildProcess, ti
     if (child.exitCode !== null) {
       throw new DesktopToolError("TOOL_START_FAILED", "The managed process exited before its endpoint became ready.");
     }
-    if (await openCodeEndpointReachable(endpoint)) return;
+    if (await openCodeEndpointReachableAuthenticated(endpoint)) return;
     await new Promise((resolve) => setTimeout(resolve, 150));
   }
   throw new DesktopToolError("TOOL_START_TIMEOUT", `Timed out waiting for OpenCode at ${endpoint}.`);

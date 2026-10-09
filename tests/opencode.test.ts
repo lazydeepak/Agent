@@ -99,6 +99,67 @@ describe("OpenCodeHttpClient", () => {
     });
   });
 
+  it("treats a 401 on /api/health as an auth-gated v2 server rather than a legacy server", async () => {
+    // A v2 server behind auth answers unknown paths with the SPA HTML and /api/* with 401 JSON.
+    // Pinning legacy here sent callers to /session, which returned HTML and surfaced as
+    // "returned text/html for /session, not JSON" instead of the real authentication problem.
+    const requests: string[] = [];
+    const client = new OpenCodeHttpClient({
+      baseUrl: "http://127.0.0.1:4096",
+      fetch: async (input: URL | RequestInfo) => {
+        const path = new URL(String(input)).pathname;
+        requests.push(path);
+        if (path.startsWith("/api/")) {
+          return new Response(JSON.stringify({ _tag: "UnauthorizedError", message: "Authentication required" }), {
+            status: 401,
+            headers: { "content-type": "application/json" }
+          });
+        }
+        return new Response("<!doctype html><html lang=\"en\"></html>", {
+          status: 200,
+          headers: { "content-type": "text/html" }
+        });
+      }
+    });
+
+    expect(await client.isV2Api()).toBe(true);
+    await expect(client.listSessions()).rejects.toThrow(OpenCodeHttpError);
+    // Must never be routed through the legacy /session path.
+    expect(requests).not.toContain("/session");
+  });
+
+  it("re-pins to v2 when a legacy-pinned client receives SPA HTML on /session", async () => {
+    // Discovery can settle on legacy from a stale spec; the SPA catch-all then answers /session
+    // with HTML. The client must self-correct to the v2 path instead of reporting a parse error.
+    let sessionsCalls = 0;
+    const client = new OpenCodeHttpClient({
+      baseUrl: "http://127.0.0.1:4096",
+      fetch: async (input: URL | RequestInfo) => {
+        const path = new URL(String(input)).pathname;
+        if (path === "/doc") {
+          return jsonResponse({ paths: { "/log": {} } });
+        }
+        if (path === "/api/health") {
+          return new Response("not found", { status: 404 });
+        }
+        if (path === "/session") {
+          return new Response("<!doctype html><html lang=\"en\"></html>", {
+            status: 200,
+            headers: { "content-type": "text/html" }
+          });
+        }
+        sessionsCalls += 1;
+        return jsonResponse({ data: [{ id: "ses_worker_1", title: "Worker" }] });
+      }
+    });
+
+    const sessions = await client.listSessions();
+
+    expect(sessionsCalls).toBe(1);
+    expect(sessions.data[0]).toMatchObject({ id: "ses_worker_1" });
+    expect(await client.isV2Api()).toBe(true);
+  });
+
   it("sends planner messages with OpenCode text parts", async () => {
     let requestBody = "";
     const client = new OpenCodeHttpClient({

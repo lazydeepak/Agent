@@ -320,7 +320,18 @@ export class OpenCodeHttpClient {
       legacyParams.set("directory", resolve(options.repoPath));
     }
     const suffix = legacyParams.size > 0 ? `?${legacyParams.toString()}` : "";
-    const legacySessions = (await this.requestJson(`/session${suffix}`)) as OpenCodeSessionInfo[];
+    let legacySessions: OpenCodeSessionInfo[];
+    try {
+      legacySessions = (await this.requestJson(`/session${suffix}`)) as OpenCodeSessionInfo[];
+    } catch (error) {
+      // An SPA catch-all answers the legacy path with HTML. That means we are pinned to the wrong
+      // protocol, so re-pin to v2 and retry there instead of surfacing "returned text/html, not JSON".
+      if (isUnexpectedHtmlResponse(error)) {
+        this.pinApiProtocol("v2");
+        return this.listSessions(options);
+      }
+      throw error;
+    }
     return {
       data: Array.isArray(legacySessions) ? legacySessions.slice(0, options.limit ?? legacySessions.length) : []
     };
@@ -611,6 +622,7 @@ export class OpenCodeHttpClient {
       // If discovery didn't find V2, try a direct probe for V2 health before defaulting to legacy.
       // This handles cases where the spec paths (/doc, /openapi.json) are missing or return HTML.
       let reachedV2Health = false;
+      let v2AuthRequired = false;
       try {
         const v2Health = (await this.requestJson("/api/health", { signal: AbortSignal.timeout(2000) })) as {
           status?: string;
@@ -621,9 +633,24 @@ export class OpenCodeHttpClient {
         }
         reachedV2Health = true;
       } catch (error) {
-        if (error instanceof OpenCodeHttpError || error instanceof OpenCodeUnexpectedResponseError) {
+        if (error instanceof OpenCodeHttpError) {
+          reachedV2Health = true;
+          // A 401/403 means the route exists and is credential-gated, which is positive evidence
+          // that this is a v2 server. Only a definitive 404 proves the route is absent. OpenCode's
+          // SPA answers unknown paths with HTML, so "route missing" cannot be read from the body.
+          if (error.status === 401 || error.status === 403) {
+            v2AuthRequired = true;
+          }
+        } else if (error instanceof OpenCodeUnexpectedResponseError) {
           reachedV2Health = true;
         }
+      }
+
+      // Auth-gated v2 route: pin v2 so the caller gets an accurate "authentication required"
+      // error naming /api/*, rather than being sent to a legacy path that returns HTML.
+      if (v2AuthRequired) {
+        this.pinApiProtocol("v2");
+        return;
       }
 
       // Only pin to legacy if we actually reached the server (got paths or a definitive health response).
