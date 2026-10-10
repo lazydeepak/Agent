@@ -542,10 +542,6 @@ export class DesktopApplicationService {
     });
   }
 
-  async resumeProject(projectPairId: string): Promise<ProjectLifecycleSummary> {
-    return this.startProject(projectPairId);
-  }
-
   async pauseProject(projectPairId: string): Promise<RuntimeStatusSummary> {
     const members = this.pairs.filter(
       (p) => p.projectPairId === projectPairId || (!p.projectPairId && !projectPairId)
@@ -788,7 +784,7 @@ export class DesktopApplicationService {
     const probe = this.options.chatgptProbe;
     const planner: SessionPair["planner"] = {
       type: "chatgpt-browser",
-      conversationId: "probe",
+      conversationId: "test",
       conversationUrl: options.conversationUrl ?? "https://chatgpt.com/",
       browser: { cdpUrl }
     };
