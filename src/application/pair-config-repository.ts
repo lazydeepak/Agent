@@ -3,10 +3,10 @@
  * File: src/application/pair-config-repository.ts
  * Purpose: Source module for pair-config-repository.ts.
  */
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { randomBytes } from "node:crypto";
 import { parsePairsConfig } from "../sessions/pairs.js";
+import { isNodeError, messageOf, MutationQueue, atomicWriteJson } from "./config-file-store.js";
 import type { PairsConfig, SessionPair } from "../types.js";
 
 export type PairConfigErrorCode =
@@ -49,7 +49,7 @@ export interface PairEdits {
  * corrupts the config. Paths are resolved with node:path so behavior is cross-platform.
  */
 export class PairConfigRepository {
-  private mutationQueue: Promise<void> = Promise.resolve();
+  private mutationQueue = new MutationQueue();
 
   constructor(private readonly configPath: string) {}
 
@@ -209,12 +209,7 @@ export class PairConfigRepository {
   }
 
   private mutate<T>(operation: () => Promise<T>): Promise<T> {
-    const result = this.mutationQueue.then(operation, operation);
-    this.mutationQueue = result.then(
-      () => undefined,
-      () => undefined
-    );
-    return result;
+    return this.mutationQueue.run(operation);
   }
 
   private assertNoOwnershipConflict(pairs: SessionPair[], candidate: SessionPair, excludePairId?: string): void {
@@ -247,24 +242,12 @@ export class PairConfigRepository {
       throw new PairConfigError("CONFIG_INVALID", `Refusing to write invalid config: ${messageOf(error)}`);
     }
 
-    const directory = dirname(this.configPath);
-    const tempPath = join(directory, `.pairs.${randomBytes(6).toString("hex")}.tmp`);
     try {
-      await mkdir(directory, { recursive: true });
-      // Pair config can carry server passwords: keep it owner-only (mode is a no-op on Windows).
-      await writeFile(tempPath, `${JSON.stringify(config, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
-      await rename(tempPath, this.configPath);
+      // Pair config can carry server passwords: atomicWriteJson keeps the temp file owner-only.
+      await atomicWriteJson(this.configPath, config, ".pairs");
     } catch (error) {
-      await rm(tempPath, { force: true }).catch(() => undefined);
-      throw new PairConfigError("CONFIG_UNWRITABLE", `Config file is not writable: ${messageOf(error)}`);
+      throw new PairConfigError("CONFIG_UNWRITABLE", messageOf(error));
     }
   }
 }
 
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && "code" in error;
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}

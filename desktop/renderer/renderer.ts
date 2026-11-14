@@ -87,7 +87,10 @@ import {
   type PairControls
 } from "./state.js";
 import {
-  applyThemePreference
+  applyThemePreference,
+  readStoredThemePreference,
+  storeThemePreference,
+  normalizeThemePreference
 } from "./theme.js";
 import {
   candidateIssues,
@@ -120,7 +123,10 @@ declare global {
       stopPair(pairId: string): Promise<StatusSummaryDto>;
       startAll(): Promise<StatusSummaryDto>;
       stopAll(): Promise<StatusSummaryDto>;
+      getDiagnosticsSnapshot(): Promise<import("../../src/contracts/desktop.js").DiagnosticsSnapshotDto>;
       releaseRecoverySuspension(pairId: string): Promise<StatusSummaryDto>;
+      selectStartingSide(pairId: string, side: "planner" | "worker"): Promise<StatusSummaryDto>;
+      cancelIncident(pairId: string): Promise<StatusSummaryDto>;
       getAutoResumeState(): Promise<Array<{ pairId: string; autoResumeAfterRestart: boolean }>>;
       setAutoResumeAfterRestart(pairId: string, enabled: boolean): Promise<Array<{ pairId: string; autoResumeAfterRestart: boolean }>>;
       getSettings(): Promise<{ historyRetentionDays?: number }>;
@@ -225,8 +231,8 @@ function setShowWorkerOnStartPref(enabled: boolean): void {
 }
 
 function initTheme(): void {
-  // Relay Beacon is a dark operations console — hardwire theme to dark.
-  applyThemePreference("dark");
+  // Preference persisted under agent.theme (system | light | dark); system follows the OS.
+  applyThemePreference(readStoredThemePreference());
 }
 function expandAllPairs(): void {
   for (const pair of state.pairs) {
@@ -295,6 +301,150 @@ function toggleMobileSidebar(): void {
   const backdrop = document.getElementById("sidebar-backdrop");
   const isOpen = sidebar?.classList.toggle("mobile-open");
   backdrop?.classList.toggle("hidden", !isOpen);
+}
+
+interface GtTile { label: string; value: string; tone: "ok" | "warn" | "danger" | "neutral" | "info"; title?: string }
+
+function gtChip(text: string, tone: "ok" | "warn" | "danger" | "neutral" | "info", title?: string): HTMLElement {
+  const chip = document.createElement("span");
+  chip.className = `ground-truth-tile ground-truth-tile-${tone}`;
+  if (title) chip.title = title;
+  const label = document.createElement("span");
+  label.className = "ground-truth-tile-label";
+  label.textContent = text;
+  chip.appendChild(label);
+  return chip;
+}
+
+async function refreshGroundTruth(): Promise<void> {
+  const grid = document.getElementById("ground-truth-grid");
+  const status = document.getElementById("ground-truth-status");
+  const sim = document.getElementById("ground-truth-simulated");
+  const ambiguousPanel = document.getElementById("ground-truth-ambiguous");
+  const ambiguousList = document.getElementById("ground-truth-ambiguous-list");
+  const suspendedPanel = document.getElementById("ground-truth-suspended");
+  const suspendedList = document.getElementById("ground-truth-suspended-list");
+  if (!grid) return;
+  if (typeof window.desktop?.getDiagnosticsSnapshot !== "function") {
+    grid.replaceChildren(gtChip("Unavailable in this build", "neutral", "This build does not expose diagnostics."));
+    return;
+  }
+  try {
+    const dto = await window.desktop.getDiagnosticsSnapshot();
+    if (sim) sim.classList.toggle("hidden", !dto.simulated);
+    grid.replaceChildren();
+
+    const tiles: GtTile[] = [];
+    const env = dto.environment;
+    tiles.push({ label: `node ${env.node} · ${env.platform} · ${env.arch}`, value: "Environment", tone: "info", title: "Runtime identity reported by the process." });
+    tiles.push({ label: dto.config.configPath ?? "(no config path)", value: `${dto.config.pairsCount ?? "?"} pairs configured`, tone: dto.config.pairsCount && dto.config.pairsCount > 0 ? "info" : "warn", title: `Active pairs in pairs.local.json. Project pairs (coarser repo↔planner grouping): ${dto.config.projectPairsCount ?? "unknown"}.` });
+
+    if (!dto.available || dto.database === null) {
+      tiles.push({ label: dto.reason ?? "Relay store unavailable", value: "Store down", tone: "danger", title: "The relay store could not be opened — every store-derived value is null, never guessed." });
+      if (status) {
+        status.textContent = "Relay store unavailable — no evidence available.";
+        status.className = "ground-truth-status ground-truth-status-danger";
+      }
+    } else {
+      const db = dto.database;
+      const size = db.dbSizeBytes !== undefined ? `${(db.dbSizeBytes / 1024).toFixed(0)} KB` : "size?";
+      const wal = db.walSizeBytes !== undefined ? ` + ${(db.walSizeBytes / 1024).toFixed(0)} KB wal` : "";
+      const schemaOk = db.schemaVersion === db.expectedSchemaVersion;
+      tiles.push({ label: `${db.path}`, value: `schema v${db.schemaVersion ?? "?"} / expected v${db.expectedSchemaVersion} · ${db.journalMode.toUpperCase()} · ${size}${wal}`, tone: schemaOk ? "ok" : "danger", title: schemaOk ? "Store schema matches the build's expected version." : "Store schema and binary disagree — migrations may be pending or blocked; do not trust in-flight state." });
+      const ledger = dto.relayLedger;
+      if (ledger) {
+        tiles.push({ label: `${ledger.total} records — ${ledger.delivered} delivered · ${ledger.delivering} delivering · ${ledger.failed} failed`, value: ledger.delivering > 0 ? `${ledger.delivering} unverified` : "Ledger", tone: ledger.delivering > 0 ? "warn" : ledger.failed > 0 ? "warn" : "ok", title: "DELIVERING records are unconfirmed deliveries (never assumed delivered). FAILED records are terminal failures awaiting operator attention." });
+      }
+      const cycles = dto.relayCycles;
+      if (cycles) {
+        const cycleText = Object.entries(cycles.byStatus).map(([k, v]) => `${k}:${v}`).join(" · ") || "none";
+        tiles.push({ label: cycleText, value: `${cycles.total} cycles`, tone: "info", title: "Relay cycles by state — total cycles completed/created." });
+      }
+      const sup = dto.supervisorState;
+      if (sup) {
+        tiles.push({ label: `${sup.paused} paused · ${sup.suspended} suspended`, value: "Supervisor", tone: sup.suspended > 0 ? "danger" : "info", title: "Paused pairs finish their current step then stop dispatching. Suspended pairs halt automated recovery entirely until operator release." });
+      }
+      const startup = dto.startupOperations;
+      if (startup) {
+        tiles.push({ label: `${startup.pending} pending · ${startup.hold} on hold · ${startup.stabilized} stabilized`, value: "Startup ops", tone: startup.hold > 0 ? "warn" : startup.pending > 0 ? "info" : "ok", title: "Startup activations in flight; 'hold' means an operator-reconciled startup could not complete safely." });
+      }
+      if (dto.openAttentions !== null) tiles.push({ label: `${dto.openAttentions} open attention item(s) · ${dto.openProposals ?? 0} pending proposal(s)`, value: "Queue", tone: (dto.openAttentions ?? 0) > 0 ? "warn" : "ok", title: "Unresolved attention items block automation on those pairs until the operator resolves them." });
+      tiles.push({ label: `${dto.settings.historyRetentionDays} day(s)`, value: "Retention", tone: "neutral", title: "Delivered relay cycles older than this are pruned on next write." });
+
+      // status banner
+      if (status) {
+        const schemaBad = db.schemaVersion !== db.expectedSchemaVersion;
+        const ambiguous = ledger?.delivering ?? 0;
+        const suspendedCount = sup?.suspended ?? 0;
+        const holdCount = startup?.hold ?? 0;
+        if (schemaBad || suspendedCount > 0 || ambiguous > 0 || holdCount > 0) {
+          status.textContent = schemaBad
+            ? "Attention: store schema does not match this build — verify before relying on in-flight state."
+            : `Attention: ${[ambiguous ? `${ambiguous} unverified delivery(s)` : "", suspendedCount ? `${suspendedCount} suspended pair(s)` : "", holdCount ? `${holdCount} held startup op(s)` : ""].filter(Boolean).join(", ")}.`;
+          status.className = "ground-truth-status ground-truth-status-danger";
+        } else {
+          status.textContent = "All evidence nominal — nothing needs attention.";
+          status.className = "ground-truth-status ground-truth-status-ok";
+        }
+      }
+    }
+
+    for (const tile of tiles) {
+      const el = document.createElement("div");
+      el.className = `ground-truth-tile ground-truth-tile-${tile.tone}`;
+      if (tile.title) el.title = tile.title;
+      const label = document.createElement("div");
+      label.className = "ground-truth-tile-label";
+      label.textContent = tile.label;
+      const value = document.createElement("div");
+      value.className = "ground-truth-tile-value";
+      value.textContent = tile.value;
+      el.append(value, label);
+      grid.appendChild(el);
+    }
+
+    // evidence lists (only ambiguities/interrupts with evidence matter)
+    if (ambiguousPanel && ambiguousList) {
+      const items = dto.relayLedger?.ambiguousDelivering ?? [];
+      ambiguousList.replaceChildren();
+      ambiguousPanel.classList.toggle("hidden", items.length === 0);
+      for (const record of items) {
+        const row = document.createElement("div");
+        row.className = "ground-truth-evidence-row";
+        const age = formatTimeAgo(record.firstSeenAt);
+        row.textContent = `${record.pairId} · ${record.direction} · ${age} · verify attempts ${record.verifyAttemptCount}`;
+        row.title = `${record.sourceMessageId} (first seen ${new Date(record.firstSeenAt).toISOString()})`;
+        ambiguousList.appendChild(row);
+      }
+    }
+    if (suspendedPanel && suspendedList) {
+      const items = dto.supervisorState?.suspendedPairs ?? [];
+      suspendedList.replaceChildren();
+      suspendedPanel.classList.toggle("hidden", items.length === 0);
+      for (const record of items) {
+        const row = document.createElement("div");
+        row.className = "ground-truth-evidence-row";
+        row.textContent = `${record.pairId} · ${record.suspendedAt ? `suspended ${formatTimeAgo(record.suspendedAt)}` : "suspended"} · ${record.attemptCount} attempt(s)`;
+        suspendedList.appendChild(row);
+      }
+    }
+  } catch (error) {
+    if (status) {
+      status.textContent = `Diagnostics failed: ${errorMessage(error)}`;
+      status.className = "ground-truth-status ground-truth-status-danger";
+    }
+    grid.replaceChildren(gtChip("Diagnostics failed to load", "danger"));
+  }
+}
+
+function formatTimeAgo(iso: string): string {
+  const past = Date.parse(iso);
+  if (Number.isNaN(past)) return iso;
+  const seconds = Math.max(0, Math.floor((Date.now() - past) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
 }
 
 export function setView(view: ViewMode): void {
@@ -368,6 +518,7 @@ export function setView(view: ViewMode): void {
     mockPagePanel?.classList.add("hidden");
     sourcePanel?.classList.remove("hidden");
     void loadAndRenderSourceIndex();
+    void refreshGroundTruth();
     return;
   }
 
@@ -511,6 +662,8 @@ function renderDashboard(): void {
 
   void updateBackendHealthStatus();
 
+  renderAgent();
+
   if (historyContainer) {
     if (window.desktop && typeof window.desktop.getTimeline === "function") {
     void (async () => {
@@ -530,7 +683,7 @@ function renderDashboard(): void {
 }
 
 function renderDashboardAgentHealth(container: HTMLElement): void {
-  if (state.pairs.length === 0) {
+if (state.pairs.length === 0) {
     const empty = el("div", "empty-state agent-empty");
     empty.innerHTML = `<svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true"><circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="2" stroke-opacity="0.4"/><path d="M24 8 L36 24 L24 40 L12 24 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2"/><circle cx="24" cy="24" r="4" fill="currentColor"/></svg><span><strong>No agent pairs yet.</strong><br/>Click <em>+ Add Session</em> to create your first Planner ↔ Worker relay.</span>`;
     container.replaceChildren(empty);
@@ -695,6 +848,207 @@ function renderDashboardAgentHealth(container: HTMLElement): void {
   container.replaceChildren(fragment);
 }
 
+const AGENT_LOADED_AT = Date.now();
+
+function formatAgentUptime(elapsedMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
+  const hh = Math.floor(totalSeconds / 3600);
+  const mm = Math.floor((totalSeconds % 3600) / 60);
+  const ss = totalSeconds % 60;
+  return [hh, mm, ss].map((n) => String(n).padStart(2, "0")).join(":");
+}
+
+function installAgentRefreshTimer(): void {
+  window.setInterval(() => {
+    if (currentView === "home" && document.getElementById("agent-hero")) {
+      try { renderAgent(); } catch { /* paint best-effort */ }
+    }
+  }, 1000);
+}
+
+function renderAgent(): void {
+  const statuses = Array.from(state.statuses.values());
+  const focused = state.pairs[0];
+  const focusedStatus = focused ? state.statuses.get(focused.pairId) : undefined;
+
+  const activePairs = state.pairs.filter((p) => p.enabled).length;
+  const isAmbiguous = (s: PeerHealthDto): boolean => s.latestDeliveryStatus === "DELIVERING" && (s.latestDeliveryVerifyAttempts ?? 0) >= 3;
+  const attentionPairs = statuses.filter((s) => s.supervisorState === "STUCK" || s.supervisorState === "FAILED" || s.recovering === true || isAmbiguous(s)).length;
+
+  const setText = (id: string, text: string): void => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  setText("agent-active-pairs", String(activePairs));
+  const focusedObserved = focusedStatus?.lastObservedAt;
+  setText("agent-last-update", focusedObserved ? `Observed ${new Date(focusedObserved).toLocaleTimeString()}` : "Awaiting observation");
+  setText("agent-pairs-count", String(state.pairs.length));
+  setText("agent-attention-count", String(attentionPairs));
+  setText("agent-uptime", formatAgentUptime(Date.now() - AGENT_LOADED_AT));
+
+  // Current Turn / Ownership
+  const ownerText = focusedStatus ? ownerLabel(focusedStatus) : "Unknown";
+  setText("agent-turn-owner", ownerText);
+  setText("agent-turn-subtitle", focused ? `${focused.pairId} · Turn —` : "No pair configured");
+
+  // Bot Activity
+  const activity = focusedStatus ? activityLabel(focusedStatus) : null;
+  setText("agent-activity-label", activity?.label ?? "Unknown");
+  setText("agent-activity-sub", activity?.detail ?? "Not observing");
+
+  // Delivery — relay-record evidence. verifiedAttempts >= 3 (Rule 12/13 verification
+  // budget) means the delivery is unverified/ambiguous, never presented as success.
+  const delivery = deliveryEvidenceFor(focusedStatus);
+  setText("agent-delivery-label", delivery.label);
+  setText("agent-delivery-sub", delivery.detail);
+  const deliveryCard = document.getElementById("agent-delivery-card");
+  if (deliveryCard) {
+    deliveryCard.className = `agent-kpi${delivery.variant ? ` ${delivery.variant}` : ""}`;
+    const deliveryIcon = deliveryCard.querySelector(".agent-kpi-icon-right");
+    if (deliveryIcon) {
+      deliveryIcon.className = `agent-kpi-icon-right ${delivery.iconClass}`;
+    }
+  }
+
+  // Time in State / since
+  const sinceText = focusedStatus?.lastObservedAt ? new Date(focusedStatus.lastObservedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—";
+  setText("agent-time-value", focusedStatus?.lastObservedAt ? timeSinceIso(focusedStatus.lastObservedAt) : "—");
+  setText("agent-time-sub", focusedStatus?.lastObservedAt ? `Since ${sinceText}` : "No observation yet");
+
+  // Progression stages
+  renderAgentProgression(document.getElementById("agent-progression-track"), focusedStatus);
+  setText("agent-gate-text", gateLabel(focusedStatus));
+}
+
+function ownerLabel(status: PeerHealthDto): string {
+  if (status.paused) return "Paused";
+  const busy = status.workerActivity === "working" || status.plannerActivity === "working";
+  const stuck = status.supervisorState === "STUCK" || status.supervisorState === "FAILED";
+  if (status.supervisorState === "WAITING_PLANNER") return "Planner";
+  if (stuck) return "Unknown";
+  if (busy && status.workerActivity === "working") return "Worker";
+  if (busy && status.plannerActivity === "working") return "Planner";
+  if (status.supervisorState === "WORKING" || status.supervisorState === "WAITING_WORKER") return "Worker";
+  if (status.supervisorState === "WAITING_INPUT") return "Planner";
+  if (status.supervisorState === "READY") return "Ready";
+  if (status.supervisorState === "IDLE") return "Idle";
+  if (status.supervisorState === "COMPLETED") return "Complete";
+  return "Unknown";
+}
+
+function activityLabel(status: PeerHealthDto): { label: string; detail: string } {
+  if (status.recovering) return { label: "Recovering", detail: status.lastError ?? "Recovery in progress" };
+  if (status.supervisorState === "STUCK") return { label: "Blocked", detail: "No progress observed" };
+  if (status.supervisorState === "FAILED") return { label: "Failed", detail: status.lastError ?? "Turn failed" };
+  if (status.supervisorState === "PAUSED" || status.paused) return { label: "Paused", detail: "Awaiting resume" };
+  if (status.supervisorState === "WAITING_WORKER" || status.workerActivity === "working") return { label: "Observing", detail: "Awaiting Worker report" };
+  if (status.supervisorState === "WAITING_PLANNER" || status.plannerActivity === "working") return { label: "Observing", detail: "Awaiting Planner response" };
+  if (status.supervisorState === "WAITING_INPUT") return { label: "Awaiting", detail: "Worker waiting for input" };
+  if (status.supervisorState === "WORKING") return { label: "Dispatching", detail: "Dispatching instruction" };
+  if (status.supervisorState === "READY") return { label: "Ready", detail: "Ready for next turn" };
+  if (status.supervisorState === "IDLE") return { label: "Idle", detail: "Idle" };
+  if (status.supervisorState === "COMPLETED") return { label: "Complete", detail: "Turn complete" };
+  return { label: "Unknown", detail: status.supervisorState ?? "Not observed" };
+}
+
+function deliveryEvidenceFor(status?: PeerHealthDto): { label: string; detail: string; variant: string; iconClass: string } {
+  const attempts = status?.latestDeliveryVerifyAttempts ?? 0;
+  const latest = status?.latestDeliveryStatus;
+  if (latest === "DELIVERED") return { label: "Confirmed", detail: "Delivered to relay target", variant: "agent-kpi-ok", iconClass: "agent-ok" };
+  if (latest === "FAILED") return { label: "Failed", detail: "Delivery failed — see Activity", variant: "agent-kpi-danger", iconClass: "agent-danger" };
+  if (latest === "DELIVERING" && attempts >= 3) return { label: "Ambiguous", detail: "Unverified after 3 attempts — resolve before resend", variant: "agent-kpi-danger", iconClass: "agent-danger" };
+  if (latest === "DELIVERING" && attempts > 0) return { label: "Verifying", detail: `Verification attempt ${attempts}/3`, variant: "agent-kpi-warn", iconClass: "agent-warn" };
+  if (latest) return { label: "Pending", detail: "Awaiting delivery verification", variant: "", iconClass: "agent-warn" };
+  if (status?.hasRelayHistory) return { label: "Pending", detail: "Delivery not verified", variant: "", iconClass: "agent-warn" };
+  return { label: "Pending", detail: "No deliveries yet", variant: "", iconClass: "agent-warn" };
+}
+
+function gateLabel(status: PeerHealthDto | undefined): string {
+  if (!status) return "No pair selected";
+  if (status.awaitingStartingSideSelection) return "Awaiting Starting-Side Selection — pick which side relays first";
+  if (status.startingSide) return `Starting side: ${status.startingSide === "planner" ? "Planner" : "Worker"} — dispatching the selected side first`;
+  if (status.recovering) return `Recovering: ${status.lastError ?? "automatic retry"}`;
+  if (status.supervisorState === "STUCK") return "Awaiting operator or Recovery Agent";
+  if (status.supervisorState === "FAILED") return status.lastError ? `Blocked: ${status.lastError}` : "Blocked";
+  if (status.supervisorState === "PAUSED" || status.paused) return "Paused — awaiting resume";
+  if (status.latestDeliveryStatus === "DELIVERING" && (status.latestDeliveryVerifyAttempts ?? 0) >= 3) return "Delivery unverified — resolve ambiguity before resend";
+  if (status.supervisorState === "COMPLETED") return "Turn complete";
+  if (status.workerActivity === "working" || status.supervisorState === "WAITING_WORKER" || status.supervisorState === "WORKING") return "Observing Worker execution";
+  if (status.plannerActivity === "working" || status.supervisorState === "WAITING_PLANNER") return "Observing Planner response";
+  if (status.supervisorState === "READY") return "Ready for next dispatch";
+  if (status.supervisorState === "IDLE") return "Idle";
+  return "Observing";
+}
+
+function timeSinceIso(iso: string): string {
+  const past = Date.parse(iso);
+  if (Number.isNaN(past)) return "—";
+  const seconds = Math.max(0, Math.floor((Date.now() - past) / 1000));
+  const hh = Math.floor(seconds / 3600);
+  const mm = Math.floor((seconds % 3600) / 60);
+  const ss = seconds % 60;
+  return [hh, mm, ss].map((n) => String(n).padStart(2, "0")).join(":");
+}
+
+const AGENT_STAGES: Array<{ id: string; label: string }> = [
+  { id: "ready", label: "Ready" },
+  { id: "sent", label: "Sent" },
+  { id: "delivered", label: "Delivered" },
+  { id: "executing", label: "Executing" },
+  { id: "complete", label: "Complete" }
+];
+
+let lastAgentTrackSignature: string | undefined;
+
+function renderAgentProgression(track: HTMLElement | null, status?: PeerHealthDto): void {
+  if (!track) return;
+  const activeIndex = stageIndexFor(status);
+  const blocked = status?.supervisorState === "STUCK" || status?.supervisorState === "FAILED";
+  const signature = `${activeIndex}|${blocked ? "blocked" : "open"}|${status?.supervisorState ?? "none"}|${status?.hasRelayHistory ? 1 : 0}`;
+  if (signature === lastAgentTrackSignature) return;
+  lastAgentTrackSignature = signature;
+  const frag = document.createDocumentFragment();
+  AGENT_STAGES.forEach((stage, index) => {
+    const done = !status ? false : isBeforeOrDone(activeIndex, index);
+    const active = !blocked && index === activeIndex;
+    const wrapper = document.createElement("div");
+    wrapper.className = [
+      "agent-stage",
+      done ? "done" : "",
+      active ? "active" : ""
+    ].filter(Boolean).join(" ");
+    wrapper.setAttribute("role", "listitem");
+    wrapper.setAttribute("aria-label", `${stage.label}: ${done ? "done" : active ? "active" : "pending"}`);
+    const pip = document.createElement("span");
+    pip.className = "agent-stage-pip";
+    pip.textContent = done ? "✓" : "";
+    wrapper.appendChild(pip);
+    const label = document.createElement("span");
+    label.className = "agent-stage-label";
+    label.textContent = stage.label;
+    wrapper.appendChild(label);
+    if (index < AGENT_STAGES.length - 1) {
+      const connector = document.createElement("span");
+      connector.className = `agent-stage-connector${done ? " done" : ""}`;
+      connector.setAttribute("aria-hidden", "true");
+      wrapper.appendChild(connector);
+    }
+    frag.appendChild(wrapper);
+  });
+  track.replaceChildren(frag);
+}
+
+function stageIndexFor(status?: PeerHealthDto): number {
+  if (!status) return -1;
+  if (status.supervisorState === "COMPLETED") return 4;
+  if (status.supervisorState === "STUCK" || status.supervisorState === "FAILED" || status.recovering) return 3;
+  if (status.supervisorState === "WAITING_WORKER" || status.supervisorState === "WORKING" || status.workerActivity === "working") return 3;
+  if (status.hasRelayHistory) return 2;
+  return 0;
+}
+
+function isBeforeOrDone(activeIndex: number, index: number): boolean {
+  if (activeIndex < 0) return false;
+  return index < activeIndex;
+}
+
 function renderEventList(container: HTMLElement, events: any[], emptyMessage: string): void {
   if (events.length === 0) {
     const empty = el("div", "empty-state");
@@ -825,8 +1179,8 @@ function renderUnassignedSessions(): HTMLElement | null {
       wrapperClass: "project-pair-head",
       id: "unassigned",
       titleClass: "pair-id",
-      titleChildren: [(() => { const t = el("span", "pair-id"); t.textContent = "Unassigned"; return t; })()],
-      badges: [{ cssClass: "badge-neutral", text: `${unassigned.length} session${unassigned.length === 1 ? "" : "s"}` }],
+      titleChildren: [(() => { const t = el("span", "pair-id"); t.textContent = "Unassigned relay pairs"; return t; })()],
+      badges: [{ cssClass: "badge-neutral", text: `${unassigned.length} relay pair${unassigned.length === 1 ? "" : "s"}` }],
       toggleLabel: "Details"
     },
     body: [sessionList]
@@ -858,13 +1212,19 @@ function renderProjectPairCard(pair: ProjectPairDto): HTMLElement {
   );
   if (sessions.length > 0) {
     const head = el("div", "detail");
-    head.textContent = `Sessions (${sessions.length})`;
+    head.textContent = `Relay pairs for this project (${sessions.length})`;
     body.push(head);
     const sessionList = el("div", "project-session-list");
     for (const session of sessions) {
       appendPairCard(sessionList, session);
     }
     body.push(sessionList);
+  }
+
+  if (sessions.length === 0 && expanded) {
+    const hint = el("div", "detail starting-side-selected");
+    hint.textContent = "No relay pairs linked to this project — pairs whose worker repo matches this folder appear here.";
+    body.push(hint);
   }
 
   const sessionIds = sessions.map((s) => s.pairId);
@@ -928,20 +1288,20 @@ function renderProjectPairDetails(pair: ProjectPairDto): HTMLElement {
   const snapshot = state.projectPairSnapshots.get(pair.projectPairId);
 
   const workerHead = el("div", "detail");
-  workerHead.textContent = "Worker Agent project";
+  workerHead.textContent = "Worker project";
   details.appendChild(workerHead);
   details.appendChild(buildIdentityBlock([
     { label: "Folder", value: pair.worker.repoPath },
-    { label: "Agent ID", value: pair.worker.projectId ?? "—" }
+    { label: "Agent project ID", value: pair.worker.projectId ?? "—" }
   ]));
 
   const sessions = snapshot?.openCodeSessions ?? [];
   const sessionHead = el("div", "detail");
-  sessionHead.textContent = snapshot ? `Sessions (${sessions.length})` : "Sessions (unknown — Worker Agent unreachable)";
+  sessionHead.textContent = snapshot ? `Worker Agent sessions (${sessions.length})` : "Worker Agent sessions (unknown — Worker Agent unreachable)";
   details.appendChild(sessionHead);
   if (snapshot && sessions.length === 0) {
     const none = el("div", "detail");
-    none.textContent = "No open sessions for this agent.";
+    none.textContent = "No open Worker Agent sessions for this repo.";
     details.appendChild(none);
   }
   for (const session of sessions) {
@@ -950,7 +1310,7 @@ function renderProjectPairDetails(pair: ProjectPairDto): HTMLElement {
   }
 
   const plannerHead = el("div", "detail");
-  plannerHead.textContent = "Planner Agent project";
+  plannerHead.textContent = "Planner project";
   details.appendChild(plannerHead);
   details.appendChild(buildIdentityBlock([
     { label: "Name", value: pair.planner.projectName ?? "—" },
@@ -1257,8 +1617,11 @@ function wireEvents(): void {
   }
   window.desktop.onEvent((event) => {
     noteActivityEvent(event);
-    if (event.type.startsWith("RECOVERY_") || event.type === "ESCALATED_TO_AGENT" || event.type === "STATE_CHANGED" || event.type === "PAIR_RUNTIME_RECOVERED") {
+    if (event.type.startsWith("RECOVERY_") || event.type === "ESCALATED_TO_AGENT" || event.type === "STATE_CHANGED" || event.type === "PAIR_RUNTIME_RECOVERED" || event.type === "RECOVERY_CANCELLED" || event.type === "STARTING_SIDE_SELECTED" || event.type === "RECOVERY_SUSPENSION_RELEASED" || event.type === "STOP_ALL_REQUESTED") {
       void refresh();
+    }
+    if (currentView === "recovery" && (event.type.startsWith("RECOVERY_") || event.type === "STATE_CHANGED" || event.type === "STOP_ALL_REQUESTED" || event.type === "RECOVERY_CANCELLED" || event.type === "STARTING_SIDE_SELECTED")) {
+      void refreshRecoveryPanel();
     }
     if (event.type === "PAIR_REMOVED" || event.type === "PAIR_ADDED" || event.type === "PROJECT_PAIR_ADDED" || event.type === "PROJECT_PAIR_REMOVED") {
       void refreshProjectPairs();
@@ -1266,6 +1629,9 @@ function wireEvents(): void {
   });
   window.desktop.onStatusRefresh(() => {
     void refresh();
+    if (currentView === "recovery") {
+      void refreshRecoveryPanel();
+    }
   });
 }
 
@@ -1469,6 +1835,16 @@ document.addEventListener("DOMContentLoaded", () => {
       setShowWorkerOnStartPref(showWorkerOnStart.checked);
     });
   }
+  const themeSelect = document.getElementById("theme-preference") as HTMLSelectElement | null;
+  if (themeSelect) {
+    themeSelect.value = readStoredThemePreference();
+    themeSelect.addEventListener("change", () => {
+      const value = normalizeThemePreference(themeSelect.value);
+      storeThemePreference(value);
+      applyThemePreference(value);
+      themeSelect.value = value;
+    });
+  }
   const refreshButton = document.getElementById("refresh");
   refreshButton?.addEventListener("click", () => {
     state.workerModels.clear();
@@ -1618,6 +1994,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById(`nav-${v}`)?.addEventListener("click", () => setView(v as ViewMode));
   });
   document.getElementById("nav-source")?.addEventListener("click", () => setView("source"));
+  document.getElementById("projects-go-pairs")?.addEventListener("click", () => setView("pairs"));
 
   const sidebarToggle = document.getElementById("sidebar-toggle");
   const sidebarBackdrop = document.getElementById("sidebar-backdrop");
@@ -1649,8 +2026,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   setView("home");
 
+  installAgentRefreshTimer();
   wireActivityView();
   initRecoveryPanel();
+  document.getElementById("ground-truth-refresh")?.addEventListener("click", () => { void refreshGroundTruth(); });
   wireEvents();
   initGlobalFocusTrap();
   void refresh();

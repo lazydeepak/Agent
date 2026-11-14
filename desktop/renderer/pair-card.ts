@@ -94,6 +94,7 @@ function pairCardBadges(card: PairCardModel): Array<{ cssClass: string; text: st
 }
 
 function renderPairCard(card: PairCardModel, pair: PairIdentityDto): HTMLElement {
+  const status = state.statuses.get(pair.pairId);
   const expanded = expandedPairs.has(card.pairId);
   const controls = controlsFor(card.runtimeState, card.paused, card.enabled);
 
@@ -133,6 +134,25 @@ function renderPairCard(card: PairCardModel, pair: PairIdentityDto): HTMLElement
 
   bridge.append(workerEndpoint, connector, plannerEndpoint);
   body.push(bridge);
+
+  // v1.1 §7.3–7.4 — both peers busy with pending work and no starting side selected: offer the operator the choice.
+  if (status?.awaitingStartingSideSelection) {
+    const selectPanel = el("div", "starting-side-panel");
+    const selectLabel = el("span", "starting-side-label");
+    selectLabel.textContent = "Both peers are busy — pick which side relays first (v1.1 §7.3):";
+    const plannerFirst = actionButton("Planner first", "btn-sm btn-primary", true, () => selectStartingSide(card.pairId, "planner"));
+    plannerFirst.title = "The Planner's pending instruction is relayed to the Worker before any Worker report is forwarded.";
+    const workerFirst = actionButton("Worker first", "btn-sm btn-primary", true, () => selectStartingSide(card.pairId, "worker"));
+    workerFirst.title = "The Worker's pending report is forwarded to the Planner before any Planner instruction is dispatched.";
+    selectPanel.append(selectLabel, plannerFirst, workerFirst);
+    body.push(selectPanel);
+  } else if (status?.startingSide) {
+    const selected = el("div", "starting-side-panel starting-side-selected");
+    const text = el("span", "starting-side-label");
+    text.textContent = `Starting side: ${status.startingSide === "planner" ? "Planner first" : "Worker first"} (clears after first admission)`;
+    selected.appendChild(text);
+    body.push(selected);
+  }
 
   const compact = el("div", "pair-card-compact");
   const activity = el("span", "pair-activity");
@@ -296,6 +316,28 @@ export async function pausePair(pairId: string): Promise<void> {
   const status = await runAction(() => window.desktop.pausePair(pairId));
   if (status) setStatuses(status);
   hooks.rerender();
+}
+
+export async function selectStartingSide(pairId: string, side: "planner" | "worker"): Promise<void> {
+  if (typeof window.desktop?.selectStartingSide !== "function") {
+    toast("Desktop bridge is not available.", "error");
+    return;
+  }
+  try {
+    await window.desktop.selectStartingSide(pairId, side);
+    toast(`Starting side set to ${side}; the selected side will relay first.`, "ok");
+    await refreshAllSafe();
+  } catch (error) {
+    toast(error instanceof Error ? error.message : String(error), "error");
+  }
+}
+
+async function refreshAllSafe(): Promise<void> {
+  try {
+    await hooks.refreshAll();
+  } catch {
+    // Refresh is best-effort after the selection is durably recorded.
+  }
 }
 
 export async function resumePair(pairId: string): Promise<void> {

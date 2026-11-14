@@ -20,8 +20,47 @@ export function resolveTheme(preference: ThemePreference, prefersDark: boolean):
   return prefersDark ? "dark" : "light";
 }
 
+let currentPreference: ThemePreference = "system";
+let systemListenerAttached = false;
+
+function systemPrefersDark(): boolean {
+  try {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  } catch {
+    return true;
+  }
+}
+
+function applyResolvedTheme(): void {
+  document.documentElement.dataset.theme = resolveTheme(currentPreference, systemPrefersDark());
+}
+
+/**
+ * Apply a theme preference. "system" resolves to light or dark from the OS
+ * via prefers-color-scheme and keeps following OS changes until the
+ * preference is changed again.
+ */
 export function applyThemePreference(preference: ThemePreference): void {
-  document.documentElement.dataset.theme = preference;
+  currentPreference = preference;
+  applyResolvedTheme();
+  if (!systemListenerAttached) {
+    try {
+      const query = window.matchMedia("(prefers-color-scheme: dark)");
+      const onChange = (): void => {
+        if (currentPreference === "system") {
+          applyResolvedTheme();
+        }
+      };
+      if (typeof query.addEventListener === "function") {
+        query.addEventListener("change", onChange);
+      } else if (typeof query.addListener === "function") {
+        query.addListener(onChange);
+      }
+      systemListenerAttached = true;
+    } catch {
+      // matchMedia unavailable — system preference resolves once at apply time.
+    }
+  }
 }
 
 export function readStoredThemePreference(): ThemePreference {

@@ -25,13 +25,36 @@ describe("desktop theme preference", () => {
     expect(resolveTheme("system", prefersDark)).toBe(prefersDark ? "dark" : "light");
   });
 
-  it("applies the preference without freezing system mode to an explicit theme", () => {
+  it("resolves system to the OS color scheme (explicit choices never freeze)", () => {
     const root = { dataset: { theme: "" } };
+    let matches = true;
+    const listeners: Array<() => void> = [];
     vi.stubGlobal("document", { documentElement: root });
-    for (const preference of ["dark", "light", "system"] as const) {
-      applyThemePreference(preference);
-      expect(root.dataset.theme).toBe(preference);
-    }
+    vi.stubGlobal("window", {
+      matchMedia: () => ({
+        matches,
+        addEventListener: (_: string, listener: () => void) => { listeners.push(listener); }
+      })
+    });
+
+    applyThemePreference("dark");
+    expect(root.dataset.theme).toBe("dark");
+    applyThemePreference("light");
+    expect(root.dataset.theme).toBe("light");
+
+    applyThemePreference("system");
+    expect(root.dataset.theme).toBe("dark");
+
+    // OS flips to light: the live media-query listener follows it.
+    matches = false;
+    for (const fire of listeners) fire();
+    expect(root.dataset.theme).toBe("light");
+
+    // An explicit choice ignores OS flips entirely.
+    applyThemePreference("dark");
+    matches = true;
+    for (const fire of listeners) fire();
+    expect(root.dataset.theme).toBe("dark");
   });
 
   it.each(["light", "dark", "system", null, "invalid"])("reads stored preference %s", (value) => {

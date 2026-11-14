@@ -3,10 +3,9 @@
  * File: src/application/project-pair-repository.ts
  * Purpose: Project-pair identity / ownership service.
  */
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { randomBytes } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { parseProjectPairsConfig } from "../sessions/project-pairs.js";
+import { isNodeError, messageOf, MutationQueue, atomicWriteJson } from "./config-file-store.js";
 import type { ProjectPair, ProjectPairsConfig } from "../types.js";
 
 export type ProjectPairConfigErrorCode =
@@ -36,7 +35,7 @@ export class ProjectPairRepositoryError extends Error {
  * atomic rename so a crash mid-write never corrupts the config.
  */
 export class ProjectPairRepository {
-  private mutationQueue: Promise<void> = Promise.resolve();
+  private mutationQueue = new MutationQueue();
 
   constructor(private readonly configPath: string) {}
 
@@ -155,12 +154,7 @@ export class ProjectPairRepository {
   }
 
   private mutate<T>(operation: () => Promise<T>): Promise<T> {
-    const result = this.mutationQueue.then(operation, operation);
-    this.mutationQueue = result.then(
-      () => undefined,
-      () => undefined
-    );
-    return result;
+    return this.mutationQueue.run(operation);
   }
 
   private assertNoOwnershipConflict(pairs: ProjectPair[], candidate: ProjectPair): void {
@@ -196,27 +190,15 @@ export class ProjectPairRepository {
       );
     }
 
-    const directory = dirname(this.configPath);
-    const tempPath = join(directory, `.project-pairs.${randomBytes(6).toString("hex")}.tmp`);
     try {
-      await mkdir(directory, { recursive: true });
-      // Owner-only: project pairs reference repositories and worker endpoints (mode is a no-op on Windows).
-      await writeFile(tempPath, `${JSON.stringify(config, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
-      await rename(tempPath, this.configPath);
+      // Owner-only temp file: project pairs reference repositories and worker endpoints (mode is a no-op on Windows).
+      await atomicWriteJson(this.configPath, config, ".project-pairs");
     } catch (error) {
-      await rm(tempPath, { force: true }).catch(() => undefined);
       throw new ProjectPairRepositoryError(
         "CONFIG_UNWRITABLE",
-        `Project pairs config file is not writable: ${messageOf(error)}`
+        messageOf(error)
       );
     }
   }
 }
 
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && "code" in error;
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}

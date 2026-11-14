@@ -109,6 +109,22 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   handle(IPC_CHANNELS.getSettings, guarded(async () => ctx.requireService().getSettings()));
   handle(IPC_CHANNELS.releaseRecoverySuspension, guarded(async (_e, pairId: unknown) =>
     ctx.requireService().releaseRecoverySuspension(asPairId(pairId))));
+  handle(IPC_CHANNELS.diagnosticsSnapshot, guarded(async () => {
+    const snapshot = ctx.requireService().getDiagnosticsSnapshot();
+    let projectPairsCount: number | null = null;
+    try {
+      projectPairsCount = (await ctx.requireProjectPairService().listProjectPairs()).length;
+    } catch {
+      projectPairsCount = null;
+    }
+    return { ...snapshot, config: { ...snapshot.config, projectPairsCount } };
+  }));
+  handle(IPC_CHANNELS.selectStartingSide, guarded(async (_e, pairId: unknown, side: unknown) => {
+    if (side !== "planner" && side !== "worker") throw new Error("side must be 'planner' or 'worker'.");
+    return ctx.requireService().selectStartingSide(asPairId(pairId), side);
+  }));
+  handle(IPC_CHANNELS.cancelIncident, guarded(async (_e, pairId: unknown) =>
+    ctx.requireService().cancelIncident(asPairId(pairId))));
   handle(IPC_CHANNELS.updateSettings, guarded(async (_e, input: unknown) => {
     if (!input || typeof input !== "object") throw new Error("Settings payload must be an object.");
     const days = (input as { historyRetentionDays?: unknown }).historyRetentionDays;

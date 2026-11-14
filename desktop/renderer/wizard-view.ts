@@ -286,7 +286,7 @@ export function renderPlannerStep(body: HTMLElement): void {
   const project = selectedProject();
   if (project) {
     body.appendChild(rowNote(
-      `This session will be assigned to project "${project.projectPairId}" (Planner Agent project ${project.planner.projectName ?? project.planner.projectSlug}).`
+      `This pair will be assigned to project "${project.projectPairId}" (Planner project ${project.planner.projectName ?? project.planner.projectSlug}).`
     ));
   }
   body.appendChild(rowNote("1. Launch the dedicated automation Chrome from Agent."));

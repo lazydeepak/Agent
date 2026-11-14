@@ -427,7 +427,7 @@ export class OpenCodeHttpClient {
   }
 
   async listActiveSessions(): Promise<Record<string, unknown>> {
-    if ((await this.activeApiMode()) === "v2") {
+    if ((await this.apiMode("active")) === "v2") {
       const response = (await this.requestJson("/api/session/active")) as { data?: Record<string, unknown> } | Record<string, unknown>;
       if (response && typeof response === "object" && "data" in response) {
         return (response as { data?: Record<string, unknown> }).data ?? {};
@@ -439,7 +439,7 @@ export class OpenCodeHttpClient {
   }
 
   async listSessionMessages(sessionId: string): Promise<OpenCodeMessageInfo[]> {
-    if ((await this.readMessageApiMode()) === "v2") {
+    if ((await this.apiMode("readMessage")) === "v2") {
       const response = await this.requestJson(
         `/api/session/${encodeURIComponent(sessionId)}/message?order=desc&limit=100`
       );
@@ -455,7 +455,7 @@ export class OpenCodeHttpClient {
 
   async sendSessionMessage(sessionId: string, text: string): Promise<void> {
     // v2 write route (verified against OpenCode v2.0.26's own OpenAPI spec): a flat `{ text }` body.
-    const mode = await this.messageApiMode();
+    const mode = await this.apiMode("message");
     await this.writeMessage({
       sessionId,
       text,
@@ -535,7 +535,7 @@ export class OpenCodeHttpClient {
       ...(input.resume === undefined ? {} : { resume: input.resume })
     });
 
-    const mode = await this.submitApiMode();
+    const mode = await this.apiMode("submit");
     const extraBody: Record<string, unknown> = {
       ...(input.agents ? { agents: input.agents } : {}),
       ...(input.delivery ? { delivery: input.delivery } : {}),
@@ -598,7 +598,7 @@ export class OpenCodeHttpClient {
   }
 
   async supportsPromptEndpoint(): Promise<boolean> {
-    return (await this.submitApiMode()) === "v2";
+    return (await this.apiMode("submit")) === "v2";
   }
 
   async isV2Api(): Promise<boolean> {
@@ -649,29 +649,20 @@ export class OpenCodeHttpClient {
     })) as OpenCodeSessionInfo;
   }
 
-  private async apiMode(): Promise<"v2" | "legacy"> {
+  private async apiMode(kind: "default" | "message" | "readMessage" | "active" | "submit" = "default"): Promise<"v2" | "legacy"> {
     await this.ensureCoherentProtocol();
-    return this.mode ?? "legacy";
-  }
-
-  private async messageApiMode(): Promise<"v2" | "legacy"> {
-    await this.ensureCoherentProtocol();
-    return this.messageMode ?? this.mode ?? "legacy";
-  }
-
-  private async readMessageApiMode(): Promise<"v2" | "legacy"> {
-    await this.ensureCoherentProtocol();
-    return this.readMessageMode ?? this.mode ?? "legacy";
-  }
-
-  private async activeApiMode(): Promise<"v2" | "legacy"> {
-    await this.ensureCoherentProtocol();
-    return this.activeMode ?? this.mode ?? "legacy";
-  }
-
-  private async submitApiMode(): Promise<"v2" | "legacy"> {
-    await this.ensureCoherentProtocol();
-    return this.submitMode ?? this.mode ?? "legacy";
+    switch (kind) {
+      case "message":
+        return this.messageMode ?? this.mode ?? "legacy";
+      case "readMessage":
+        return this.readMessageMode ?? this.mode ?? "legacy";
+      case "active":
+        return this.activeMode ?? this.mode ?? "legacy";
+      case "submit":
+        return this.submitMode ?? this.mode ?? "legacy";
+      default:
+        return this.mode ?? "legacy";
+    }
   }
 
   private pinApiProtocol(protocol: "v2" | "legacy"): void {

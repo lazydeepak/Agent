@@ -109,13 +109,69 @@
 
       <main class="layout view-home">
         <section class="panel dashboard-panel" id="dashboard-panel">
-          <div class="panel-header dashboard-header">
-            <div>
-              <h2>Operations Dashboard</h2>
-              <p class="dashboard-subtitle">Real-time health monitoring, status tracking, and controls for Worker & Planner agents</p>
-            </div>
-          </div>
           <div id="dashboard-content" class="dashboard-content">
+            <div class="agent-shell" role="region" aria-label="Bot Engine status">
+              <div class="agent-hero">
+                <div class="agent-hero-main">
+                  <span class="agent-hero-glyph" aria-hidden="true">
+                    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M24 4 10 14v18l14 10 14-10V14L24 4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 14l14 10 14-10M24 24v16" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+                  </span>
+                  <div>
+                    <div class="agent-hero-title">Bot Engine</div>
+                    <div class="agent-hero-sub">Active pairs: <span id="agent-active-pairs">0</span> · <span id="agent-last-update">Awaiting first observation</span></div>
+                  </div>
+                </div>
+                <div class="agent-stat">
+                  <span class="agent-stat-icon" aria-hidden="true">⚑</span>
+                  <span class="agent-stat-label">Pairs</span>
+                  <span class="agent-stat-value" id="agent-pairs-count">0</span>
+                </div>
+                <div class="agent-stat">
+                  <span class="agent-stat-icon" aria-hidden="true">⚠</span>
+                  <span class="agent-stat-label">Attention</span>
+                  <span class="agent-stat-value" id="agent-attention-count">0</span>
+                </div>
+                <div class="agent-stat">
+                  <span class="agent-stat-icon" aria-hidden="true">◷</span>
+                  <span class="agent-stat-label">Session Uptime</span>
+                  <span class="agent-stat-value" id="agent-uptime">—</span>
+                </div>
+              </div>
+
+              <section class="agent-kpis" aria-label="Primary KPIs">
+                <div class="agent-kpi agent-kpi-info">
+                  <div class="agent-kpi-head"><span class="agent-kpi-icon" aria-hidden="true">⚇</span>Current Turn</div>
+                  <div class="agent-kpi-value" id="agent-turn-owner">—</div>
+                  <div class="agent-kpi-sub" id="agent-turn-subtitle">Awaiting observation</div>
+                  <div class="agent-kpi-icon-right agent-blue" aria-hidden="true">⚇</div>
+                </div>
+                <div class="agent-kpi agent-kpi-purple">
+                  <div class="agent-kpi-head"><span class="agent-kpi-icon" aria-hidden="true">◍</span>Bot Activity</div>
+                  <div class="agent-kpi-value" id="agent-activity-label">Unknown</div>
+                  <div class="agent-kpi-sub" id="agent-activity-sub">Not observing</div>
+                  <div class="agent-kpi-icon-right agent-purple" aria-hidden="true">◍</div>
+                </div>
+                <div class="agent-kpi" id="agent-delivery-card">
+                  <div class="agent-kpi-head"><span class="agent-kpi-icon" aria-hidden="true">➤</span>Delivery</div>
+                  <div class="agent-kpi-value" id="agent-delivery-label">Pending</div>
+                  <div class="agent-kpi-sub" id="agent-delivery-sub">Not verified</div>
+                  <div class="agent-kpi-icon-right agent-warn" aria-hidden="true">◎</div>
+                </div>
+                <div class="agent-kpi agent-kpi-info">
+                  <div class="agent-kpi-head"><span class="agent-kpi-icon" aria-hidden="true">◷</span>Time in State</div>
+                  <div class="agent-kpi-value" id="agent-time-value">—</div>
+                  <div class="agent-kpi-sub" id="agent-time-sub">No transition observed</div>
+                  <div class="agent-kpi-icon-right agent-blue" aria-hidden="true">⌛</div>
+                </div>
+              </section>
+
+              <section class="agent-progression" aria-label="Turn progression">
+                <div class="agent-progression-head"><span class="agent-kpi-icon" aria-hidden="true">≡</span>Turn Progression</div>
+                <div class="agent-progression-track" role="list" id="agent-progression-track"></div>
+                <div class="agent-current-gate" role="status"><span class="agent-current-gate-dot" aria-hidden="true"></span><span id="agent-gate-text">Awaiting observation</span></div>
+              </section>
+            </div>
+
             <div class="dashboard-grid">
               <div class="dashboard-stat">
                 <span class="stat-label">Running</span>
@@ -238,14 +294,15 @@
           <div class="panel-header" id="projects-panel-header">
             <div>
               <h2>Projects</h2>
+              <p class="panel-subtitle">Worker project ↔ Planner project bindings. Relay pairs are distinct — managed under <button type="button" id="projects-go-pairs" class="btn btn-link btn-sm">Pairs</button>.</p>
             </div>
             <div class="panel-header-actions">
-              <button id="refresh-projects" class="btn btn-ghost btn-sm" title="Refresh projects and sessions">Refresh</button>
-              <button id="expand-all" class="btn btn-ghost btn-sm" title="Expand every session card">Expand all</button>
-              <button id="collapse-all" class="btn btn-ghost btn-sm" title="Collapse every session card">Collapse all</button>
+              <button id="refresh-projects" class="btn btn-ghost btn-sm" title="Refresh projects">Refresh</button>
+              <button id="expand-all" class="btn btn-ghost btn-sm" title="Expand every project card">Expand all</button>
+              <button id="collapse-all" class="btn btn-ghost btn-sm" title="Collapse every project card">Collapse all</button>
             </div>
           </div>
-          <div id="no-project-pairs" class="empty-state hidden">No projects configured</div>
+          <div id="no-project-pairs" class="empty-state hidden">No projects configured — add one with <strong>Add Project</strong>.</div>
           <div id="project-pairs-list" class="project-pairs-list"></div>
         </section>
 
@@ -363,6 +420,28 @@
               </div>
             </div>
           </div>
+          <div id="ground-truth" class="ground-truth">
+            <div class="ground-truth-header">
+              <div>
+                <h3 class="ground-truth-title">Ground Truth</h3>
+                <p class="duplicate-hint">Live read-only evidence from the relay ledger, supervisor state, and config — never mutates.</p>
+              </div>
+              <div class="ground-truth-actions">
+                <span id="ground-truth-simulated" class="ground-truth-chip hidden">SIMULATED (preview)</span>
+                <button id="ground-truth-refresh" class="btn btn-sm btn-ghost" title="Re-read evidence (read-only)">Refresh</button>
+              </div>
+            </div>
+            <div id="ground-truth-status" class="ground-truth-status hidden" role="status"></div>
+            <div class="ground-truth-grid" id="ground-truth-grid"><div class="empty-state">Loading evidence…</div></div>
+            <div class="ground-truth-evidence hidden" id="ground-truth-ambiguous">
+              <div class="ground-truth-evidence-title">Ambiguous deliveries — DELIVERING, unverified</div>
+              <div id="ground-truth-ambiguous-list" class="ground-truth-evidence-list"></div>
+            </div>
+            <div class="ground-truth-evidence hidden" id="ground-truth-suspended">
+              <div class="ground-truth-evidence-title">Recovery-suspended pairs — operator release required</div>
+              <div id="ground-truth-suspended-list" class="ground-truth-evidence-list"></div>
+            </div>
+          </div>
           <div id="source-totals" class="source-totals"></div>
           <div class="source-view-bar">
             <span class="source-view-title" id="source-view-title">Module browser</span>
@@ -427,8 +506,13 @@
               <p class="settings-hint">Pairs with <strong>Auto-resume after restart</strong> enabled — including explicitly paused pairs — resume automatically after an engine or computer restart. Default: off. Stopping a pair or Stop All disables Auto Resume for it.</p>
               <div class="prefs-grid">
                 <div class="field">
-                  <label>Appearance</label>
-                  <span class="about-label">Dark (Relay Beacon)</span>
+                  <label for="theme-preference">Appearance</label>
+                  <select id="theme-preference" aria-label="Color theme preference">
+                    <option value="system">System</option>
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                  </select>
+                  <p class="settings-hint">System follows your OS setting. Light and Dark always take effect regardless of OS.</p>
                 </div>
                 <div class="field">
                   <label>Configuration</label>
@@ -544,24 +628,24 @@
             <input id="project-pair-name" type="text" autocomplete="off" placeholder="Auto-generated when empty" />
           </div>
           <div class="field">
-            <label for="project-pair-repo">Worker Agent project (repository path)</label>
+            <label for="project-pair-repo">Worker project (repository path)</label>
             <input id="project-pair-repo" type="text" autocomplete="off" placeholder="/path/to/repo" />
             <div class="field-actions">
               <button id="project-pair-repo-detect" class="btn btn-sm">Detect projects</button>
               <button id="project-pair-repo-start-server" class="btn btn-sm">Start Worker Agent</button>
               <button id="project-pair-repo-active" class="btn btn-sm">Use active desktop session</button>
             </div>
-            <select id="project-pair-repo-options" class="hidden" aria-label="Detected Worker Agent projects"></select>
+            <select id="project-pair-repo-options" class="hidden" aria-label="Detected Worker projects"></select>
             <span class="hint">The Worker Agent desktop project at this repository path.</span>
           </div>
           <div class="field">
-            <label for="project-pair-chatgpt">Planner Agent project (slug or conversation URL)</label>
+            <label for="project-pair-chatgpt">Planner project (slug or conversation URL)</label>
             <input id="project-pair-chatgpt" type="text" autocomplete="off" placeholder="g-p-… or https://chatgpt.com/g/…/c/…" />
             <div class="field-actions">
               <button id="project-pair-chatgpt-detect" class="btn btn-sm">Detect from open tabs</button>
               <button id="project-pair-chatgpt-start-browser" class="btn btn-sm">Start Planner Agent browser</button>
             </div>
-            <select id="project-pair-chatgpt-options" class="hidden" aria-label="Detected Planner Agent projects"></select>
+            <select id="project-pair-chatgpt-options" class="hidden" aria-label="Detected Planner projects"></select>
             <span class="hint">The Planner Agent chat project holding this slug.</span>
           </div>
           <p id="project-pair-error" class="detail hidden"></p>

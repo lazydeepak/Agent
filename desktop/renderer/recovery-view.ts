@@ -43,9 +43,35 @@ const RESOLVED_TYPES = new Set([
   "PAIR_RUNTIME_RECOVERED",
   "AMBIGUOUS_DELIVERY_RECONCILED",
   "RECOVERY_SUSPENSION_RELEASED",
-  "RECOVERY_EXHAUSTED",
   "SESSION_RECONNECTED"
 ]);
+
+/** v1.1 §11.1 — queue ordering: critical incidents first, then oldest first. */
+function criticalRank(type: string): number {
+  if (type === "INTERVENTION_REQUIRED" || type === "RECOVERY_SUSPENDED" || type === "STOP_ALL_REQUESTED") return 0;
+  if (type === "AMBIGUOUS_DELIVERY_BLOCKED") return 1;
+  return 2;
+}
+
+function queuedFirst(filtered: RecoveryEvent[]): RecoveryEvent[] {
+  return [...filtered].sort((a, b) => criticalRank(a.type) - criticalRank(b.type) || a.time.localeCompare(b.time));
+}
+
+let pausedPairs = new Set<string>();
+
+function dispositionChip(event: RecoveryEvent): HTMLElement | undefined {
+  const chip = (text: string, cls: string): HTMLElement => {
+    const span = el("span", `badge ${cls}`);
+    span.textContent = text;
+    span.title = "v1.1 §11.7 — incident disposition";
+    return span;
+  };
+  if (event.type === "STOP_ALL_REQUESTED") return chip("UNVERIFIED TERMINATION", "badge-neutral");
+  const evidenceTypes = new Set(["RECOVERY_SUCCEEDED", "AMBIGUOUS_DELIVERY_RECONCILED", "PAIR_RUNTIME_RECOVERED"]);
+  if (evidenceTypes.has(event.type)) return chip("EVIDENCE", "badge-neutral");
+  if (RESOLVED_TYPES.has(event.type)) return chip("AGENT-REPORTED", "badge-neutral");
+  return undefined;
+}
 
 let events: RecoveryEvent[] = [];
 let loading = false;
@@ -83,6 +109,8 @@ function eventTypeLabel(type: string): string {
   if (type === "AMBIGUOUS_DELIVERY_RECONCILED") return "DELIVERY RECONCILED";
   if (type === "RECOVERY_SUSPENSION_RELEASED") return "SUSPENSION RELEASED";
   if (type === "SESSION_RECONNECTED") return "RECONNECTED";
+  if (type === "STARTING_SIDE_SELECTED") return "SIDE SELECTED";
+  if (type === "RECOVERY_CANCELLED") return "CANCELLED";
   return type.replace(/_/g, " ");
 }
 
@@ -98,7 +126,7 @@ function emptySection(message: string): HTMLElement {
   return div;
 }
 
-function incidentRow(event: RecoveryEvent, callbacks: { onPause: (pairId: string) => void; onRelease: (pairId: string) => void }): HTMLElement {
+function incidentRow(event: RecoveryEvent, callbacks: { onPause: (pairId: string) => void; onResume: (pairId: string) => void; onRelease: (pairId: string) => void; onCancel: (pairId: string) => void }): HTMLElement {
   const row = el("div", `recovery-row recovery-row-${severity(event.type)}`);
 
   const meta = el("div", "recovery-row-meta");
@@ -109,6 +137,8 @@ function incidentRow(event: RecoveryEvent, callbacks: { onPause: (pairId: string
   type.textContent = eventTypeLabel(event.type);
   const time = el("span", "recovery-time");
   time.textContent = formatTime(event.time);
+  const disposition = dispositionChip(event);
+  if (disposition) meta.appendChild(disposition);
   meta.append(pair, type, time);
 
   const reason = el("div", "recovery-reason");
@@ -117,11 +147,25 @@ function incidentRow(event: RecoveryEvent, callbacks: { onPause: (pairId: string
 
   const actions = el("div", "recovery-actions");
   if (event.pairId && severity(event.type) !== "resolved") {
-    const pause = el("button", "btn btn-sm btn-ghost");
-    pause.textContent = "Pause";
-    pause.title = "Gracefully pause this pair before the next dispatch";
-    pause.addEventListener("click", () => callbacks.onPause(event.pairId!));
-    actions.appendChild(pause);
+    const isPaused = pausedPairs.has(event.pairId);
+    if (isPaused) {
+      const resume = el("button", "btn btn-sm btn-ghost");
+      resume.textContent = "Resume";
+      resume.title = "Resume the paused pair";
+      resume.addEventListener("click", () => callbacks.onResume(event.pairId!));
+      actions.appendChild(resume);
+    } else {
+      const pause = el("button", "btn btn-sm btn-ghost");
+      pause.textContent = "Pause";
+      pause.title = "Gracefully pause this pair before the next dispatch";
+      pause.addEventListener("click", () => callbacks.onPause(event.pairId!));
+      actions.appendChild(pause);
+    }
+    const cancel = el("button", "btn btn-sm btn-danger");
+    cancel.textContent = "Cancel incident";
+    cancel.title = "Cancel this incident; the pair stays paused/held until you resume it explicitly (v1.1 §12.2)";
+    cancel.addEventListener("click", () => callbacks.onCancel(event.pairId!));
+    actions.appendChild(cancel);
   }
   if (event.pairId && event.type === "RECOVERY_SUSPENDED") {
     const release = el("button", "btn btn-sm btn-primary");
@@ -165,14 +209,15 @@ export async function refreshRecoveryPanel(): Promise<void> {
   try {
     const [timeline, status] = await Promise.all([
       window.desktop.getTimeline(undefined, MAX_RECOVERY_EVENTS),
-      window.desktop.getStatus().catch(() => ({ pairs: [] as Array<{ pairId: string; supervisorState?: string; recovering?: boolean }> }))
+      window.desktop.getStatus().catch(() => ({ pairs: [] as Array<{ pairId: string; supervisorState?: string; recovering?: boolean; paused?: boolean }> }))
     ]);
+    pausedPairs = new Set(((status.pairs ?? []) as Array<{ pairId: string; paused?: boolean }>).filter((p) => p.paused).map((p) => p.pairId));
     const raw = Array.isArray(timeline) ? timeline.filter(isEvent) : [];
     events = newest(raw);
 
     const attention = newest(events.filter((event) => ATTENTION_TYPES.has(event.type)));
     const active = newest(events.filter((event) => ACTIVE_TYPES.has(event.type) || event.type.startsWith("RECOVERY_STARTED")));
-    const queuedEvents = newest(events.filter((event) =>
+    const queuedEvents = queuedFirst(events.filter((event) =>
       (status.pairs as Array<{ pairId: string; supervisorState?: string; recovering?: boolean }>).some((p) =>
         (p.pairId === event.pairId) && (p.supervisorState === "STUCK" || p.supervisorState === "FAILED")
       ) || event.type === "STUCK_DETECTED" || (event.state === "STUCK" || event.state === "FAILED")
@@ -182,6 +227,22 @@ export async function refreshRecoveryPanel(): Promise<void> {
     const callbacks = {
       onPause: (pairId: string) => {
         void window.desktop?.pausePair?.(pairId).then(() => refreshRecoveryPanel());
+      },
+      onResume: (pairId: string) => {
+        void window.desktop?.resumePair?.(pairId).then(() => refreshRecoveryPanel());
+      },
+      onCancel: (pairId: string) => {
+        void (async () => {
+          try {
+            if (typeof window.desktop?.cancelIncident === "function") {
+              await window.desktop.cancelIncident(pairId);
+              toast(`Incident cancelled for ${pairId}; the pair is paused/held.`, "ok");
+            }
+          } catch (error) {
+            toast(errorMessage(error), "error");
+          }
+          void refreshRecoveryPanel();
+        })();
       },
       onRelease: (pairId: string) => {
         void (async () => {

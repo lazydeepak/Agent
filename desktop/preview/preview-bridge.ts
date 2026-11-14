@@ -134,7 +134,8 @@ const initialStatuses = new Map<string, PeerHealthDto>([
       worker: "HEALTHY",
       planner: "HEALTHY",
       workerActivity: "working",
-      plannerActivity: "idle",
+      plannerActivity: "working",
+      awaitingStartingSideSelection: true,
       recovering: false,
       workerObserved: true,
       plannerObserved: true,
@@ -729,6 +730,33 @@ export function createPreviewDesktopApi(): Window["desktop"] {
       return previewSettings;
     },
 
+    async getDiagnosticsSnapshot(): Promise<import("../../src/contracts/desktop.js").DiagnosticsSnapshotDto> {
+      const newSessionStatus = store.statuses.get("new-session-2026-09-14t15-40-42-638z");
+      return {
+        generatedAt: new Date().toISOString(),
+        available: true,
+        simulated: true,
+        environment: { node: "preview", platform: (typeof navigator !== "undefined" && navigator.platform) || "unknown", arch: "preview" },
+        database: { path: "(preview)", schemaVersion: 16, expectedSchemaVersion: 16, journalMode: "wal", dbSizeBytes: 4096, walSizeBytes: 512 },
+        config: { configPath: "(preview)", pairsCount: store.statuses.size, projectPairsCount: 1 },
+        relayLedger: {
+          total: 2,
+          delivered: 1,
+          delivering: 1,
+          failed: 0,
+          ambiguousDelivering: newSessionStatus
+            ? [{ pairId: newSessionStatus.pairId, direction: "worker-to-planner", sourceMessageId: "msg-preview-001", firstSeenAt: new Date(Date.now() - 4 * 60_000).toISOString(), verifyAttemptCount: 2 }]
+            : []
+        },
+        relayCycles: { total: 1, byStatus: { DISPATCHED: 0, WORKER_RESPONDED: 1, DELIVERED: 0, FAILED: 0 } },
+        startupOperations: { pending: 0, hold: 0, stabilized: 0 },
+        supervisorState: { paused: 0, suspended: 0, suspendedPairs: [] },
+        openAttentions: 0,
+        openProposals: 0,
+        settings: { historyRetentionDays: previewSettings?.historyRetentionDays ?? 0 }
+      };
+    },
+
     async releaseRecoverySuspension(pairId: string): Promise<StatusSummaryDto> {
       emitEvent({
         time: new Date().toISOString(),
@@ -737,6 +765,39 @@ export function createPreviewDesktopApi(): Window["desktop"] {
         reason: "Operator released the recovery suspension (preview)."
       });
       emitStatusRefresh("recovery_suspension_released");
+      return computeStatusSummary();
+    },
+
+    async selectStartingSide(pairId: string, side: "planner" | "worker"): Promise<StatusSummaryDto> {
+      const status = store.statuses.get(pairId);
+      if (status) {
+        (status as unknown as Record<string, unknown>).startingSide = side;
+        (status as unknown as Record<string, unknown>).awaitingStartingSideSelection = false;
+      }
+      emitEvent({
+        time: new Date().toISOString(),
+        type: "STARTING_SIDE_SELECTED",
+        pairId,
+        reason: `Operator selected the ${side} side to establish the first turn (preview, v1.1 §7.3).`,
+        details: { side }
+      });
+      emitStatusRefresh("starting_side_selected");
+      return computeStatusSummary();
+    },
+
+    async cancelIncident(pairId: string): Promise<StatusSummaryDto> {
+      const status = store.statuses.get(pairId);
+      if (status) {
+        status.paused = true;
+      }
+      emitEvent({
+        time: new Date().toISOString(),
+        type: "RECOVERY_CANCELLED",
+        pairId,
+        reason: "Operator cancelled the incident. The pair is paused/held (preview, v1.1 §12.2).",
+        details: { disposition: "held" }
+      });
+      emitStatusRefresh("incident_cancelled");
       return computeStatusSummary();
     },
 

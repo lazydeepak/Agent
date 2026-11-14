@@ -78,6 +78,12 @@ export interface DesktopApi {
   getSettings(): Promise<SettingsDto>;
   updateSettings(input: SettingsDto): Promise<SettingsDto>;
   releaseRecoverySuspension(pairId: string): Promise<StatusSummaryDto>;
+  /** v1.1-style read-only ground-truth evidence for the Source view. */
+  getDiagnosticsSnapshot(): Promise<import("../../src/contracts/desktop.js").DiagnosticsSnapshotDto>;
+  /** v1.1 §7.3 — operator selects which side establishes the first turn when both peers are busy. */
+  selectStartingSide(pairId: string, side: "planner" | "worker"): Promise<StatusSummaryDto>;
+  /** v1.1 §12.2 — cancel an incident for the pair; leaves the pair paused/held. */
+  cancelIncident(pairId: string): Promise<StatusSummaryDto>;
   validatePair(pairId: string): Promise<ValidationResultDto>;
   getValidation(pairId: string): Promise<ValidationResultDto | undefined>;
   getAutomationInfo(): Promise<AutomationInfoDto>;
@@ -155,6 +161,9 @@ const api: DesktopApi = {
   setAutoResumeAfterRestart: (pairId, enabled) => invoke(IPC_CHANNELS.setAutoResumeAfterRestart, pairId, enabled),
   getSettings: () => invoke(IPC_CHANNELS.getSettings),
   releaseRecoverySuspension: (pairId) => invoke(IPC_CHANNELS.releaseRecoverySuspension, pairId),
+  getDiagnosticsSnapshot: () => invoke(IPC_CHANNELS.diagnosticsSnapshot),
+  selectStartingSide: (pairId, side) => invoke(IPC_CHANNELS.selectStartingSide, pairId, side),
+  cancelIncident: (pairId) => invoke(IPC_CHANNELS.cancelIncident, pairId),
   updateSettings: (input) => invoke(IPC_CHANNELS.updateSettings, input),
   validatePair: (pairId) => invoke(IPC_CHANNELS.validatePair, pairId),
   getValidation: (pairId) => invoke(IPC_CHANNELS.getValidation, pairId),

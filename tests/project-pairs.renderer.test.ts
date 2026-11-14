@@ -91,8 +91,8 @@ describe("project pairs dashboard surface", () => {
     expect(renderer).toMatch(/expandedProjectPairs/);
     expect(renderer).toMatch(/function renderProjectPairDetails/);
     expect(renderer).toMatch(/function projectPairPresence/);
-    expect(renderer).toMatch(/Worker Agent project/);
-    expect(renderer).toMatch(/Planner Agent project/);
+    expect(renderer).toMatch(/Worker project/);
+    expect(renderer).toMatch(/Planner project/);
     // The card toggle's show/hide markers live with the shared card builders (dom.ts).
     const dom = await readDesktop("renderer/dom.ts");
     expect(dom).toMatch(/"Collapse"/);
