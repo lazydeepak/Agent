@@ -964,6 +964,7 @@ function gateLabel(status: PeerHealthDto | undefined): string {
   if (!status) return "No pair selected";
   if (status.awaitingStartingSideSelection) return "Awaiting Starting-Side Selection — pick which side relays first";
   if (status.startingSide) return `Starting side: ${status.startingSide === "planner" ? "Planner" : "Worker"} — dispatching the selected side first`;
+  if (status.lastError?.startsWith("UNRECOVERABLE_GAPS")) return "Event window may contain gaps — unverified";
   if (status.recovering) return `Recovering: ${status.lastError ?? "automatic retry"}`;
   if (status.supervisorState === "STUCK") return "Awaiting operator or Recovery Agent";
   if (status.supervisorState === "FAILED") return status.lastError ? `Blocked: ${status.lastError}` : "Blocked";

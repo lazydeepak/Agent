@@ -352,6 +352,15 @@ export class PairRuntime {
           reason: "OpenCode event source disconnected; polling fallback remains active.",
           details: { source: "opencode", error: messageOf(error) }
         });
+        // v1.1 §8.5 — mark the gap explicitly instead of implying completeness.
+        try {
+          this.options.store.touchSupervisorState({
+            pairId: this.pairId,
+            lastError: `UNRECOVERABLE_GAPS: opencode event source degraded at ${this.clock().toISOString()}; event window may contain gaps; completeness is UNKNOWN until verified by inspection.`
+          });
+        } catch {
+          // Marker is advisory; never let it crash the worker loop.
+        }
       }
     }
   }
@@ -379,6 +388,15 @@ export class PairRuntime {
           reason: "ChatGPT page observer disconnected; dormant polling fallback remains active.",
           details: { source: "chatgpt", error: messageOf(error) }
         });
+        // v1.1 §8.5 — mark the gap explicitly instead of implying completeness.
+        try {
+          this.options.store.touchSupervisorState({
+            pairId: this.pairId,
+            lastError: `UNRECOVERABLE_GAPS: chatgpt event source degraded at ${this.clock().toISOString()}; event window may contain gaps; completeness is UNKNOWN until verified by inspection.`
+          });
+        } catch {
+          // Marker is advisory; never let it crash the worker loop.
+        }
       }
     }
   }

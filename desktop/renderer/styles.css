@@ -4352,3 +4352,12 @@ html[data-theme="light"] .browser-pairing-error { background: #fff5f5; color: #b
 }
 .btn-link:hover { color: var(--accent-hover); }
 .btn-sm.btn-link { font-size: 11px; }
+
+/* Recovery dashboard — stale/missing evidence marker (v1.1 §12.1) */
+.recovery-stale {
+  margin-top: 10px; padding: 8px 12px; border-radius: var(--radius-md);
+  border: 1px solid var(--warn); background: var(--warn-soft);
+  color: var(--warn); font-size: 12px;
+}
+.recovery-stale strong { letter-spacing: .05em; }
+.recovery-stale-missing { border-color: var(--line-strong); background: var(--control-subtle); color: var(--muted-text); }

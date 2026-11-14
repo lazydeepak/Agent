@@ -6,13 +6,13 @@ async function readDesktop(relative: string): Promise<string> {
 }
 
 describe("project pairs dashboard surface", () => {
-  it("renders a single projects panel holding the dashboard", async () => {
+  it("renders the projects panel and the dedicated relay-pairs panel", async () => {
     const html = await readDesktop("renderer/index.html");
     expect(html).toMatch(/id="project-pairs-panel"/);
     expect(html).toMatch(/id="project-pairs-list"/);
     expect(html).toMatch(/id="no-project-pairs"/);
-    expect(html).not.toMatch(/id="pairs-panel"/);
-    expect(html).not.toMatch(/id="pairs-list"/);
+    expect(html).toMatch(/id="pairs-panel"/);
+    expect(html).toMatch(/id="pairs-list"/);
     expect(html.indexOf('id="project-pairs-panel"')).toBeGreaterThan(-1);
   });
 
@@ -102,8 +102,8 @@ describe("project pairs dashboard surface", () => {
 
   it("renders a single projects panel with session controls relocated", async () => {
     const html = await readDesktop("renderer/index.html");
-    expect(html).not.toMatch(/id="pairs-panel"/);
-    expect(html).not.toMatch(/id="pairs-list"/);
+    expect(html).toMatch(/id="pairs-panel"/);
+    expect(html).toMatch(/id="pairs-list"/);
     expect(html).toMatch(/id="project-pairs-panel"/);
     expect(html).toMatch(/id="expand-all"/);
     expect(html).toMatch(/id="collapse-all"/);

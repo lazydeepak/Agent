@@ -277,3 +277,77 @@ describe("Rule 5 step 5 — conditional OpenCode Desktop termination", () => {
     expect(result).toMatchObject({ recovered: false, code: "OPENCODE_UNREACHABLE" });
   });
 });
+
+describe("recoverOpenCode — v1.1 §9.3 shared-restart deadline and pause/restore", () => {
+  it("holds at the safety boundary when the restart deadline is already exceeded, without terminating", async () => {
+    const worker = new ControllableWorker();
+    worker.setUnreachable();
+    const terminate = vi.fn(async () => undefined);
+    const relaunch = vi.fn(async () => undefined);
+    const hold = vi.fn();
+    const result = await recoverOpenCode({
+      worker,
+      sessionId: "ses_elsewhere",
+      expectedRepoPath: makePair().worker.repoPath,
+      maxAttempts: 1,
+      backoff: INSTANT_BACKOFF,
+      sleep: noopSleep,
+      verifyAllAffectedWorkersIdle: async () => true,
+      terminateOpenCodeDesktop: terminate,
+      relaunchOpenCodeDesktop: relaunch,
+      sharedRestartDeadlineMs: -1,     // deadline already blown before the restart branch
+      onRestartUnsafeHold: hold
+    });
+    expect(result).toMatchObject({ recovered: false, code: "OPENCODE_UNREACHABLE" });
+    expect(terminate).not.toHaveBeenCalled();
+    expect(relaunch).not.toHaveBeenCalled();
+    expect(hold).toHaveBeenCalledTimes(1);
+    expect(hold.mock.calls[0][0]).toContain("deadline");
+  });
+
+  it("pauses affected pairs before terminating and restores exactly those after verified restoration", async () => {
+    const worker = new ControllableWorker();
+    worker.setUnreachable();
+    const order: string[] = [];
+    const result = await recoverOpenCode({
+      worker,
+      sessionId: "ses_elsewhere",
+      expectedRepoPath: makePair().worker.repoPath,
+      maxAttempts: 1,
+      backoff: INSTANT_BACKOFF,
+      sleep: noopSleep,
+      verifyAllAffectedWorkersIdle: async () => true,
+      terminateOpenCodeDesktop: async () => { order.push("terminate"); },
+      relaunchOpenCodeDesktop: async () => { order.push("relaunch"); },
+      pauseAffectedPairs: async () => { order.push("pause"); },
+      restoreAffectedPairs: async () => { order.push("restore"); },
+      relaunchSettleMs: 0
+    });
+    // Probe still fails — pair remains paused, restore is NOT called.
+    expect(result).toMatchObject({ recovered: false, code: "OPENCODE_UNREACHABLE" });
+    expect(order).toEqual(["pause", "terminate", "relaunch"]);
+  });
+
+  it("restores exactly the previously-paused pairs after a verified restoration", async () => {
+    const worker = new ControllableWorker();
+    // One health-probe failure, then the relaunched desktop answers — restoration verified.
+    worker.failHealthNext(1);
+    const restore = vi.fn(async () => undefined);
+    const result = await recoverOpenCode({
+      worker,
+      sessionId: "ses_elsewhere",
+      expectedRepoPath: makePair().worker.repoPath,
+      maxAttempts: 1,
+      backoff: INSTANT_BACKOFF,
+      sleep: noopSleep,
+      verifyAllAffectedWorkersIdle: async () => true,
+      terminateOpenCodeDesktop: async () => undefined,
+      relaunchOpenCodeDesktop: async () => undefined,
+      pauseAffectedPairs: async () => undefined,
+      restoreAffectedPairs: restore,
+      relaunchSettleMs: 0
+    });
+    expect(result).toMatchObject({ recovered: true, action: "reobserve-session" });
+    expect(restore).toHaveBeenCalledTimes(1);
+  });
+});

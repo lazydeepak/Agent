@@ -41,6 +41,12 @@ export interface RecoveryEngineDeps {
   verifyAllAffectedWorkersIdle?: () => Promise<boolean>;
   terminateOpenCodeDesktop?: () => Promise<void>;
   relaunchOpenCodeDesktop?: () => Promise<void>;
+  /** v1.1 §9.3 — shared restart deadline (default 60_000 ms). */
+  sharedRestartDeadlineMs?: number;
+  /** v1.1 §9.3 — temporarily pause affected pairs before the shared restart. */
+  pauseAffectedPairs?: () => Promise<void>;
+  /** v1.1 §9.3 — restore exactly the pairs paused by pauseAffectedPairs. */
+  restoreAffectedPairs?: () => Promise<void>;
   relaunchSettleMs?: number;
 }
 
@@ -378,6 +384,9 @@ export class RecoveryEngine {
       terminateOpenCodeDesktop: this.deps.terminateOpenCodeDesktop,
       relaunchOpenCodeDesktop: this.deps.relaunchOpenCodeDesktop,
       relaunchSettleMs: this.deps.relaunchSettleMs,
+      sharedRestartDeadlineMs: this.deps.sharedRestartDeadlineMs,
+      pauseAffectedPairs: this.deps.pauseAffectedPairs,
+      restoreAffectedPairs: this.deps.restoreAffectedPairs,
       onStartAttempt: () => this.emit("RECOVERY_RETRY", { reason: "Checking/starting the configured OpenCode server.", details: { action: "start-server" } }),
       onStartError: (error) => this.emit("RECOVERY_RETRY", { reason: `OpenCode server start failed: ${error.message}`, details: { action: "start-server" } })
     });

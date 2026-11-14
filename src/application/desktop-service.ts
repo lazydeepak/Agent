@@ -1564,6 +1564,9 @@ export class DesktopApplicationService {
     if (this.options.recoveryPolicy === undefined) {
       return undefined;
     }
+    // v1.1 §9.3 — coordination state for a shared restart: which pairs were running before it,
+    // so only previously-Running, enabled pairs are restored afterwards.
+    const restartState = { paused: [] as string[] };
     const browser: BrowserManager = new ExternalBrowserManager();
     const desktopControl = createOpenCodeDesktopControl();
     return {
@@ -1590,6 +1593,38 @@ export class DesktopApplicationService {
           }
         }
         return true; // no other enabled pair is affected — safe
+      },
+      // v1.1 §9.3 — temporarily pause previously-Running affected pairs; restore exactly those after verified restoration.
+      pauseAffectedPairs: async () => {
+        try {
+          const summary = this.relayEngine.getStatus();
+          for (const other of summary.pairs) {
+            if (other.pairId === pair.pairId) continue;
+            const config = this.pairs.find((candidate) => candidate.pairId === other.pairId);
+            if (!config?.enabled) continue;
+            if (other.runtimeState !== "RUNNING") continue;      // only previously-Running pairs
+            if (restartState.paused.includes(other.pairId)) continue;   // no double-pause across retries
+            try {
+              this.relayEngine.pausePair(other.pairId);
+              restartState.paused.push(other.pairId);
+            } catch {
+              // A pair that cannot be paused is skipped and simply not restored afterwards.
+            }
+          }
+        } catch {
+          // Enumeration failed — do not pause anything rather than guessing.
+        }
+      },
+      restoreAffectedPairs: async () => {
+        const toRestore = [...restartState.paused].reverse();
+        restartState.paused = [];
+        for (const pairId of toRestore) {
+          try {
+            await this.startPair(pairId);
+          } catch {
+            // A pair that cannot be restarted stays paused; the operator restores it explicitly.
+          }
+        }
       },
       // v1.1 §9 — predefined shared-service recovery, gated on verified idle.
       terminateOpenCodeDesktop: this.options.recoveryPolicy === "safe" ? desktopControl.terminateOpenCodeDesktop : undefined,

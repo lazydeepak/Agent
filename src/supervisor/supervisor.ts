@@ -55,6 +55,12 @@ export interface SupervisorRecoveryOptions {
   terminateOpenCodeDesktop?: () => Promise<void>;
   relaunchOpenCodeDesktop?: () => Promise<void>;
   relaunchSettleMs?: number;
+  /** v1.1 §9.3 — shared restart deadline (default 60_000 ms). */
+  sharedRestartDeadlineMs?: number;
+  /** v1.1 §9.3 — temporarily pause affected pairs before the shared restart. */
+  pauseAffectedPairs?: () => Promise<void>;
+  /** v1.1 §9.3 — restore exactly the pairs paused by pauseAffectedPairs. */
+  restoreAffectedPairs?: () => Promise<void>;
 }
 
 export interface SupervisorDeps {
@@ -697,7 +703,10 @@ export class Supervisor {
       verifyAllAffectedWorkersIdle: recovery.verifyAllAffectedWorkersIdle,
       terminateOpenCodeDesktop: recovery.terminateOpenCodeDesktop,
       relaunchOpenCodeDesktop: recovery.relaunchOpenCodeDesktop,
-      relaunchSettleMs: recovery.relaunchSettleMs
+      relaunchSettleMs: recovery.relaunchSettleMs,
+      sharedRestartDeadlineMs: recovery.sharedRestartDeadlineMs,
+      pauseAffectedPairs: recovery.pauseAffectedPairs,
+      restoreAffectedPairs: recovery.restoreAffectedPairs
     });
     return this.recoveryEngine;
   }

@@ -38,6 +38,12 @@ export interface OpenCodeRecoveryInput {
   relaunchOpenCodeDesktop?: () => Promise<void>;
   /** How long to wait after relaunch before probing the server again. */
   relaunchSettleMs?: number;
+  /** v1.1 §9.3 — a shared restart may not consume more than this long (default 60_000 ms). */
+  sharedRestartDeadlineMs?: number;
+  /** v1.1 §9.3 — temporarily pause affected pairs before touching shared OpenCode. */
+  pauseAffectedPairs?: () => Promise<void>;
+  /** v1.1 §9.3 — restore exactly the pairs paused by pauseAffectedPairs, after verified restoration. */
+  restoreAffectedPairs?: () => Promise<void>;
 }
 
 export interface OpenCodeStartOutcome {
@@ -74,7 +80,10 @@ export async function recoverOpenCode(
     onRestartUnsafeHold: input.onRestartUnsafeHold,
     terminateOpenCodeDesktop: input.terminateOpenCodeDesktop,
     relaunchOpenCodeDesktop: input.relaunchOpenCodeDesktop,
-    relaunchSettleMs: input.relaunchSettleMs
+    relaunchSettleMs: input.relaunchSettleMs,
+    sharedRestartDeadlineMs: input.sharedRestartDeadlineMs,
+    pauseAffectedPairs: input.pauseAffectedPairs,
+    restoreAffectedPairs: input.restoreAffectedPairs
   });
   if (healthOk !== true) {
     return {
@@ -140,6 +149,12 @@ interface TransportInput {
   terminateOpenCodeDesktop?: () => Promise<void>;
   relaunchOpenCodeDesktop?: () => Promise<void>;
   relaunchSettleMs?: number;
+  /** v1.1 §9.3 — a shared restart may not consume more than this long (default 60_000 ms). */
+  sharedRestartDeadlineMs?: number;
+  /** v1.1 §9.3 — temporarily pause affected pairs before touching shared OpenCode. */
+  pauseAffectedPairs?: () => Promise<void>;
+  /** v1.1 §9.3 — restore exactly the pairs paused by pauseAffectedPairs, after verified restoration. */
+  restoreAffectedPairs?: () => Promise<void>;
 }
 
 async function recoverTransport(input: TransportInput): Promise<true | { message: string }> {
@@ -206,14 +221,29 @@ async function recoverTransport(input: TransportInput): Promise<true | { message
   }
 
   if (input.terminateOpenCodeDesktop && input.relaunchOpenCodeDesktop) {
+    const deadlineMs = input.sharedRestartDeadlineMs ?? 60_000;
+    const deadline = Date.now() + deadlineMs;
     input.onRetry?.(
       input.maxAttempts,
       0,
       new Error("No other active pair has a responding Worker; terminating and reopening OpenCode Desktop (Rule 5 step 5).")
     );
+
+    // v1.1 §9.3 — temporarily pause the affected pairs before touching shared OpenCode.
+    try {
+      await input.pauseAffectedPairs?.();
+    } catch {
+      // Best-effort: pairs that cannot be paused are left alone; the shared-service decision below still holds the operator notification path.
+    }
+    if (Date.now() > deadline) {
+      const message = `Awaiting Operator — Shared-Service Restart Unsafe: the restart sequence exceeded its configured deadline (${deadlineMs}ms) before termination; OpenCode was NOT restarted. Unrelated safe work may continue.`;
+      input.onRestartUnsafeHold?.(message);
+      return { message };
+    }
     try {
       await input.terminateOpenCodeDesktop();
     } catch (error) {
+      await input.restoreAffectedPairs?.().catch(() => undefined);
       return {
         message: `${baseMessage} — OpenCode Desktop termination failed: ${readableError(error)}`
       };
@@ -221,20 +251,33 @@ async function recoverTransport(input: TransportInput): Promise<true | { message
     try {
       await input.relaunchOpenCodeDesktop();
     } catch (error) {
+      await input.restoreAffectedPairs?.().catch(() => undefined);
       return {
         message: `${baseMessage} — OpenCode Desktop relaunch failed: ${readableError(error)}`
       };
     }
     try {
-      await input.sleep(input.relaunchSettleMs ?? 4000, input.signal);
+      await input.sleep(Math.min(input.relaunchSettleMs ?? 4000, Math.max(0, deadline - Date.now())), input.signal);
     } catch {
       return { message: "Recovery attempt was cancelled." };
     }
+    if (Date.now() > deadline) {
+      const message = `Awaiting Operator — Shared-Service Restart Unsafe: the relaunched OpenCode did not settle and verify within the configured deadline (${deadlineMs}ms); the affected pairs remain paused and need the operator.`;
+      input.onRestartUnsafeHold?.(message);
+      return { message };
+    }
     try {
       await input.worker.checkServer();
+      // v1.1 §9.3 — restore exactly the pairs that were running before the restart.
+      await input.restoreAffectedPairs?.().catch(() => undefined);
       return true;
     } catch (error) {
       lastError = error;
+    }
+    if (Date.now() > deadline) {
+      const message = `Awaiting Operator — Shared-Service Restart Unsafe: the relaunched OpenCode did not verify within the configured deadline (${deadlineMs}ms). The affected pairs remain paused; operator intervention required.`;
+      input.onRestartUnsafeHold?.(message);
+      return { message };
     }
     return {
       message: `${baseMessage} — all affected Workers were verified idle and OpenCode Desktop was restarted, but the server/Worker session is still unreachable. The affected pair remains visibly paused; operator intervention required.`

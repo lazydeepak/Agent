@@ -271,6 +271,7 @@ export async function refreshRecoveryPanel(): Promise<void> {
       groupSection("Resolved", resolvedRows, "No recent resolutions.")
     );
     setBadge(attentionRows.length);
+    renderStaleMarker(container, raw);
     loaded = true;
   } catch (error) {
     const fail = el("div", "result-fail");
@@ -286,6 +287,27 @@ export function initRecoveryPanel(): void {
   document.getElementById("recovery-refresh")?.addEventListener("click", () => {
     void refreshRecoveryPanel();
   });
+}
+
+/** v1.1 §12.1 — visibly mark when the data is stale or missing instead of implying freshness. */
+function renderStaleMarker(container: HTMLElement, eventsRaw: RecoveryEvent[]): void {
+  document.getElementById("recovery-stale")?.remove();
+  const newestTime = eventsRaw.reduce((max, e) => (e.time > max ? e.time : max), "");
+  const marker = document.createElement("div");
+  marker.id = "recovery-stale";
+  marker.className = "recovery-stale";
+  if (!newestTime) {
+    marker.textContent = "No incident evidence on file — if you expected failures, the engine log may be unavailable (read-only view).";
+    marker.classList.add("recovery-stale-missing");
+    container.appendChild(marker);
+    return;
+  }
+  const ageMs = Date.now() - Date.parse(newestTime);
+  if (!Number.isFinite(ageMs) || ageMs > 5 * 60_000) {
+    marker.innerHTML = `<strong>STALE</strong> — latest evidence is ${Math.floor(ageMs / 60_000)} min old; rows may be outdated.`;
+    marker.classList.add("recovery-stale-old");
+    container.appendChild(marker);
+  }
 }
 
 function setBadge(count: number): void {
