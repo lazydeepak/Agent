@@ -5,7 +5,7 @@ import { LocalDesktopToolLauncher } from "../src/application/desktop-tool-manage
 
 vi.mock("node:child_process", () => ({ spawn: vi.fn() }));
 
-const PASSWORD_VARS = ["OPENCODE_SERVER_PASSWORD", "AGENT_RELAY_OPENCODE_PASSWORD"];
+const PASSWORD_VARS = ["OPENCODE_SERVER_PASSWORD", "AGENT_OPENCODE_PASSWORD"];
 
 beforeEach(() => {
   for (const name of PASSWORD_VARS) {
@@ -43,7 +43,7 @@ function stubEndpoint(): void {
 
 async function launch(baseUrl: string): Promise<{ env?: NodeJS.ProcessEnv; secured?: boolean }> {
   vi.mocked(spawn).mockReturnValue(readyChild());
-  vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+  vi.stubEnv("AGENT_OPENCODE_EXECUTABLE", process.execPath);
   stubEndpoint();
   const launcher = new LocalDesktopToolLauncher();
   try {
@@ -63,8 +63,8 @@ describe("managed opencode server password handling", () => {
     expect(secured).toBe(true);
   });
 
-  it("falls back to AGENT_RELAY_OPENCODE_PASSWORD", async () => {
-    process.env.AGENT_RELAY_OPENCODE_PASSWORD = "canonical-secret";
+  it("falls back to AGENT_OPENCODE_PASSWORD", async () => {
+    process.env.AGENT_OPENCODE_PASSWORD = "canonical-secret";
     const { env, secured } = await launch("http://127.0.0.1:4099");
     expect(env?.OPENCODE_SERVER_PASSWORD).toBe("canonical-secret");
     expect(secured).toBe(true);
@@ -88,7 +88,7 @@ describe("managed opencode server password handling", () => {
     // launcher claim success while every real request fails, so 401/403 must never satisfy the probe.
     const launcher = new LocalDesktopToolLauncher();
     vi.mocked(spawn).mockReturnValue(readyChild());
-    vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+    vi.stubEnv("AGENT_OPENCODE_EXECUTABLE", process.execPath);
     const apiProbes: Array<string | undefined> = [];
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
       const headers = new Headers(init?.headers);
@@ -122,7 +122,7 @@ describe("managed opencode server password handling", () => {
     // API call is rejected. Only a non-HTML answer from an /api route proves the credential works.
     const launcher = new LocalDesktopToolLauncher();
     vi.mocked(spawn).mockReturnValue(readyChild());
-    vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+    vi.stubEnv("AGENT_OPENCODE_EXECUTABLE", process.execPath);
     const apiResponses = new Map<string, Response>();
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
       const path = new URL(String(input)).pathname;
@@ -153,7 +153,7 @@ describe("managed opencode server password handling", () => {
     child.once?.("exit", () => {});
     queueMicrotask(() => child.emit("exit", 1));
     vi.mocked(spawn).mockReturnValue(child);
-    vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+    vi.stubEnv("AGENT_OPENCODE_EXECUTABLE", process.execPath);
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
       const headers = new Headers(init?.headers);
       // Probe with credentials -> 401 (not ours). Plain shell probe -> 200 HTML (something is bound).

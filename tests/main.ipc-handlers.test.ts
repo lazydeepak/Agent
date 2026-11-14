@@ -20,6 +20,7 @@ function makeHarness(partial: Partial<Pick<IpcContext, "requireService" | "openE
     getStatus: vi.fn(async () => ({ running: 0 })),
     getPairStatus: vi.fn(async (id: string) => ({ pairId: id })),
     getPairDetail: vi.fn((id: string) => (id === "kisab-main" ? makePair({ pairId: "kisab-main" }) : undefined)),
+    pausePair: vi.fn(async (id: string) => ({ pairId: id })),
     startPair: vi.fn(async () => ({ running: 1 })),
     removePair: vi.fn(async (id: string) => ({ pairId: id })),
     listArchivedPairs: vi.fn(async () => []),
@@ -86,12 +87,12 @@ describe("main IPC handlers (registered against a fake runtime)", () => {
     const listPairs = handlers.get(IPC_CHANNELS.listPairs)!;
     await expect(listPairs({})).resolves.toEqual({ ok: true, data: [{ pairId: "kisab-main" }] });
 
-    const pairStatus = handlers.get(IPC_CHANNELS.pairStatus)!;
-    await expect(pairStatus({}, "")).resolves.toMatchObject({
+    const pausePair = handlers.get(IPC_CHANNELS.pausePair)!;
+    await expect(pausePair({}, "")).resolves.toMatchObject({
       ok: false,
       error: { code: "INVALID_PAIR_ID" }
     });
-    expect(service.getPairStatus).not.toHaveBeenCalled();
+    expect(service.pausePair).not.toHaveBeenCalled();
   });
 
   it("awaits removePair (no floating promise) and surfaces service errors", async () => {

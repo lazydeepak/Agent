@@ -47,7 +47,7 @@ describe("PairConfigRepository", () => {
   });
 
   it("loads an existing empty pairs config without a schema failure", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "agent-relay-empty-"));
+    const dir = await mkdtemp(join(tmpdir(), "agent-empty-"));
     tempDirs.push(dir);
     const configPath = join(dir, "pairs.json");
     await writeFile(configPath, `${JSON.stringify({ pairs: [] })}\n`, "utf8");
@@ -62,7 +62,7 @@ describe("PairConfigRepository", () => {
   });
 
   it("creates the first pair from an existing empty config", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "agent-relay-empty-"));
+    const dir = await mkdtemp(join(tmpdir(), "agent-empty-"));
     tempDirs.push(dir);
     const configPath = join(dir, "pairs.json");
     await writeFile(configPath, `${JSON.stringify({ pairs: [] })}\n`, "utf8");
@@ -341,7 +341,7 @@ describe("PairConfigRepository", () => {
 async function freshRepository(
   pairs: SessionPair[]
 ): Promise<{ repo: PairConfigRepository; configPath: string; dir: string; cleanup: () => Promise<void> }> {
-  const dir = await mkdtemp(join(tmpdir(), "agent-relay-repo-"));
+  const dir = await mkdtemp(join(tmpdir(), "agent-repo-"));
   tempDirs.push(dir);
   const configPath = join(dir, "pairs.json");
   if (pairs.length > 0) {

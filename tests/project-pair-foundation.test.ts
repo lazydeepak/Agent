@@ -61,7 +61,7 @@ describe("project-aware pair/session foundation", () => {
 
   it("pair config creation and edit preserve projectPairId through persistence", async () => {
     const { PairConfigRepository } = await import("../src/application/pair-config-repository.js");
-    const dir = await mkdtemp(join(tmpdir(), "agent-relay-test-pair-"));
+    const dir = await mkdtemp(join(tmpdir(), "agent-test-pair-"));
     tempDirs.push(dir);
     const repoPath = join(dir, "test.json");
     const repo = new PairConfigRepository(repoPath);

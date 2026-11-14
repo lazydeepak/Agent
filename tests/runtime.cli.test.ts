@@ -195,11 +195,11 @@ interface Fixture {
 }
 
 async function fixture(config: unknown): Promise<Fixture> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-runtime-cli-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-runtime-cli-"));
   tempDirs.push(directory);
   const configPath = join(directory, "pairs.json");
   await writeFile(configPath, JSON.stringify(config), "utf8");
-  return { configPath, dbPath: join(directory, "agent-relay.sqlite") };
+  return { configPath, dbPath: join(directory, "agent.sqlite") };
 }
 
 function runCli(args: string[]) {

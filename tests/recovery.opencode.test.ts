@@ -168,3 +168,112 @@ describe("recoverOpenCode", () => {
     expect(delay(1)).toBe(1000);
   });
 });
+
+describe("Rule 5 step 5 — conditional OpenCode Desktop termination", () => {
+  it("never terminates shared OpenCode when another affected pair is not verified idle", async () => {
+    const worker = new ControllableWorker();
+    worker.setUnreachable();
+    const terminate = vi.fn(async () => undefined);
+    const relaunch = vi.fn(async () => undefined);
+    const result = await recoverOpenCode({
+      worker,
+      sessionId: "ses_elsewhere",
+      expectedRepoPath: makePair().worker.repoPath,
+      maxAttempts: 1,
+      backoff: INSTANT_BACKOFF,
+      sleep: noopSleep,
+      verifyAllAffectedWorkersIdle: async () => false,
+      terminateOpenCodeDesktop: terminate,
+      relaunchOpenCodeDesktop: relaunch,
+      relaunchSettleMs: 0
+    });
+    expect(result).toMatchObject({ recovered: false, code: "OPENCODE_UNREACHABLE" });
+    if (!result.recovered) expect(result.reason).toContain("Shared-Service Restart Unsafe");
+    expect(terminate).not.toHaveBeenCalled();
+    expect(relaunch).not.toHaveBeenCalled();
+  });
+
+  it("never terminates shared OpenCode when the verified-idle probe cannot be verified", async () => {
+    const worker = new ControllableWorker();
+    worker.setUnreachable();
+    const terminate = vi.fn(async () => undefined);
+    const result = await recoverOpenCode({
+      worker,
+      sessionId: "ses_elsewhere",
+      expectedRepoPath: makePair().worker.repoPath,
+      maxAttempts: 1,
+      backoff: INSTANT_BACKOFF,
+      sleep: noopSleep,
+      verifyAllAffectedWorkersIdle: async () => {
+        throw new Error("probe failed");
+      },
+      terminateOpenCodeDesktop: terminate,
+      relaunchOpenCodeDesktop: vi.fn(async () => undefined),
+      relaunchSettleMs: 0
+    });
+    expect(terminate).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ recovered: false, code: "OPENCODE_UNREACHABLE" });
+  });
+
+  it("terminates and relaunches OpenCode Desktop only when all affected Workers are verified idle", async () => {
+    const worker = new ControllableWorker();
+    worker.setUnreachable();
+    const terminate = vi.fn(async () => {
+      worker.reachable = true;
+    });
+    const relaunch = vi.fn(async () => undefined);
+    const result = await recoverOpenCode({
+      worker,
+      sessionId: makePair().worker.sessionId,
+      expectedRepoPath: makePair().worker.repoPath,
+      maxAttempts: 1,
+      backoff: INSTANT_BACKOFF,
+      sleep: noopSleep,
+      verifyAllAffectedWorkersIdle: async () => true,
+      terminateOpenCodeDesktop: terminate,
+      relaunchOpenCodeDesktop: relaunch,
+      relaunchSettleMs: 0
+    });
+    expect(terminate).toHaveBeenCalledExactlyOnceWith();
+    expect(relaunch).toHaveBeenCalledExactlyOnceWith();
+    expect(result).toMatchObject({ recovered: true, action: "reobserve-session" });
+  });
+
+  it("reports step 6 failure when the relaunched desktop still cannot reach the server", async () => {
+    const worker = new ControllableWorker();
+    worker.setUnreachable();
+    const terminate = vi.fn(async () => undefined);
+    const relaunch = vi.fn(async () => undefined);
+    const result = await recoverOpenCode({
+      worker,
+      sessionId: "ses_elsewhere",
+      expectedRepoPath: makePair().worker.repoPath,
+      maxAttempts: 1,
+      backoff: INSTANT_BACKOFF,
+      sleep: noopSleep,
+      verifyAllAffectedWorkersIdle: async () => true,
+      terminateOpenCodeDesktop: terminate,
+      relaunchOpenCodeDesktop: relaunch,
+      relaunchSettleMs: 0
+    });
+    expect(terminate).toHaveBeenCalledTimes(1);
+    expect(relaunch).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ recovered: false, code: "OPENCODE_UNREACHABLE" });
+    if (!result.recovered) expect(result.reason).toContain("session is still unreachable");
+  });
+
+  it("does not terminate when no OpenCode Desktop control is wired (fail closed)", async () => {
+    const worker = new ControllableWorker();
+    worker.setUnreachable();
+    const result = await recoverOpenCode({
+      worker,
+      sessionId: "ses_elsewhere",
+      expectedRepoPath: makePair().worker.repoPath,
+      maxAttempts: 1,
+      backoff: INSTANT_BACKOFF,
+      sleep: noopSleep,
+      verifyAllAffectedWorkersIdle: async () => true
+    });
+    expect(result).toMatchObject({ recovered: false, code: "OPENCODE_UNREACHABLE" });
+  });
+});

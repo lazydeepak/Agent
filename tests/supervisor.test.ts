@@ -1,4 +1,4 @@
-import { SubmissionNotAttemptedError } from "../src/relay/delivery-error.js";
+import { SubmissionNotAttemptedError } from "../src/util/delivery-error.js";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7,7 +7,8 @@ import { FakeChatGPTBrowserAdapter } from "../src/adapters/chatgpt/index.js";
 import { StaticOpenCodeAdapter } from "../src/adapters/opencode/index.js";
 import { SqliteRelayStore, type RelayStore } from "../src/persistence/index.js";
 import { ChatGptSubmissionGate } from "../src/relay/chatgpt-gate.js";
-import { MemorySupervisorLogger, type SupervisorEvent } from "../src/supervisor/events.js";
+import { MemorySupervisorLogger } from "../src/supervisor/events.js";
+import type { SupervisorEvent } from "../src/contracts/events.js";
 import { Supervisor } from "../src/supervisor/supervisor.js";
 import type { PlannerIdentity, PlannerObservation, RelayableMessage, RelayReceipt, WorkerObservation } from "../src/types.js";
 import { makePair } from "./helpers.js";
@@ -20,9 +21,9 @@ afterEach(async () => {
 });
 
 async function openStore(): Promise<RelayStore> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-supervisor-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-supervisor-"));
   tempDirs.push(directory);
-  const store = new SqliteRelayStore(join(directory, "agent-relay.sqlite"));
+  const store = new SqliteRelayStore(join(directory, "agent.sqlite"));
   await store.init();
   return store;
 }

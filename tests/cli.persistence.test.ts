@@ -204,7 +204,7 @@ function url(): string {
 }
 
 async function fixture(): Promise<{ configPath: string; dbPath: string }> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-cli-persist-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-cli-persist-"));
   tempDirs.push(directory);
   const configPath = join(directory, "pairs.json");
   await writeFile(
@@ -222,7 +222,7 @@ async function fixture(): Promise<{ configPath: string; dbPath: string }> {
     }),
     "utf8"
   );
-  const dbPath = join(directory, "agent-relay.sqlite");
+  const dbPath = join(directory, "agent.sqlite");
   return { configPath, dbPath };
 }
 

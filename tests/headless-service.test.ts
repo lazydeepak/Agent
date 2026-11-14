@@ -13,10 +13,10 @@ afterEach(async () => {
 });
 
 async function makeHeadlessService(pairs: unknown[] = [], token = "test-token", port = 0): Promise<{ service: HeadlessService; configPath: string; dbPath: string; cleanup: () => Promise<void> }> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-headless-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-headless-"));
   tempDirs.push(directory);
   const configPath = join(directory, "pairs.json");
-  const dbPath = join(directory, "agent-relay.sqlite");
+  const dbPath = join(directory, "agent.sqlite");
   await writeFile(configPath, JSON.stringify({ pairs }), "utf8");
   const headless = new HeadlessService({
     configPath,

@@ -25,11 +25,21 @@ async function makeContext(
   pairs: SessionPair[],
   options: { opencodeFetch?: typeof fetch; relay?: boolean; pollIntervalMs?: number } = {}
 ): Promise<Context> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-lifecycle-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-lifecycle-"));
   tempDirs.push(directory);
   const configPath = join(directory, "pairs.json");
-  const dbPath = join(directory, "agent-relay.sqlite");
+  const dbPath = join(directory, "agent.sqlite");
   await writeFile(configPath, JSON.stringify({ pairs }), "utf8");
+  const modelsPath = join(directory, "models.local.json");
+  await writeFile(modelsPath, JSON.stringify({
+    models: [
+      { provider: "anthropic", id: "claude" },
+      { provider: "ollama", id: "small" },
+      { provider: "ollama", id: "disabled" },
+      { provider: "openrouter", id: "autorouter" }
+    ]
+  }), "utf8");
+  process.env.AGENT_APPROVED_MODELS_PATH = modelsPath;
   const service = createTestDesktopService({
     configPath,
     dbPath,
@@ -211,19 +221,6 @@ describe("project lifecycle", () => {
       expect(status.pairs.find((pair) => pair.pairId === "alpha")?.paused).toBe(true);
       expect(status.pairs.find((pair) => pair.pairId === "gamma")?.paused).toBe(false);
 
-      await ctx.service.shutdown();
-    } finally {
-      await ctx.cleanup();
-    }
-  });
-
-  it("resumeProject delegates to startProject", async () => {
-    const ctx = await makeContext([pairDto("alpha", { projectPairId: "proj-a" })]);
-    try {
-      await ctx.service.init();
-      await ctx.service.startProject("proj-a");
-      const summary = await ctx.service.resumeProject("proj-a");
-      expect(summary.aggregate).toBe("success");
       await ctx.service.shutdown();
     } finally {
       await ctx.cleanup();

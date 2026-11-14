@@ -308,7 +308,7 @@ describe("WorkerProgressService store guard", () => {
 
 describe("DesktopApplicationService store access", () => {
   it("requireStore throws STORE_UNAVAILABLE before init", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-init-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-init-"));
     tempDirs.push(directory);
     const service = createTestDesktopService({
       configPath: join(directory, "pairs.json"),
@@ -319,7 +319,7 @@ describe("DesktopApplicationService store access", () => {
   });
 
   it("stays recoverable with a missing pair configuration when the store is usable", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-init-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-init-"));
     tempDirs.push(directory);
     const service = createTestDesktopService({
       configPath: join(directory, "missing-pairs.json"),
@@ -333,7 +333,7 @@ describe("DesktopApplicationService store access", () => {
   });
 
   it("stays recoverable with an invalid pair configuration when the store is usable", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-init-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-init-"));
     tempDirs.push(directory);
     const configPath = join(directory, "pairs.json");
     await writeFile(configPath, "{ not valid json", "utf8");

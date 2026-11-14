@@ -6,8 +6,6 @@ import type { DesktopErrorDto, EventRecordDto, PairIdentityDto, ValidationResult
 const invokeChannelNames = [
   "listPairs",
   "status",
-  "pairStatus",
-  "pairDetail",
   "pausePair",
   "resumePair",
   "startPair",
@@ -16,7 +14,6 @@ const invokeChannelNames = [
   "stopAll",
   "validatePair",
   "getValidation",
-  "getRecentEvents",
   "getAutomationInfo",
   "seedPlanner",
   "feedLocalAgent",
@@ -33,6 +30,16 @@ const invokeChannelNames = [
   "answerWorkerQuestion",
   "listWorkerModels",
   "switchWorkerModel",
+  "adapterSettings",
+  "pickFolder",
+  "codeIndex",
+  "duplicateReport",
+  "scanDuplicates",
+  "getAutoResumeState",
+  "setAutoResumeAfterRestart",
+  "getSettings",
+  "updateSettings",
+  "releaseRecoverySuspension",
   "resumeWithFallbackModel",
   "getWorkerProgress",
   "validateCandidate",
@@ -52,15 +59,13 @@ const invokeChannelNames = [
   "clearTimeline",
   "startProject",
   "pauseProject",
-  "resumeProject",
   "listProjectPairs",
   "createProjectPair",
   "removeProjectPair",
   "discoverOpenCodeProjects",
   "discoverChatGptProjects",
   "listArchive",
-  "deleteArchive",
-  "copyText"
+  "deleteArchive"
 ] as const;
 
 describe("desktop IPC contract", () => {

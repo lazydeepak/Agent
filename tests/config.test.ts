@@ -31,26 +31,25 @@ describe("parsePairsConfig", () => {
     });
   });
 
-  it("rejects missing required config", () => {
-    expect(() =>
-      parsePairsConfig({
-        pairs: [
-          {
-            pairId: "kisab-main",
-            enabled: true,
-            worker: {
-              type: "opencode",
-              sessionId: "ses_worker_1"
-            },
-            planner: {
-              type: "chatgpt-browser",
-              conversationId: "planner-conversation-1",
-              conversationUrl: "https://chatgpt.com/c/planner-conversation-1"
-            }
+  it("allows a missing worker repoPath (defaults to empty string)", () => {
+    const parsed = parsePairsConfig({
+      pairs: [
+        {
+          pairId: "kisab-main",
+          enabled: true,
+          worker: {
+            type: "opencode",
+            sessionId: "ses_worker_1"
+          },
+          planner: {
+            type: "chatgpt-browser",
+            conversationId: "planner-conversation-1",
+            conversationUrl: "https://chatgpt.com/c/planner-conversation-1"
           }
-        ]
-      })
-    ).toThrow(/worker.repoPath/i);
+        }
+      ]
+    });
+    expect(parsed.pairs[0].worker.repoPath).toBe("");
   });
 
   it("rejects unsupported adapter types", () => {
@@ -195,7 +194,7 @@ describe("parsePairsConfig", () => {
             conversationUrl: "https://chatgpt.com/c/planner-conversation-1",
             browser: {
               cdpUrl: "http://127.0.0.1:9222",
-              userDataDir: "/Users/lazydeepak/.agent-relay/chatgpt-profile",
+              userDataDir: "/Users/lazydeepak/.agent/chatgpt-profile",
               timeoutMs: 10000
             }
           }
@@ -323,7 +322,7 @@ describe("parsePairsConfig", () => {
   });
 
   it("loads an empty pairs config from disk without a schema failure", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-config-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-config-"));
     tempDirs.push(directory);
     const configPath = join(directory, "pairs.json");
     await writeFile(configPath, `${JSON.stringify({ pairs: [] })}\n`, "utf8");
@@ -333,7 +332,7 @@ describe("parsePairsConfig", () => {
   });
 
   it("binds a pair to a new OpenCode session in the config file", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-config-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-config-"));
     tempDirs.push(directory);
     const configPath = join(directory, "pairs.json");
     await writeFile(configPath, JSON.stringify({ pairs: [makePair()] }), "utf8");

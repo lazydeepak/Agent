@@ -3,7 +3,7 @@ import {
   ChatGptUrlError,
   conversationUrlMatchesId,
   parseChatGptConversationUrl
-} from "../src/sessions/chatgpt-url.js";
+} from "../src/util/chatgpt-url.js";
 
 describe("parseChatGptConversationUrl", () => {
   it("accepts a standard conversation URL", () => {

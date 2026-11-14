@@ -39,7 +39,7 @@ describe("OpenCode Desktop active session discovery", () => {
   });
 
   it("scans the newest compatible OpenCode window state file", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-opencode-state-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-opencode-state-"));
     tempDirs.push(directory);
     const key = "sidecar\n/server/c2lkZWNhcg/session/ses_current";
     await writeFile(join(directory, "opencode.window.test.dat"), JSON.stringify({

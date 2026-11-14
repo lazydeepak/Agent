@@ -2,7 +2,7 @@ import { runInNewContext } from "node:vm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Page } from "playwright-core";
 import { PlaywrightChatGPTBrowserDriver } from "../src/adapters/chatgpt/index.js";
-import { SubmissionNotAttemptedError } from "../src/relay/delivery-error.js";
+import { SubmissionNotAttemptedError } from "../src/util/delivery-error.js";
 import { makePair } from "./helpers.js";
 
 afterEach(() => vi.unstubAllGlobals());

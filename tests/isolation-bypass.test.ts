@@ -13,7 +13,7 @@ async function cleanup() {
 
 describe("TAURI_PROJECT_PAIR_MANAGEMENT — authoritative repo isolation", () => {
   it("direct service rebindWorker is protected by authoritative isolation", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-isolation-bypass-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-isolation-bypass-"));
     tempDirs.push(directory);
     const configPath = join(directory, "pairs.json");
     const dbPath = join(directory, "isolation.sqlite");
@@ -38,7 +38,7 @@ describe("TAURI_PROJECT_PAIR_MANAGEMENT — authoritative repo isolation", () =>
   });
 
   it("adapter-level bindWorkerSession rejects missing session (not silent failure)", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-isolation-adapter-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-isolation-adapter-"));
     tempDirs.push(directory);
     const configPath = join(directory, "pairs.json");
     const dbPath = join(directory, "adapter.sqlite");
@@ -64,7 +64,7 @@ describe("TAURI_PROJECT_PAIR_MANAGEMENT — authoritative repo isolation", () =>
   });
 
   it("repo mismatch is rejected through adapter dispatch", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-isolation-mismatch-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-isolation-mismatch-"));
     tempDirs.push(directory);
     const configPath = join(directory, "pairs.json");
     const dbPath = join(directory, "mismatch.sqlite");

@@ -15,9 +15,9 @@ afterEach(async () => {
 });
 
 async function freshStore(): Promise<{ dbPath: string; cleanup: () => Promise<void> }> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-store-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-store-"));
   tempDirs.push(directory);
-  const dbPath = join(directory, "agent-relay.sqlite");
+  const dbPath = join(directory, "agent.sqlite");
   return { dbPath, cleanup: () => rm(directory, { force: true, recursive: true }) };
 }
 
@@ -68,9 +68,9 @@ describe("SqliteRelayStore schema", () => {
   });
 
   it("fails with an actionable error for a corrupted/invalid DB file", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-corrupt-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-corrupt-"));
     tempDirs.push(directory);
-    const dbPath = join(directory, "agent-relay.sqlite");
+    const dbPath = join(directory, "agent.sqlite");
     await writeFile(dbPath, "this is not a sqlite database", "utf8");
 
     const store = new SqliteRelayStore(dbPath);
@@ -79,9 +79,9 @@ describe("SqliteRelayStore schema", () => {
   });
 
   it("additively migrates a v4 database to v5, preserving existing rows", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-migrate-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-migrate-"));
     tempDirs.push(directory);
-    const dbPath = join(directory, "agent-relay.sqlite");
+    const dbPath = join(directory, "agent.sqlite");
 
     const legacy = new DatabaseSync(dbPath);
     legacy.exec(`
@@ -603,6 +603,94 @@ describe("relay cycle persistence", () => {
         })
       ).toThrow();
 
+      store.close();
+    } finally {
+      await cleanup();
+    }
+  });
+});
+
+describe("auto-resume state (Rule 15)", () => {
+  it("defaults to disabled, round-trips the toggle, and is independent of the start/stop flag", async () => {
+    const { dbPath, cleanup } = await freshStore();
+    try {
+      const store = new SqliteRelayStore(dbPath);
+      await store.init();
+      expect(store.listAutoResumeState()).toEqual([]);
+
+      store.touchResumeState({ pairId: "kisab-main", resumeAfterRestart: true });
+      expect(store.listAutoResumeState()).toEqual([]);
+
+      store.touchAutoResumeState({ pairId: "kisab-main", autoResumeAfterRestart: true });
+      expect(store.listAutoResumeState()).toEqual(["kisab-main"]);
+      expect(store.getRuntimeState("kisab-main")?.autoResumeAfterRestart).toBe(true);
+
+      store.touchAutoResumeState({ pairId: "kisab-main", autoResumeAfterRestart: false });
+      expect(store.listAutoResumeState()).toEqual([]);
+      expect(store.getRuntimeState("kisab-main")?.autoResumeAfterRestart).toBe(false);
+      store.close();
+    } finally {
+      await cleanup();
+    }
+  });
+});
+
+describe("history retention (Rule 24)", () => {
+  it("deletes rows older than the cutoff and keeps recent rows and the ledger", async () => {
+    const { dbPath, cleanup } = await freshStore();
+    try {
+      const store = new SqliteRelayStore(dbPath);
+      await store.init();
+      const old = "2020-01-01T00:00:00.000Z";
+      const recent = new Date().toISOString();
+
+      store.createCycle({ pairId: "kisab-main", plannerSourceMessageId: "old-chat", workerDispatchMessageId: "old-dispatch", dispatchedAt: old });
+      store.createCycle({ pairId: "kisab-main", plannerSourceMessageId: "failed-chat", workerDispatchMessageId: "failed-dispatch", dispatchedAt: old });
+      store.createCycle({ pairId: "kisab-main", plannerSourceMessageId: "new-chat", workerDispatchMessageId: "new-dispatch", dispatchedAt: recent });
+      // Only proven-delivered cycles are eligible for retention deletion.
+      store.updateCycle("kisab-main", "old-chat", { cycleStatus: "DELIVERED" });
+      store.updateCycle("kisab-main", "failed-chat", { cycleStatus: "FAILED" });
+      const attentionId = store.createAttentionItem({
+        pairId: "kisab-main",
+        sourceMessageId: "old-question",
+        kind: "worker-question",
+        blocking: true
+      });
+      store.updateAttentionStatus(attentionId, "resolved", "resolution-msg");
+      const proposalId = store.createProposal({
+        proposalId: "old-proposal",
+        pairId: "kisab-main",
+        provider: "opencode",
+        disposition: "answer"
+      });
+      const rawDb = (store as unknown as { db: DatabaseSync }).db;
+      rawDb.prepare("UPDATE attention_items SET created_at = ?, resolved_at = ? WHERE id = ?").run(old, old, attentionId);
+      rawDb.prepare("UPDATE ai_proposals SET status = 'REJECTED', created_at = ? WHERE id = ?").run(old, proposalId);
+
+      // Ledger entries must survive retention.
+      store.createRecord(identity({ pairId: "kisab-main", sourceMessageId: "old-ledger-msg", direction: "planner-to-worker" }));
+      rawDb.prepare("UPDATE relay_records SET first_seen_at = ? WHERE source_message_id = ?").run(old, "old-ledger-msg");
+
+      const result = store.applyHistoryRetention(7);
+      expect(result).toEqual({ deletedCycles: 1, deletedResolvedAttention: 1, deletedProposals: 1 });
+      const remaining = store.listCycles("kisab-main").map((cycle) => cycle.plannerSourceMessageId).sort();
+      expect(remaining).toEqual(["failed-chat", "new-chat"]);
+      expect(store.listAttentionItems("kisab-main")).toHaveLength(0);
+      expect(store.findRecord(identity({ pairId: "kisab-main", sourceMessageId: "old-ledger-msg", direction: "planner-to-worker" }))?.status).toBeDefined();
+      store.close();
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it("keeps everything when retention is disabled (0 or negative)", async () => {
+    const { dbPath, cleanup } = await freshStore();
+    try {
+      const store = new SqliteRelayStore(dbPath);
+      await store.init();
+      store.createCycle({ pairId: "kisab-main", plannerSourceMessageId: "c1", workerDispatchMessageId: "d1", dispatchedAt: "2020-01-01T00:00:00.000Z" });
+      expect(store.applyHistoryRetention(0)).toEqual({ deletedCycles: 0, deletedResolvedAttention: 0, deletedProposals: 0 });
+      expect(store.listCycles("kisab-main")).toHaveLength(1);
       store.close();
     } finally {
       await cleanup();

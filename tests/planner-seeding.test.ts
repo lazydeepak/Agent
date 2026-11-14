@@ -14,10 +14,28 @@ interface Calls {
 }
 
 function fakeStore(): RelayStore {
+  const operations = new Map<string, { id: string; pairId: string; status: string; acceptedResponseId?: string; holdReason?: string; createdAt: string; attemptCount: number; maxAttempts: number }>();
   return {
     listCycles: () => [],
     listRecords: () => [],
-    touchSupervisorState: () => undefined
+    touchSupervisorState: () => undefined,
+    createStartupOperation: (input: { pairId: string }) => {
+      const id = `op-${operations.size + 1}`;
+      const now = new Date().toISOString();
+      const op = { id, pairId: input.pairId, status: "pending", attemptCount: 0, maxAttempts: 3, createdAt: now };
+      operations.set(id, op as never);
+      return op as never;
+    },
+    recordStartupAttempt: (id: string) => {
+      const op = operations.get(id);
+      if (op) op.attemptCount += 1;
+      return op as never;
+    },
+    markStartupOperationHold: (id: string) => {
+      const op = operations.get(id);
+      if (op) op.status = "hold";
+      return op as never;
+    }
   } as unknown as RelayStore;
 }
 

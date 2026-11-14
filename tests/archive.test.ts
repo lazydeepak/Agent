@@ -39,7 +39,7 @@ function payload(pairId: string, archivedAt: string, overrides?: Partial<Archive
 }
 
 async function makeArchive(): Promise<{ archive: PairArchive; dir: string }> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-archive-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-archive-"));
   tempDirs.push(directory);
   const archive = new PairArchive(join(directory, "archive"));
   await archive.init();

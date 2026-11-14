@@ -176,7 +176,7 @@ export async function noopSleep(): Promise<void> {}
 export function createTestDesktopService(
   options: Omit<DesktopServiceOptions, "relayEngine"> & { relayEngine?: RelayEngine }
 ): DesktopApplicationService {
-  const dbPath = options.dbPath ?? join(tmpdir(), `agent-relay-test-${Math.random()}.sqlite`);
+  const dbPath = options.dbPath ?? join(tmpdir(), `agent-test-${Math.random()}.sqlite`);
   const store = new SqliteRelayStore(dbPath);
 
   let pairs: SessionPair[] = [];

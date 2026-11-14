@@ -18,7 +18,7 @@ describe("desktop managed tool launcher", () => {
       kill: vi.fn(() => { queueMicrotask(() => child.emit("exit", 0)); return true; })
     }) as unknown as ChildProcess;
     vi.mocked(spawn).mockReturnValue(child);
-    vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+    vi.stubEnv("AGENT_OPENCODE_EXECUTABLE", process.execPath);
     let ready = false;
     vi.stubGlobal("fetch", vi.fn(async () => {
       if (!ready) throw new Error("offline");
@@ -57,7 +57,7 @@ describe("desktop managed tool launcher", () => {
 
   it("releases a rejected single-flight so a later start can retry", async () => {
     const launcher = new LocalDesktopToolLauncher();
-    const input = { repoPath: "/definitely/missing/agent-relay-test", baseUrl: "http://127.0.0.1:4097" };
+    const input = { repoPath: "/definitely/missing/agent-test", baseUrl: "http://127.0.0.1:4097" };
     const failures = await Promise.allSettled([launcher.startOpenCode(input), launcher.startOpenCode(input)]);
     expect(failures.every((result) => result.status === "rejected")).toBe(true);
     vi.stubGlobal("fetch", vi.fn(async () => new Response("{}")));
@@ -79,7 +79,7 @@ describe("desktop managed tool launcher", () => {
   it("rejects a missing selected repository before spawning OpenCode", async () => {
     const launcher = new LocalDesktopToolLauncher();
     await expect(
-      launcher.startOpenCode({ repoPath: "/definitely/missing/agent-relay-test", baseUrl: "http://127.0.0.1:4096" })
+      launcher.startOpenCode({ repoPath: "/definitely/missing/agent-test", baseUrl: "http://127.0.0.1:4096" })
     ).rejects.toMatchObject({ code: "OPENCODE_REPO_NOT_FOUND" });
   });
 });
@@ -95,7 +95,7 @@ describe("launcher ownership", () => {
       unref: unrefSpy
     }) as unknown as ChildProcess;
     vi.mocked(spawn).mockReturnValue(child);
-    vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+    vi.stubEnv("AGENT_OPENCODE_EXECUTABLE", process.execPath);
     // Reachability tracks the spawn itself rather than a call count, so this simulation stays
     // correct regardless of how many probe paths the launcher tries per poll.
     let serverUp = false;
@@ -126,7 +126,7 @@ describe("launcher ownership", () => {
       unref: vi.fn()
     }) as unknown as ChildProcess;
     vi.mocked(spawn).mockReturnValue(child);
-    vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+    vi.stubEnv("AGENT_OPENCODE_EXECUTABLE", process.execPath);
     // Reachability tracks the spawn itself rather than a call count, so this simulation stays
     // correct regardless of how many probe paths the launcher tries per poll.
     let serverUp = false;
@@ -155,7 +155,7 @@ describe("launcher ownership", () => {
       unref: vi.fn()
     }) as unknown as ChildProcess;
     vi.mocked(spawn).mockReturnValue(child);
-    vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+    vi.stubEnv("AGENT_OPENCODE_EXECUTABLE", process.execPath);
     // Reachability tracks the spawn itself rather than a call count, so this simulation stays
     // correct regardless of how many probe paths the launcher tries per poll.
     let serverUp = false;
@@ -187,7 +187,7 @@ describe("launcher ownership", () => {
     }) as unknown as ChildProcess;
 
     let fakeChild = makeFakeChild();
-    vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+    vi.stubEnv("AGENT_OPENCODE_EXECUTABLE", process.execPath);
     // Reachability tracks the spawn itself rather than a call count, so this simulation stays
     // correct regardless of how many probe paths the launcher tries per poll.
     let serverUp = false;

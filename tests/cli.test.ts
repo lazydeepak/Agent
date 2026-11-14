@@ -132,11 +132,11 @@ it("requires --once when supervise is combined with --watch", async () => {
   });
 
   it("prune in dry-run lists configured-but-unconfigured pairs without deleting", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-cli-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-cli-"));
     tempDirs.push(directory);
     const configPath = join(directory, "pairs.json");
     await writeFile(configPath, JSON.stringify({ pairs: [makePair({ pairId: "kisab-main" })] }), "utf8");
-    const dbPath = join(directory, "agent-relay.sqlite");
+    const dbPath = join(directory, "agent.sqlite");
 
     const store = new SqliteRelayStore(dbPath);
     await store.init();
@@ -180,7 +180,7 @@ it("requires --once when supervise is combined with --watch", async () => {
 });
 
 async function writeConfig(config: unknown): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-cli-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-cli-"));
   tempDirs.push(directory);
   const configPath = join(directory, "pairs.json");
   await writeFile(configPath, JSON.stringify(config), "utf8");

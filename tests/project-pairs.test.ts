@@ -17,7 +17,7 @@ import {
 
 const SUSANKHYA_SLUG = "g-p-deadbeefcafef00ddeadbeefcafef00d";
 const SUSANKHYA_URL = `https://chatgpt.com/g/${SUSANKHYA_SLUG}/c/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee`;
-const AGENT_RELAY_SLUG = "g-p-0123456789abcdef0123456789abcdef";
+const AGENT_SLUG = "g-p-0123456789abcdef0123456789abcdef";
 
 function validPair(overrides: Record<string, unknown> = {}) {
   return {
@@ -71,7 +71,7 @@ describe("project pairs config schema", () => {
   it("rejects the same OpenCode repo in two project pairs", () => {
     expect(() =>
       parseProjectPairsConfig({
-        projectPairs: [validPair(), validPair({ projectPairId: "other", planner: { projectSlug: AGENT_RELAY_SLUG } })]
+        projectPairs: [validPair(), validPair({ projectPairId: "other", planner: { projectSlug: AGENT_SLUG } })]
       })
     ).toThrowError(/Duplicate worker project ownership/);
   });
@@ -131,7 +131,7 @@ describe("normalizeChatGptProject", () => {
 describe("groupChatGptProjects", () => {
   it("groups open conversation pages by project slug and skips the rest", () => {
     const grouped = groupChatGptProjects([
-      { type: "page", title: "Demo - Relay Sessions", url: `https://chatgpt.com/g/${AGENT_RELAY_SLUG}/c/aaa` },
+      { type: "page", title: "Demo - Relay Sessions", url: `https://chatgpt.com/g/${AGENT_SLUG}/c/aaa` },
       { type: "page", title: "Demo Project - Test session", url: SUSANKHYA_URL },
       { type: "page", title: "Same convo, suffixed URL", url: `https://chatgpt.com/g/${SUSANKHYA_SLUG}-demo-project/c/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee` },
       { type: "page", title: "Plain conversation", url: "https://chatgpt.com/c/plain-conversation" },
@@ -146,7 +146,7 @@ describe("groupChatGptProjects", () => {
       conversationTitles: { "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee": "Demo Project - Test session" },
       openTabCount: 2
     });
-    const relay = grouped.find((entry) => entry.projectSlug === AGENT_RELAY_SLUG);
+    const relay = grouped.find((entry) => entry.projectSlug === AGENT_SLUG);
     expect(relay).toMatchObject({
       conversationIds: ["aaa"],
       conversationTitles: { aaa: "Demo - Relay Sessions" },
@@ -180,13 +180,13 @@ describe("suggestProjectPairId", () => {
   });
 
   it("sanitizes unusual basenames", () => {
-    expect(suggestProjectPairId("/Users/x/My Cool Repo!", AGENT_RELAY_SLUG)).toBe("my-cool-repo-abcdef");
+    expect(suggestProjectPairId("/Users/x/My Cool Repo!", AGENT_SLUG)).toBe("my-cool-repo-abcdef");
   });
 });
 
 describe("ProjectPairRepository", () => {
   async function tempPath(): Promise<{ path: string; cleanup: () => Promise<void> }> {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-project-pairs-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-project-pairs-"));
     return { path: join(directory, "projects.json"), cleanup: () => rm(directory, { force: true, recursive: true }) };
   }
 
@@ -217,7 +217,7 @@ describe("ProjectPairRepository", () => {
       await repo.addProjectPair(validPair());
       await expect(repo.addProjectPair(validPair())).rejects.toMatchObject({ code: "PROJECT_PAIR_ALREADY_EXISTS" });
       await expect(
-        repo.addProjectPair(validPair({ projectPairId: "other", planner: { projectSlug: AGENT_RELAY_SLUG } }))
+        repo.addProjectPair(validPair({ projectPairId: "other", planner: { projectSlug: AGENT_SLUG } }))
       ).rejects.toMatchObject({ code: "DUPLICATE_OWNERSHIP" });
     } finally {
       await cleanup();
@@ -250,7 +250,7 @@ describe("ProjectPairRepository", () => {
 
 describe("ProjectPairService", () => {
   async function tempPath(): Promise<{ path: string; cleanup: () => Promise<void> }> {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-project-pair-svc-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-project-pair-svc-"));
     return { path: join(directory, "projects.json"), cleanup: () => rm(directory, { force: true, recursive: true }) };
   }
 
@@ -322,7 +322,7 @@ describe("ProjectPairService", () => {
       const duplicate = service.createProjectPair({
         projectPairId: "other",
         worker: { repoPath: "/Users/x/Susankhya" },
-        planner: { projectSlug: AGENT_RELAY_SLUG }
+        planner: { projectSlug: AGENT_SLUG }
       });
       await expect(duplicate).rejects.toBeInstanceOf(DesktopApplicationError);
       await expect(duplicate).rejects.toMatchObject({ code: "DUPLICATE_OWNERSHIP" });

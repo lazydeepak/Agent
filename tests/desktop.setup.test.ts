@@ -716,13 +716,23 @@ async function makeContext(
   pairs: SessionPair[],
   options: SetupOptions = {}
 ): Promise<{ service: DesktopApplicationService; cleanup: () => Promise<void> }> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-setup-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-setup-"));
   tempDirs.push(directory);
   const configPath = join(directory, "pairs.json");
-  const dbPath = join(directory, "agent-relay.sqlite");
+  const dbPath = join(directory, "agent.sqlite");
   if (options.writeConfig !== false) {
     await writeFile(configPath, JSON.stringify({ pairs }), "utf8");
   }
+  const modelsPath = join(directory, "models.local.json");
+  await writeFile(modelsPath, JSON.stringify({
+    models: [
+      { provider: "anthropic", id: "claude" },
+      { provider: "ollama", id: "small" },
+      { provider: "ollama", id: "disabled" },
+      { provider: "openrouter", id: "autorouter" }
+    ]
+  }), "utf8");
+  process.env.AGENT_APPROVED_MODELS_PATH = modelsPath;
   const service = createTestDesktopService({
     configPath,
     dbPath,

@@ -139,11 +139,11 @@ function url(): string {
 }
 
 async function fixture(): Promise<{ configPath: string; dbPath: string }> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-recovery-cli-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-recovery-cli-"));
   tempDirs.push(directory);
   const configPath = join(directory, "pairs.json");
   await writeFile(configPath, JSON.stringify({ pairs: [makePair()] }), "utf8");
-  const dbPath = join(directory, "agent-relay.sqlite");
+  const dbPath = join(directory, "agent.sqlite");
   return { configPath, dbPath };
 }
 

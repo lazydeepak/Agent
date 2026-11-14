@@ -6,7 +6,8 @@ import { FakeChatGPTBrowserAdapter } from "../src/adapters/chatgpt/index.js";
 import { SqliteRelayStore, type RelayStore } from "../src/persistence/index.js";
 import { RecoveryEngine } from "../src/recovery/index.js";
 import type { BackoffPolicy } from "../src/recovery/index.js";
-import { MemorySupervisorLogger, type SupervisorEvent } from "../src/supervisor/events.js";
+import { MemorySupervisorLogger } from "../src/supervisor/events.js";
+import type { SupervisorEvent } from "../src/contracts/events.js";
 import type { ObservationSnapshot, SupervisorContinuity } from "../src/types.js";
 import { ControllableWorker, RecordingBrowserManager, makePair, noopSleep } from "./helpers.js";
 import { classify, emptyCycleContext } from "../src/supervisor/classifier.js";
@@ -20,9 +21,9 @@ afterEach(async () => {
 });
 
 async function openStore(): Promise<RelayStore> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-engine-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-engine-"));
   tempDirs.push(directory);
-  const store = new SqliteRelayStore(join(directory, "agent-relay.sqlite"));
+  const store = new SqliteRelayStore(join(directory, "agent.sqlite"));
   await store.init();
   return store;
 }
@@ -283,11 +284,10 @@ describe("RecoveryEngine", () => {
     store.close();
   });
 
-  it("nudges a healthy but stalled worker once after verification finds no progress", async () => {
-    const { store, worker, engine, logger } = await engineHooks();
-    worker.setMessages([
-      { id: "old-1", source: "worker", role: "assistant", text: "old report", createdAt: 1_000 }
-    ]);
+  it("escalates STUCK to the configured Recovery Agent without re-prompting the worker", async () => {
+    const { store, worker, engine, logger } = await engineHooks({
+      pair: makePair({ masterWorkerSessionId: "ses_master_1" })
+    });
     worker.setMessages([
       { id: "old-1", source: "worker", role: "assistant", text: "old report", createdAt: 1_000 }
     ]);
@@ -301,11 +301,36 @@ describe("RecoveryEngine", () => {
       continuity: continuity({ lastSupervisorState: "WORKING" })
     });
 
-    expect(run.code).toBeUndefined();
+    expect(run.code).toBe("STUCK_UNRESOLVED");
     expect(run.intervention).toBe(false);
-    expect(logger.events.map((event) => event.type)).toContain("RECOVERY_RETRY");
+    expect(logger.events.map((event) => event.type)).toContain("ESCALATED_TO_AGENT");
     expect(worker.sentPlannerMessages).toHaveLength(1);
-    expect(worker.sentPlannerMessages[0]?.message.text).toContain("continue the existing work");
+    expect(worker.sentPlannerMessages[0]?.worker.sessionId).toBe("ses_master_1");
+    expect(worker.sentPlannerMessages[0]?.message.text).toContain("STUCK investigation");
+    expect(worker.sentPlannerMessages[0]?.message.text).not.toContain("continue the existing work");
+    expect(store.listRecords("kisab-main")).toHaveLength(0);
+    store.close();
+  });
+
+  it("requires operator intervention on STUCK when no Recovery Agent is configured and never re-prompts the worker", async () => {
+    const { store, worker, engine, logger } = await engineHooks();
+    worker.setMessages([
+      { id: "old-1", source: "worker", role: "assistant", text: "old report", createdAt: 1_000 }
+    ]);
+
+    const run = await engine.attempt({
+      state: "STUCK",
+      snapshot: snapshot({
+        worker: healthyWorker({ gathering: false, latestMessageCreatedAt: 2_000, lastAssistantMessageCreatedAt: 2_000 }),
+        planner: healthyPlanner()
+      }),
+      continuity: continuity({ lastSupervisorState: "WORKING" })
+    });
+
+    expect(run.code).toBe("STUCK_UNRESOLVED");
+    expect(run.intervention).toBe(true);
+    expect(logger.events.map((event) => event.type)).toContain("INTERVENTION_REQUIRED");
+    expect(worker.sentPlannerMessages).toHaveLength(0);
     expect(store.listRecords("kisab-main")).toHaveLength(0);
     store.close();
   });
@@ -350,6 +375,54 @@ describe("RecoveryEngine", () => {
 
     const disconnected = logger.events.filter((event) => event.type === "PEER_DISCONNECTED");
     expect(disconnected).toHaveLength(1);
+    store.close();
+  });
+});
+
+describe("recovery suspension (v1.1 §11)", () => {
+  it("suspends automated recovery after the corrective budget is exhausted and requires operator release", async () => {
+    const { store, worker, engine, logger } = await engineHooks({ maxAttempts: 1 });
+    worker.setUnreachable();
+
+    await engine.attempt({
+      state: "FAILED",
+      snapshot: snapshot({ worker: healthyWorker({ reachable: false }), planner: healthyPlanner() }),
+      continuity: continuity({ recoveryAttemptCount: 2 })
+    });
+    await engine.attempt({
+      state: "FAILED",
+      snapshot: snapshot({ worker: healthyWorker({ reachable: false }), planner: healthyPlanner() }),
+      continuity: store.getSupervisorState("kisab-main") ?? continuity({ recoveryAttemptCount: 2 })
+    });
+
+    const persisted = store.getSupervisorState("kisab-main");
+    expect(persisted?.recoveryAttemptCount).toBeGreaterThanOrEqual(3);
+    expect(persisted?.recoverySuspended).toBe(true);
+    expect(logger.events.map((event) => event.type)).toContain("RECOVERY_SUSPENDED");
+
+    const third = await engine.attempt({
+      state: "FAILED",
+      snapshot: snapshot({ worker: healthyWorker({ reachable: false }), planner: healthyPlanner() }),
+      continuity: persisted ?? continuity({ recoverySuspended: true, recoveryAttemptCount: 3 })
+    });
+    expect(third.performed).toBe(false);
+    expect(third.intervention).toBe(true);
+    expect(worker.sentPlannerMessages).toHaveLength(0);
+    store.close();
+  });
+
+  it("suspended pair stays suspended until store is released (operator action)", async () => {
+    const { store, worker, engine, logger } = await engineHooks({ maxAttempts: 1 });
+    worker.setUnreachable();
+    store.touchSupervisorState({ pairId: "kisab-main", recoverySuspended: true, recoverySuspendedAt: new Date().toISOString(), recoveryAttemptCount: 3 });
+
+    const result = await engine.attempt({
+      state: "FAILED",
+      snapshot: snapshot({ worker: healthyWorker({ reachable: false }), planner: healthyPlanner() }),
+      continuity: store.getSupervisorState("kisab-main") ?? continuity({ recoverySuspended: true })
+    });
+    expect(result.performed).toBe(false);
+    expect(result.code).toBe("RECOVERY_SUSPENDED");
     store.close();
   });
 });

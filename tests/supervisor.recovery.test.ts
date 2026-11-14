@@ -19,9 +19,9 @@ afterEach(async () => {
 });
 
 async function openStore(): Promise<RelayStore> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-sup-recovery-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-sup-recovery-"));
   tempDirs.push(directory);
-  const store = new SqliteRelayStore(join(directory, "agent-relay.sqlite"));
+  const store = new SqliteRelayStore(join(directory, "agent.sqlite"));
   await store.init();
   return store;
 }
@@ -299,7 +299,7 @@ describe("Supervisor M8 recovery and stability behavior", () => {
     store.close();
   });
 
-  it("nudges a stuck pair and keeps supervision active for the worker to resume", async () => {
+  it("escalates a stuck pair to the Recovery Agent without re-prompting it", async () => {
     const store = await openStore();
     const worker = new ControllableWorker([
       { id: "user-1", source: "planner", role: "user", text: "Do the next step", createdAt: 1_000 }
@@ -307,7 +307,7 @@ describe("Supervisor M8 recovery and stability behavior", () => {
     const planner = new FakeChatGPTBrowserAdapter();
     const logger = new MemorySupervisorLogger();
     const supervisor = new Supervisor({
-      pair: makePair(),
+      pair: makePair({ masterWorkerSessionId: "ses_master_1" }),
       worker,
       planner,
       store,
@@ -326,11 +326,13 @@ describe("Supervisor M8 recovery and stability behavior", () => {
     expect(stuck.state).toBe("STUCK");
     expect(stuck.recovery?.intervention).toBe(false);
     expect(stuck.recovery?.recovered).toBe(false);
+    // No autonomous re-prompt: the investigation request goes to the Recovery Agent only.
     expect(worker.sentPlannerMessages).toHaveLength(1);
+    expect(worker.sentPlannerMessages[0]?.worker.sessionId).toBe("ses_master_1");
     expect(logger.events.map((event) => event.type)).toContain("STUCK_DETECTED");
-    expect(logger.events.map((event) => event.type)).toContain("RECOVERY_RETRY");
+    expect(logger.events.map((event) => event.type)).toContain("ESCALATED_TO_AGENT");
 
-    // Progress clears STUCK after the bounded continuation nudge.
+    // Progress clears STUCK as before; the escalation went to the Recovery Agent, not the worker.
     worker.setMessages([
       { id: "user-1", source: "planner", role: "user", text: "Do the next step", createdAt: 1_000 },
       { id: "report-1", source: "worker", role: "assistant", text: "I made progress", createdAt: 4_000 }

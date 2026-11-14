@@ -14,7 +14,7 @@ async function cleanup() {
 }
 
 async function makeAdapter(): Promise<{ adapter: ControlPlaneAdapter; service: DesktopApplicationService; projectPairService: ProjectPairService; configPath: string; cleanupDir: string }> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-project-pair-baseline-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-project-pair-baseline-"));
   tempDirs.push(directory);
   const configPath = join(directory, "pairs.json");
   const dbPath = join(directory, "test.sqlite");
@@ -100,7 +100,7 @@ describe("TAURI_PROJECT_PAIR_BASELINE — control plane adapter", () => {
   });
 
   it("persists project pairs across restart", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-persist-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-persist-"));
     tempDirs.push(directory);
     const configPath = join(directory, "pairs.json");
     const dbPath = join(directory, "persist.sqlite");

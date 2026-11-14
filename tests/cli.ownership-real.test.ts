@@ -38,9 +38,9 @@ var fs = require("node:fs");
 
 var sessionId = ${JSON.stringify(sessionId)};
 var repoPath = ${JSON.stringify(repoPath)};
-var pidFile = process.env.AGENT_RELAY_TEST_PID_FILE;
-var sessionRequestMarker = process.env.AGENT_RELAY_TEST_SESSION_REQUEST_MARKER;
-var sessionResponseDelayMs = parseInt(process.env.AGENT_RELAY_TEST_SESSION_DELAY_MS || "0", 10);
+var pidFile = process.env.AGENT_TEST_PID_FILE;
+var sessionRequestMarker = process.env.AGENT_TEST_SESSION_REQUEST_MARKER;
+var sessionResponseDelayMs = parseInt(process.env.AGENT_TEST_SESSION_DELAY_MS || "0", 10);
 
 if (pidFile) {
   fs.writeFileSync(pidFile, String(process.pid));
@@ -106,7 +106,7 @@ process.on("SIGINT", shutdown);
 }
 
 async function makeFixtureRepo(sessionId: string): Promise<{ repoDir: string; repoPath: string; fixturePath: string }> {
-  const repoDir = await mkdtemp(join(tmpdir(), "agent-relay-repo-"));
+  const repoDir = await mkdtemp(join(tmpdir(), "agent-repo-"));
   tempDirs.push(repoDir);
   const repoPath = join(repoDir, "repo");
   mkdirSync(repoPath, { recursive: true });
@@ -203,7 +203,7 @@ describe("real-process CLI ownership", () => {
   it("recovery retry starts fixture via launcher, transfers ownership, fixture survives CLI exit", async () => {
     const { repoDir, repoPath } = await makeFixtureRepo(FIXTURE_SESSION_ID);
     const configPath = join(repoDir, "pairs.json");
-    const dbPath = join(repoDir, "agent-relay.sqlite");
+    const dbPath = join(repoDir, "agent.sqlite");
     const pidPath = join(repoDir, "fixture.pid");
     const port = await allocatePort();
     const pair = makePairConfig(FIXTURE_SESSION_ID, repoPath, `http://127.0.0.1:${port}`);
@@ -214,7 +214,7 @@ describe("real-process CLI ownership", () => {
 
     const cli = spawnCliAsync(
       ["recovery", "retry", "kisab-main", "--json", "--recovery", "safe", "--config", configPath, "--db", dbPath],
-      { AGENT_RELAY_OPENCODE_EXECUTABLE: process.execPath, AGENT_RELAY_TEST_PID_FILE: pidPath }
+      { AGENT_OPENCODE_EXECUTABLE: process.execPath, AGENT_TEST_PID_FILE: pidPath }
     );
     const output = collectOutput(cli);
     const code = await output.promise;
@@ -238,7 +238,7 @@ describe("real-process CLI ownership", () => {
   it("recovery retry with --recovery none connects to existing fixture, never spawns or kills it", async () => {
     const { repoDir, repoPath, fixturePath } = await makeFixtureRepo(FIXTURE_SESSION_ID);
     const configPath = join(repoDir, "pairs.json");
-    const dbPath = join(repoDir, "agent-relay.sqlite");
+    const dbPath = join(repoDir, "agent.sqlite");
     const port = await allocatePort();
     const pair = makePairConfig(FIXTURE_SESSION_ID, repoPath, `http://127.0.0.1:${port}`);
     await writeFile(configPath, JSON.stringify({ pairs: [pair] }), "utf8");
@@ -253,7 +253,7 @@ describe("real-process CLI ownership", () => {
 
     const cli = spawnCliAsync(
       ["recovery", "retry", "kisab-main", "--json", "--recovery", "none", "--config", configPath, "--db", dbPath],
-      { AGENT_RELAY_OPENCODE_EXECUTABLE: process.execPath }
+      { AGENT_OPENCODE_EXECUTABLE: process.execPath }
     );
     const output = collectOutput(cli);
     const code = await output.promise;
@@ -266,7 +266,7 @@ describe("real-process CLI ownership", () => {
   it("failed recovery retains ownership and stops the launcher-started fixture", async () => {
     const { repoDir, repoPath } = await makeFixtureRepo("different-session");
     const configPath = join(repoDir, "pairs.json");
-    const dbPath = join(repoDir, "agent-relay.sqlite");
+    const dbPath = join(repoDir, "agent.sqlite");
     const port = await allocatePort();
     const pair = makePairConfig(FIXTURE_SESSION_ID, repoPath, `http://127.0.0.1:${port}`);
     await writeFile(configPath, JSON.stringify({ pairs: [pair] }), "utf8");
@@ -274,7 +274,7 @@ describe("real-process CLI ownership", () => {
     expect(isReachable(port)).toBe(false);
     const cli = spawnCliAsync(
       ["recovery", "retry", "kisab-main", "--json", "--recovery", "safe", "--config", configPath, "--db", dbPath],
-      { AGENT_RELAY_OPENCODE_EXECUTABLE: process.execPath }
+      { AGENT_OPENCODE_EXECUTABLE: process.execPath }
     );
     const output = collectOutput(cli);
     const code = await output.promise;
@@ -290,7 +290,7 @@ describe("real-process CLI ownership", () => {
   it("runtime start starts fixture via launcher, SIGINT shuts down and kills it", async () => {
     const { repoDir, repoPath } = await makeFixtureRepo(FIXTURE_SESSION_ID);
     const configPath = join(repoDir, "pairs.json");
-    const dbPath = join(repoDir, "agent-relay.sqlite");
+    const dbPath = join(repoDir, "agent.sqlite");
     const port = await allocatePort();
     const pair = makePairConfig(FIXTURE_SESSION_ID, repoPath, `http://127.0.0.1:${port}`);
     await writeFile(configPath, JSON.stringify({ pairs: [pair] }), "utf8");
@@ -306,7 +306,7 @@ describe("real-process CLI ownership", () => {
         "--config", configPath,
         "--db", dbPath,
       ],
-      { AGENT_RELAY_OPENCODE_EXECUTABLE: process.execPath }
+      { AGENT_OPENCODE_EXECUTABLE: process.execPath }
     );
 
     // Wait until the fixture becomes reachable (launcher started it).
@@ -328,7 +328,7 @@ describe("real-process CLI ownership", () => {
   it("runtime start exits when SIGINT interrupts the initial observation", async () => {
     const { repoDir, repoPath } = await makeFixtureRepo(FIXTURE_SESSION_ID);
     const configPath = join(repoDir, "pairs.json");
-    const dbPath = join(repoDir, "agent-relay.sqlite");
+    const dbPath = join(repoDir, "agent.sqlite");
     const markerPath = join(repoDir, "session-requested");
     const port = await allocatePort();
     const pair = makePairConfig(FIXTURE_SESSION_ID, repoPath, `http://127.0.0.1:${port}`);
@@ -343,9 +343,9 @@ describe("real-process CLI ownership", () => {
         "--db", dbPath,
       ],
       {
-        AGENT_RELAY_OPENCODE_EXECUTABLE: process.execPath,
-        AGENT_RELAY_TEST_SESSION_REQUEST_MARKER: markerPath,
-        AGENT_RELAY_TEST_SESSION_DELAY_MS: "10000",
+        AGENT_OPENCODE_EXECUTABLE: process.execPath,
+        AGENT_TEST_SESSION_REQUEST_MARKER: markerPath,
+        AGENT_TEST_SESSION_DELAY_MS: "10000",
       }
     );
     const output = collectOutput(cli);
@@ -369,7 +369,7 @@ describe("real-process CLI ownership", () => {
   it("supervise --watch starts fixture via launcher, SIGINT shuts down and kills it", async () => {
     const { repoDir, repoPath } = await makeFixtureRepo(FIXTURE_SESSION_ID);
     const configPath = join(repoDir, "pairs.json");
-    const dbPath = join(repoDir, "agent-relay.sqlite");
+    const dbPath = join(repoDir, "agent.sqlite");
     const port = await allocatePort();
     const pair = makePairConfig(FIXTURE_SESSION_ID, repoPath, `http://127.0.0.1:${port}`);
     await writeFile(configPath, JSON.stringify({ pairs: [pair] }), "utf8");
@@ -385,7 +385,7 @@ describe("real-process CLI ownership", () => {
         "--config", configPath,
         "--db", dbPath,
       ],
-      { AGENT_RELAY_OPENCODE_EXECUTABLE: process.execPath }
+      { AGENT_OPENCODE_EXECUTABLE: process.execPath }
     );
 
     // Wait until the fixture becomes reachable.

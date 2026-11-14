@@ -14,7 +14,7 @@ async function cleanup() {
 }
 
 async function makeAdapter(): Promise<{ adapter: ControlPlaneAdapter; service: DesktopApplicationService; configPath: string; cleanupDir: string }> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-binding-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-binding-"));
   tempDirs.push(directory);
   const configPath = join(directory, "pairs.json");
   const dbPath = join(directory, "binding.sqlite");
@@ -100,7 +100,7 @@ describe("TAURI_PAIR_SESSION_BINDING — session discovery, binding, isolation",
   });
 
   it("binding persists across restart", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-binding-persist-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-binding-persist-"));
     tempDirs.push(directory);
     const configPath = join(directory, "pairs.json");
     const dbPath = join(directory, "binding.sqlite");

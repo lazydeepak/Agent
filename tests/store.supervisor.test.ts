@@ -12,9 +12,9 @@ afterEach(async () => {
 });
 
 async function freshDbPath(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-supervisor-store-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-supervisor-store-"));
   tempDirs.push(directory);
-  return join(directory, "agent-relay.sqlite");
+  return join(directory, "agent.sqlite");
 }
 
 const V1_DDL = `

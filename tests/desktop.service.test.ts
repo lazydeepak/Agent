@@ -249,9 +249,11 @@ describe("DesktopApplicationService", () => {
       await ctx.service.startPair("kisab-main");
       await ctx.service.startPair("b-main");
       await ctx.service.stopPair("b-main");
-      expect(ctx.service.getResumeState()).toEqual([
-        { pairId: "kisab-main", resumeAfterRestart: true },
-        { pairId: "b-main", resumeAfterRestart: false }
+      // Rule 15: only operator-enabled pairs auto-resume; b-main was never enabled.
+      ctx.service.setAutoResumeAfterRestart("kisab-main", true);
+      expect(ctx.service.getAutoResumeState()).toEqual([
+        { pairId: "kisab-main", autoResumeAfterRestart: true },
+        { pairId: "b-main", autoResumeAfterRestart: false }
       ]);
       await ctx.service.shutdown();
 
@@ -265,6 +267,91 @@ describe("DesktopApplicationService", () => {
       expect(restarted.getPairStatus("kisab-main")?.runtimeState).toBe("RUNNING");
       expect(restarted.getPairStatus("b-main")?.runtimeState).toBe("STOPPED");
       await restarted.shutdown();
+    } finally {
+      await ctx.cleanup();
+    }
+  });
+
+  it("defaults to paused after a restart even for pairs that had been running", async () => {
+    const ctx = await makeContext([makePairDto("kisab-main")], { pollIntervalMs: 10 });
+    try {
+      await ctx.service.init();
+      await ctx.service.startPair("kisab-main");
+      await ctx.service.shutdown();
+
+      const restarted = createTestDesktopService({
+        configPath: ctx.configPath,
+        dbPath: ctx.dbPath,
+        pollIntervalMs: 10
+      });
+      await restarted.init();
+      await restarted.resumeManagedPairs();
+      expect(restarted.getPairStatus("kisab-main")?.runtimeState).toBe("STOPPED");
+      await restarted.shutdown();
+    } finally {
+      await ctx.cleanup();
+    }
+  });
+
+  it("Stop All disables Auto Resume for every pair and survives a restart", async () => {
+    const ctx = await makeContext([makePairDto("kisab-main"), makePairDto("b-main")], { pollIntervalMs: 10 });
+    try {
+      await ctx.service.init();
+      await ctx.service.startPair("kisab-main");
+      await ctx.service.startPair("b-main");
+      ctx.service.setAutoResumeAfterRestart("kisab-main", true);
+      ctx.service.setAutoResumeAfterRestart("b-main", true);
+      await ctx.service.stopAll();
+      expect(ctx.service.getAutoResumeState()).toEqual([
+        { pairId: "kisab-main", autoResumeAfterRestart: false },
+        { pairId: "b-main", autoResumeAfterRestart: false }
+      ]);
+      await ctx.service.shutdown();
+
+      const restarted = createTestDesktopService({
+        configPath: ctx.configPath,
+        dbPath: ctx.dbPath,
+        pollIntervalMs: 10
+      });
+      await restarted.init();
+      await restarted.resumeManagedPairs();
+      expect(restarted.getPairStatus("kisab-main")?.runtimeState).toBe("STOPPED");
+      expect(restarted.getPairStatus("b-main")?.runtimeState).toBe("STOPPED");
+      await restarted.shutdown();
+    } finally {
+      await ctx.cleanup();
+    }
+  });
+
+  it("Stopping one pair disables only its Auto Resume", async () => {
+    const ctx = await makeContext([makePairDto("kisab-main"), makePairDto("b-main")], { pollIntervalMs: 10 });
+    try {
+      await ctx.service.init();
+      await ctx.service.startPair("kisab-main");
+      await ctx.service.startPair("b-main");
+      ctx.service.setAutoResumeAfterRestart("kisab-main", true);
+      ctx.service.setAutoResumeAfterRestart("b-main", true);
+      await ctx.service.stopPair("kisab-main");
+      expect(ctx.service.getAutoResumeState()).toEqual([
+        { pairId: "kisab-main", autoResumeAfterRestart: false },
+        { pairId: "b-main", autoResumeAfterRestart: true }
+      ]);
+      await ctx.service.shutdown();
+    } finally {
+      await ctx.cleanup();
+    }
+  });
+
+  it("persists history retention settings and exposes them on read", async () => {
+    const ctx = await makeContext([makePairDto("kisab-main")]);
+    try {
+      await ctx.service.init();
+      expect(ctx.service.getSettings().historyRetentionDays).toBeUndefined();
+      const saved = ctx.service.updateSettings({ historyRetentionDays: 30 });
+      expect(saved.historyRetentionDays).toBe(30);
+      expect(ctx.service.getSettings().historyRetentionDays).toBe(30);
+      expect(() => ctx.service.updateSettings({ historyRetentionDays: -1 })).toThrow(/historyRetentionDays/);
+      await ctx.service.shutdown();
     } finally {
       await ctx.cleanup();
     }
@@ -569,13 +656,14 @@ async function makeContext(
   dbPath: string;
   cleanup: () => Promise<void>;
 }> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-desktop-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-desktop-"));
   tempDirs.push(directory);
   const configPath = join(directory, "pairs.json");
-  const dbPath = join(directory, "agent-relay.sqlite");
+  const dbPath = join(directory, "agent.sqlite");
   if (options.writeConfig !== false) {
     await writeFile(configPath, JSON.stringify({ pairs }), "utf8");
   }
+  process.env.AGENT_SETTINGS_PATH = join(directory, "settings.local.json");
   const service = createTestDesktopService({
     configPath,
     dbPath,
@@ -669,3 +757,41 @@ function makeSummary(pairs: SummaryPairInput[]): RuntimeStatusSummary {
     }))
   };
 }
+
+describe("Stop All semantics (v1.1 §5)", () => {
+  it("records termination-unverified evidence and disables Auto Resume for every pair on Stop All", async () => {
+    const ctx = await makeContext([makePairDto("kisab-main"), makePairDto("b-main")], { pollIntervalMs: 10 });
+    try {
+      await ctx.service.init();
+      const events: string[] = [];
+      ctx.service.subscribeEvents((event) => events.push(event.type));
+      await ctx.service.startPair("kisab-main");
+      await ctx.service.startPair("b-main");
+      ctx.service.setAutoResumeAfterRestart("kisab-main", true);
+      ctx.service.setAutoResumeAfterRestart("b-main", true);
+      await ctx.service.stopAll();
+      expect(ctx.service.getAutoResumeState()).toEqual([
+        { pairId: "kisab-main", autoResumeAfterRestart: false },
+        { pairId: "b-main", autoResumeAfterRestart: false }
+      ]);
+      expect(events).toContain("STOP_ALL_REQUESTED");
+      await ctx.service.shutdown();
+    } finally {
+      await ctx.cleanup();
+    }
+  });
+
+  it("lets pairs be started again after Stop All (one-time command, not a persistent lock)", async () => {
+    const ctx = await makeContext([makePairDto("kisab-main")], { pollIntervalMs: 10 });
+    try {
+      await ctx.service.init();
+      await ctx.service.startPair("kisab-main");
+      await ctx.service.stopAll();
+      await ctx.service.startPair("kisab-main");
+      expect(ctx.service.getPairStatus("kisab-main")?.runtimeState).toBe("RUNNING");
+      await ctx.service.shutdown();
+    } finally {
+      await ctx.cleanup();
+    }
+  });
+});

@@ -71,7 +71,7 @@ describe("CLI safe recovery launcher", () => {
     const worker = new ControllableWorker([], pair.worker.repoPath);
     worker.setUnreachable();
     let endpointReachable = false;
-    vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+    vi.stubEnv("AGENT_OPENCODE_EXECUTABLE", process.execPath);
     vi.mocked(spawn).mockImplementation(() => {
       endpointReachable = true;
       worker.reachable = true;
@@ -140,7 +140,7 @@ describe("one-shot CLI ownership", () => {
 
     child = makeChild();
     const unrefSpy = child.unref as ReturnType<typeof vi.fn>;
-    vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+    vi.stubEnv("AGENT_OPENCODE_EXECUTABLE", process.execPath);
     let endpointReachable = false;
     vi.mocked(spawn).mockImplementation(() => {
       endpointReachable = true;
@@ -179,7 +179,7 @@ describe("one-shot CLI ownership", () => {
 
     child = makeChild();
     const killSpy = child.kill as ReturnType<typeof vi.fn>;
-    vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+    vi.stubEnv("AGENT_OPENCODE_EXECUTABLE", process.execPath);
     let endpointReachable = false;
     vi.mocked(spawn).mockImplementation(() => {
       endpointReachable = true;
@@ -216,7 +216,7 @@ describe("one-shot CLI ownership", () => {
 
     child = makeChild();
     const killSpy = child.kill as ReturnType<typeof vi.fn>;
-    vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+    vi.stubEnv("AGENT_OPENCODE_EXECUTABLE", process.execPath);
     let endpointReachable2 = false;
     vi.mocked(spawn).mockImplementation(() => {
       endpointReachable2 = true;
@@ -258,7 +258,7 @@ describe("repeated CLI invocations", () => {
     expect(options1?.startServerLauncher).not.toBe(options2?.startServerLauncher);
 
     child = makeChild();
-    vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+    vi.stubEnv("AGENT_OPENCODE_EXECUTABLE", process.execPath);
     vi.mocked(spawn).mockImplementation(() => child);
     vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
 
@@ -297,7 +297,7 @@ describe("simultaneous starts with single-flight protection", () => {
     const second = new LocalDesktopToolLauncher();
     child = makeChild();
     vi.mocked(spawn).mockReturnValue(child);
-    vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+    vi.stubEnv("AGENT_OPENCODE_EXECUTABLE", process.execPath);
     let ready = false;
     vi.stubGlobal("fetch", vi.fn(async () => {
       if (!ready) throw new Error("offline");
@@ -336,7 +336,7 @@ describe("simultaneous starts with single-flight protection", () => {
 
   it("releases a rejected single-flight so a later start can retry", async () => {
     const launcher = new LocalDesktopToolLauncher();
-    const input = { repoPath: "/definitely/missing/agent-relay-test", baseUrl: "http://127.0.0.1:4097" };
+    const input = { repoPath: "/definitely/missing/agent-test", baseUrl: "http://127.0.0.1:4097" };
     const failures = await Promise.allSettled([launcher.startOpenCode(input), launcher.startOpenCode(input)]);
     expect(failures.every((result) => result.status === "rejected")).toBe(true);
     vi.stubGlobal("fetch", vi.fn(async () => new Response("{}")));
@@ -351,7 +351,7 @@ describe("platform-specific ownership", () => {
     const launcher = new LocalDesktopToolLauncher();
     child = makeChild();
     vi.mocked(spawn).mockReturnValue(child);
-    vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+    vi.stubEnv("AGENT_OPENCODE_EXECUTABLE", process.execPath);
     let fetchCalls = 0;
     vi.stubGlobal("fetch", vi.fn(async () => {
       fetchCalls++;
@@ -374,7 +374,7 @@ describe("platform-specific ownership", () => {
     const launcher = new LocalDesktopToolLauncher();
     child = makeChild();
     const killSpy = child.kill as ReturnType<typeof vi.fn>;
-    vi.stubEnv("AGENT_RELAY_OPENCODE_EXECUTABLE", process.execPath);
+    vi.stubEnv("AGENT_OPENCODE_EXECUTABLE", process.execPath);
     let endpointReachable = false;
     vi.mocked(spawn).mockImplementation(() => {
       endpointReachable = true;
@@ -406,10 +406,10 @@ describe("in-process CLI signal-listener hygiene", () => {
   });
 
   it("runtime start error path removes signal listeners before returning", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-listener-cleanup-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-listener-cleanup-"));
     tempDirs.push(directory);
     const configPath = join(directory, "pairs.json");
-    const dbPath = join(directory, "agent-relay.sqlite");
+    const dbPath = join(directory, "agent.sqlite");
     const pair = makePair({ enabled: false });
     await writeFile(configPath, JSON.stringify({ pairs: [pair] }), "utf8");
 
@@ -443,11 +443,11 @@ function twoPairs() {
 import { mkdirSync } from "node:fs";
 
 function syncFixture(): { configPath: string; dbPath: string } {
-  const dir = join(tmpdir(), "agent-relay-sync-" + Math.random().toString(36).slice(2));
+  const dir = join(tmpdir(), "agent-sync-" + Math.random().toString(36).slice(2));
   mkdirSync(dir);
   tempDirs.push(dir);
   const configPath = join(dir, "pairs.json");
-  const dbPath = join(dir, "agent-relay.sqlite");
+  const dbPath = join(dir, "agent.sqlite");
   writeFileSync(configPath, JSON.stringify({ pairs: twoPairs() }), "utf8");
   return { configPath, dbPath };
 }

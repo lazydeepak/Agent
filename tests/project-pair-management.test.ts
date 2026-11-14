@@ -14,7 +14,7 @@ async function cleanup() {
 
 describe("TAURI_PROJECT_PAIR_MANAGEMENT — persistence and isolation", () => {
   it("project edit persists across restart", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-edit-project-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-edit-project-"));
     tempDirs.push(directory);
     const configPath = join(directory, "pairs.json");
     const dbPath = join(directory, "edit.sqlite");
@@ -39,7 +39,7 @@ describe("TAURI_PROJECT_PAIR_MANAGEMENT — persistence and isolation", () => {
   });
 
   it("pair edit persists across restart", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-edit-pair-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-edit-pair-"));
     tempDirs.push(directory);
     const configPath = join(directory, "pairs.json");
     const dbPath = join(directory, "edit-pair.sqlite");
@@ -62,7 +62,7 @@ describe("TAURI_PROJECT_PAIR_MANAGEMENT — persistence and isolation", () => {
   });
 
   it("archive project does not destroy unrelated pairs", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-archive-isolation-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-archive-isolation-"));
     tempDirs.push(directory);
     const configPath = join(directory, "pairs.json");
     const dbPath = join(directory, "archive.sqlite");
@@ -86,7 +86,7 @@ describe("TAURI_PROJECT_PAIR_MANAGEMENT — persistence and isolation", () => {
   });
 
   it("pair archive (removePair) preserves isolation", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "agent-relay-pair-archive-"));
+    const directory = await mkdtemp(join(tmpdir(), "agent-pair-archive-"));
     tempDirs.push(directory);
     const configPath = join(directory, "pairs.json");
     const dbPath = join(directory, "pair-archive.sqlite");

@@ -482,9 +482,9 @@ function receivedSourceIds(planner: FakeChatGPTBrowserAdapter): string[] {
 }
 
 async function freshStore(): Promise<{ store: RelayStore; cleanup: () => Promise<void> }> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-runtime-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-runtime-"));
   tempDirs.push(directory);
-  const store = new SqliteRelayStore(join(directory, "agent-relay.sqlite"));
+  const store = new SqliteRelayStore(join(directory, "agent.sqlite"));
   await store.init();
   return { store, cleanup: () => rm(directory, { force: true, recursive: true }) };
 }

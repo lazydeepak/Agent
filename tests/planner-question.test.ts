@@ -18,9 +18,9 @@ afterEach(async () => {
 });
 
 async function openStore(): Promise<RelayStore> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-planner-question-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-planner-question-"));
   tempDirs.push(directory);
-  const store = new SqliteRelayStore(join(directory, "agent-relay.sqlite"));
+  const store = new SqliteRelayStore(join(directory, "agent.sqlite"));
   await store.init();
   return store;
 }

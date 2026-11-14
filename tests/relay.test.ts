@@ -4,6 +4,15 @@ import { StaticOpenCodeAdapter } from "../src/adapters/opencode/index.js";
 import { extractModelInstruction, relayPlannerToWorker, relayWorkerToPlanner } from "../src/relay/index.js";
 import { makePair } from "./helpers.js";
 
+/** Rule 14: every outbound relay message carries a watermark — assert payload + watermark separately. */
+function extractWatermarked(text: string | undefined): { payload: string; watermark: string } {
+  const match = text?.match(/^([\s\S]*)\n\n(⟦relay:[0-9a-f-]{36} \d{8}T\d{6}Z⟧)$/);
+  if (!match) {
+    throw new Error(`Text does not end with a relay watermark: ${JSON.stringify(text)}`);
+  }
+  return { payload: match[1]!, watermark: match[2]! };
+}
+
 describe("relayWorkerToPlanner", () => {
   it("delivers the latest worker assistant message to the planner adapter", async () => {
     const worker = new StaticOpenCodeAdapter([
@@ -39,7 +48,7 @@ describe("relayWorkerToPlanner", () => {
         transport: "fake-chatgpt-browser"
       }
     });
-    expect(planner.sentMessages[0]?.message.text).toBe("Final worker result");
+    expect(extractWatermarked(planner.sentMessages[0]?.message.text).payload).toBe("Final worker result");
   });
 
   it("returns NOOP when the worker session has no assistant message", async () => {
@@ -100,7 +109,7 @@ describe("relayPlannerToWorker", () => {
 
     await expect(relayPlannerToWorker(makePair(), { worker, planner })).resolves.toMatchObject({ status: "DELIVERED" });
     expect(switched).toEqual([{ providerID: "ollama", id: "qwen3-coder:30b" }]);
-    expect(worker.sentPlannerMessages[0]?.message.text).toBe("Inspect the repository status.");
+    expect(extractWatermarked(worker.sentPlannerMessages[0]?.message.text).payload).toBe("Inspect the repository status.");
   });
 
   it("recognizes only a first-line exact model directive", () => {
@@ -144,7 +153,7 @@ describe("relayPlannerToWorker", () => {
         transport: "static-opencode"
       }
     });
-    expect(worker.sentPlannerMessages[0]?.message.text).toBe("Build the next slice");
+    expect(extractWatermarked(worker.sentPlannerMessages[0]?.message.text).payload).toBe("Build the next slice");
   });
 
   it("returns NOOP when there is no mocked planner message", async () => {
@@ -204,9 +213,10 @@ describe("worker message payload protections", () => {
     expect(result.status).toBe("DELIVERED");
     expect(planner.sentMessages).toHaveLength(1);
     const sent = planner.sentMessages[0]!.message.text;
-    expect(sent.length).toBe(10015);
-    expect(sent.endsWith("\uFFFDLIMIT_TRUNCATED")).toBe(true);
-    expect(sent.startsWith("A".repeat(9999))).toBe(true);
+    const { payload } = extractWatermarked(sent);
+    expect(payload.length).toBe(10015);
+    expect(payload.endsWith("\uFFFDLIMIT_TRUNCATED")).toBe(true);
+    expect(payload.startsWith("A".repeat(9999))).toBe(true);
   });
 
   it("does not truncate a message within the 10,000 character limit", async () => {
@@ -218,7 +228,7 @@ describe("worker message payload protections", () => {
 
     await relayWorkerToPlanner(makePair(), { worker, planner });
 
-    expect(planner.sentMessages[0]!.message.text).toBe(exact);
+    expect(extractWatermarked(planner.sentMessages[0]!.message.text).payload).toBe(exact);
   });
 
   it("strips control characters (0x00-0x1F, 0x7F) including newlines and tabs", async () => {
@@ -230,15 +240,15 @@ describe("worker message payload protections", () => {
 
     await relayWorkerToPlanner(makePair(), { worker, planner });
 
-    const sent = planner.sentMessages[0]!.message.text;
-    expect(sent).toBe("Line oneLine twotabbedend");
-    expect(sent).not.toContain("\x00");
-    expect(sent).not.toContain("\x01");
-    expect(sent).not.toContain("\x1F");
-    expect(sent).not.toContain("\x7F");
-    expect(sent).not.toContain("\x02");
-    expect(sent).not.toContain("\n");
-    expect(sent).not.toContain("\t");
+    const { payload } = extractWatermarked(planner.sentMessages[0]!.message.text);
+    expect(payload).toBe("Line oneLine twotabbedend");
+    expect(payload).not.toContain("\x00");
+    expect(payload).not.toContain("\x01");
+    expect(payload).not.toContain("\x1F");
+    expect(payload).not.toContain("\x7F");
+    expect(payload).not.toContain("\x02");
+    expect(payload).not.toContain("\n");
+    expect(payload).not.toContain("\t");
   });
 
   it("classifies a worker question correctly before sanitization truncates it", async () => {
@@ -251,6 +261,6 @@ describe("worker message payload protections", () => {
 
     expect(result.status).toBe("DELIVERED");
     expect(result.classification).toBe("question");
-    expect(planner.sentMessages[0]!.message.text).toBe("Should I fix the types.ts file?");
+    expect(extractWatermarked(planner.sentMessages[0]!.message.text).payload).toBe("Should I fix the types.ts file?");
   });
 });

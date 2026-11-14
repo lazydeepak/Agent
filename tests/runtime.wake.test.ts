@@ -117,7 +117,7 @@ async function runtimeContext(
   planner: FakeChatGPTBrowserAdapter = new FakeChatGPTBrowserAdapter(),
   options: Partial<Pick<PairRuntimeOptions, "workerEvents" | "onEvent">> = {}
 ) {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-runtime-wake-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-runtime-wake-"));
   tempDirs.push(directory);
   const store = new SqliteRelayStore(join(directory, "relay.sqlite"));
   await store.init();

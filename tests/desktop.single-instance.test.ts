@@ -7,8 +7,8 @@ const PS = [
   "  100     1 /Applications/OpenCode.app/Contents/MacOS/OpenCode",
   "  200     1 sh -c electron desktop-dist/desktop/main/index.js --relay",
   "  201   200 node ./node_modules/.bin/electron desktop-dist/desktop/main/index.js --relay",
-  "  202   201 /Users/x/agent-relay/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron desktop-dist/desktop/main/index.js --relay",
-  "  203   202 /Users/x/agent-relay/node_modules/electron/dist/Electron Helper.app/Contents/MacOS/Electron Helper --type=renderer --app-path=/Users/x/agent-relay/desktop-dist/desktop/main",
+  "  202   201 /Users/x/agent/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron desktop-dist/desktop/main/index.js --relay",
+  "  203   202 /Users/x/agent/node_modules/electron/dist/Electron Helper.app/Contents/MacOS/Electron Helper --type=renderer --app-path=/Users/x/agent/desktop-dist/desktop/main",
   "  300     1 sh -c node scripts/ensure-single-instance.mjs && electron desktop-dist/desktop/main/index.js --relay",
   "  301   300 node scripts/ensure-single-instance.mjs"
 ].join("\n");

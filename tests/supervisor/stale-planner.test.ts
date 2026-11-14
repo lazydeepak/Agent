@@ -30,8 +30,8 @@ export interface StalePlannerEvidence {
 }
 
 export async function runStalePlannerRegression(): Promise<StalePlannerEvidence> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-stale-planner-"));
-  const store = new SqliteRelayStore(join(directory, "agent-relay.sqlite"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-stale-planner-"));
+  const store = new SqliteRelayStore(join(directory, "agent.sqlite"));
   await store.init();
 
   let now = Date.parse("2026-09-03T10:00:00.000Z");

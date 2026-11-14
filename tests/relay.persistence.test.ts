@@ -9,7 +9,7 @@ import { hashText } from "../src/persistence/canonical.js";
 import { relayPlannerToWorker, relayWorkerToPlanner } from "../src/relay/index.js";
 import type { ReadinessCheck, RelayReceipt, RelayableMessage } from "../src/types.js";
 import { makePair } from "./helpers.js";
-import { SubmissionNotAttemptedError } from "../src/relay/delivery-error.js";
+import { SubmissionNotAttemptedError } from "../src/util/delivery-error.js";
 
 const tempDirs: string[] = [];
 
@@ -18,9 +18,9 @@ afterEach(async () => {
 });
 
 async function openStore(): Promise<RelayStore> {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-relay-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-"));
   tempDirs.push(directory);
-  const store = new SqliteRelayStore(join(directory, "agent-relay.sqlite"));
+  const store = new SqliteRelayStore(join(directory, "agent.sqlite"));
   await store.init();
   return store;
 }
@@ -298,5 +298,139 @@ describe("relay attempt cap", () => {
     expect(result.status).toBe("HELD");
     expect(result.reason).toMatch(/cap 20/);
     expect(planner.sentMessages).toHaveLength(0);
+  });
+});
+
+describe("relayPlannerToWorker with startup operation (v1.1 §4)", () => {
+  it("admits exactly one planner response as the startup continuation and dispatches it once", async () => {
+    const store = await openStore();
+    const op = store.createStartupOperation({
+      pairId: "kisab-main",
+      mode: "fresh",
+      plannerSessionId: "conv-1",
+      workerSessionId: "ses-1",
+      maxAttempts: 3
+    });
+
+    const adapters = {
+      worker: new StaticOpenCodeAdapter(),
+      planner: new FakeChatGPTBrowserAdapter([
+        { id: "planner_latest", source: "planner", role: "user", text: "First step", createdAt: Date.now() }
+      ])
+    };
+
+    const first = await relayPlannerToWorker(makePair(), adapters, { persistence: { store } });
+    expect(first.status).toBe("DELIVERED");
+
+    // The accepted response is recorded as the startup continuation; the op is stabilized
+    // and normal operation resumes for subsequent turns.
+    const open = store.getOpenStartupOperation("kisab-main");
+    expect(open).toBeUndefined();
+    const stabilized = store.getStartupOperation(op.id);
+    expect(stabilized?.status).toBe("stabilized");
+    expect(stabilized?.acceptedResponseId).toBe("planner_latest");
+  });
+
+  it("holds dispatch when the open startup operation is on hold", async () => {
+    const store = await openStore();
+    const op = store.createStartupOperation({
+      pairId: "kisab-main",
+      mode: "fresh",
+      plannerSessionId: "conv-1",
+      workerSessionId: "ses-1",
+      maxAttempts: 3
+    });
+    store.markStartupOperationHold(op.id, "operator reconcile required");
+
+    const adapters = {
+      worker: new StaticOpenCodeAdapter(),
+      planner: new FakeChatGPTBrowserAdapter([
+        { id: "planner_held", source: "planner", role: "user", text: "Step while held", createdAt: Date.now() }
+      ])
+    };
+
+    const result = await relayPlannerToWorker(makePair(), adapters, { persistence: { store } });
+    expect(result.status).toBe("AMBIGUOUS");
+    expect(result.reason).toContain("on hold");
+  });
+
+  it("resumes normal dispatch after the startup continuation is accepted", async () => {
+    const store = await openStore();
+    const op = store.createStartupOperation({
+      pairId: "kisab-main",
+      mode: "fresh",
+      plannerSessionId: "conv-1",
+      workerSessionId: "ses-1",
+      maxAttempts: 3
+    });
+    store.acceptStartupResponse(op.id, "planner_original");
+
+    const adapters = {
+      worker: new StaticOpenCodeAdapter(),
+      planner: new FakeChatGPTBrowserAdapter([
+        { id: "planner_normal", source: "planner", role: "user", text: "Regular turn after startup", createdAt: Date.now() }
+      ])
+    };
+
+    const result = await relayPlannerToWorker(makePair(), adapters, { persistence: { store } });
+    expect(result.status).toBe("DELIVERED");
+  });
+
+  it("holds dispatch until a response attributable to the startup activation arrives", async () => {
+    const store = await openStore();
+    const op = store.createStartupOperation({
+      pairId: "kisab-main",
+      mode: "resume",
+      plannerSessionId: "conv-1",
+      workerSessionId: "ses-1",
+      maxAttempts: 3
+    });
+
+    const adapters = {
+      worker: new StaticOpenCodeAdapter(),
+      planner: new FakeChatGPTBrowserAdapter([
+        { id: "planner_old_ignored", source: "planner", role: "user", text: "Old message", createdAt: Date.parse(op.createdAt) - 1000 }
+      ])
+    };
+
+    const result = await relayPlannerToWorker(makePair(), adapters, { persistence: { store } });
+    expect(result.status).toBe("AMBIGUOUS");
+    expect(result.reason).toContain("not attributable");
+  });
+});
+
+describe("startup operation lifecycle (v1.1 §4)", () => {
+  it("creates a durable pending operation, records attempts, and accepts exactly one response", async () => {
+    const store = await openStore();
+    const op = store.createStartupOperation({ pairId: "kisab-main", mode: "fresh", plannerSessionId: "conv-1", workerSessionId: "ses-1", maxAttempts: 3 });
+    expect(op.status).toBe("pending");
+    expect(op.attemptCount).toBe(0);
+
+    store.recordStartupAttempt(op.id);
+    store.recordStartupAttempt(op.id);
+    expect(store.getStartupOperation(op.id)?.attemptCount).toBe(2);
+
+    expect(store.acceptStartupResponse(op.id, "resp-1")).toBe(true);
+    expect(store.getStartupOperation(op.id)?.status).toBe("stabilized");
+
+    expect(store.acceptStartupResponse(op.id, "resp-2")).toBe(false);
+    expect(store.getStartupOperation(op.id)?.acceptedResponseId).toBe("resp-1");
+  });
+
+  it("refuses a second acceptance once the startup operation is stabilized", async () => {
+    const store = await openStore();
+    const op = store.createStartupOperation({ pairId: "kisab-main", mode: "fresh", plannerSessionId: "conv-1", workerSessionId: "ses-1" });
+    store.acceptStartupResponse(op.id, "resp-first");
+    expect(store.acceptStartupResponse(op.id, "resp-second")).toBe(false);
+    expect(store.getOpenStartupOperation("kisab-main")).toBeUndefined();
+  });
+
+  it("marks a hold with an explicit reason", async () => {
+    const store = await openStore();
+    const op = store.createStartupOperation({ pairId: "kisab-main", mode: "resume", plannerSessionId: "conv-1", workerSessionId: "ses-1" });
+    store.markStartupOperationHold(op.id, "delivery unconfirmed");
+    const open = store.getOpenStartupOperation("kisab-main");
+    expect(open?.status).toBe("hold");
+    expect(open?.holdReason).toBe("delivery unconfirmed");
   });
 });
