@@ -15,11 +15,9 @@ export {
 export {
   JsonLineSupervisorLogger,
   MemorySupervisorLogger,
-  defaultSupervisorLogPath,
-  type SupervisorEvent,
-  type SupervisorEventType,
-  type SupervisorLogger
+  defaultSupervisorLogPath
 } from "./events.js";
+export type { RuntimeEventType, SupervisorEventType, SupervisorEvent, RuntimeEvent, SupervisorLogger } from "../contracts/events.js";
 export { collectObservation, makeObservationClock } from "./observation.js";
 export { decideRelays, type PolicyInput, type RelayDecisions, type SuperviseMode } from "./policy.js";
 export { isBusyState, isSupervisorState, isTerminalFailure, SUPERVISOR_STATES } from "./state.js";

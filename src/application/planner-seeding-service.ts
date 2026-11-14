@@ -48,8 +48,21 @@ export class PlannerSeedingService {
     const pair = this.ctx.getPairDetail(pairId);
     if (!pair) throw new DesktopApplicationError("UNKNOWN_PAIR", `Unknown pairId "${pairId}".`);
     this.ctx.ensureBrowserLocks();
+    const store = this.ctx.ensureStore();
     const planner = createPairAdapters(pair, this.ctx.adapterOptions()).planner;
     const sentAt = new Date().toISOString();
+
+    // v1.1 §4 — durable startup-operation identity BEFORE any activation is sent.
+    // A failed/crashed activation is always visible to the operator; it is never silently re-sent.
+    const startupOp = store.createStartupOperation({
+      pairId,
+      mode: "fresh",
+      plannerSessionId: pair.planner.conversationId,
+      workerSessionId: pair.worker.sessionId,
+      maxAttempts: 3
+    });
+    store.recordStartupAttempt(startupOp.id);
+
     const message: RelayableMessage = {
       id: `universal-kickoff-${pairId}-v${UNIVERSAL_PLANNER_PROMPT_VERSION}-${Date.now()}`,
       source: "worker",
@@ -57,7 +70,20 @@ export class PlannerSeedingService {
       text: UNIVERSAL_PLANNER_PROMPT,
       createdAt: Date.now()
     };
-    await planner.sendWorkerMessage(pair.planner, message);
+
+    try {
+      await planner.sendWorkerMessage(pair.planner, message);
+    } catch (error) {
+      store.markStartupOperationHold(startupOp.id, `Startup activation could not be confirmed: ${error instanceof Error ? error.message : String(error)}`);
+      this.ctx.recordEvent("INTERVENTION_REQUIRED", pairId, {
+        reason: `Startup activation for pair ${pairId} is on hold — delivery could not be confirmed. Operator must reconcile before any managed work is dispatched.`,
+        details: { action: "startup-hold", startupId: startupOp.id }
+      });
+      throw new DesktopApplicationError(
+        "STARTUP_HOLD",
+        `Startup activation is on hold for pair ${pairId}: delivery could not be confirmed. Inspect the planner conversation and reconcile or resume the pair explicitly.`
+      );
+    }
     try {
       await this.ctx.updatePairConfig(pairId, {
         planner: { automation: { promptVersion: UNIVERSAL_PLANNER_PROMPT_VERSION, seededAt: sentAt } }

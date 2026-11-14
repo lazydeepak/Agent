@@ -34,6 +34,9 @@ export interface PairEdits {
   planner?: Partial<SessionPair["planner"]>;
   enabled?: boolean;
   localAgentMode?: boolean;
+  fallbackModel?: { providerID: string; id: string };
+  projectPairId?: string;
+  masterWorkerSessionId?: string;
 }
 
 /**
@@ -182,7 +185,9 @@ export class PairConfigRepository {
         worker,
         planner,
         localAgentMode: edits.localAgentMode ?? existing.localAgentMode,
-        projectPairId: existing.projectPairId
+        projectPairId: edits.projectPairId !== undefined ? edits.projectPairId : existing.projectPairId,
+        ...(edits.fallbackModel ? { fallbackModel: edits.fallbackModel } : existing.fallbackModel ? { fallbackModel: existing.fallbackModel } : {}),
+        ...(edits.masterWorkerSessionId !== undefined ? { masterWorkerSessionId: edits.masterWorkerSessionId } : existing.masterWorkerSessionId !== undefined ? { masterWorkerSessionId: existing.masterWorkerSessionId } : {})
       };
       const next = { pairs: current.pairs.map((pair) => (pair.pairId === pairId ? updated : pair)) };
       this.assertNoOwnershipConflict(next.pairs, updated, pairId);

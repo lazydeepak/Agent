@@ -35,7 +35,7 @@ export function createPairAdapters(pair: SessionPair, options: RuntimeAdapterOpt
   const openCodeOptions = { ...pair.worker.server, ...options.opencode, allowInsecureAuth: true };
   const liveOpenCode = shouldUseLiveOpenCode(options, pair);
   const worker = liveOpenCode ? new LiveOpenCodeAdapter(openCodeOptions) : new StaticOpenCodeAdapter();
-  const eventBaseUrl = openCodeOptions.baseUrl ?? process.env.AGENT_RELAY_OPENCODE_BASE_URL;
+  const eventBaseUrl = openCodeOptions.baseUrl ?? process.env.AGENT_OPENCODE_BASE_URL;
   const workerEvents =
     liveOpenCode && eventBaseUrl && openCodeOptions.apiProtocol !== "legacy"
       ? new HttpOpenCodeEventSource({ ...openCodeOptions, baseUrl: eventBaseUrl })
@@ -62,7 +62,7 @@ export function browserLockKey(pair: SessionPair): string {
     return `profile:${browser.userDataDir}`;
   }
   if (browser?.executablePath) {
-    return `profile:${join(tmpdir(), "agent-relay-chatgpt-profile")}`;
+    return `profile:${join(tmpdir(), "agent-chatgpt-profile")}`;
   }
   return "none";
 }

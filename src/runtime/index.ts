@@ -23,4 +23,4 @@ export type {
   RuntimePairStatus,
   RuntimeMetadata
 } from "../types.js";
-export type { RuntimeEvent, RuntimeEventType, SupervisorLogger } from "../supervisor/events.js";
+export type { RuntimeEvent, RuntimeEventType, SupervisorLogger } from "../contracts/events.js";

@@ -37,7 +37,10 @@
   .badge-running { background: rgba(63, 185, 80, 0.15); color: #3fb950; }
   .badge-stopped { background: rgba(139, 148, 158, 0.15); color: #8b949e; }
   .badge-error { background: rgba(218, 54, 51, 0.15); color: #f85149; }
-  .header-actions { display: flex; gap: 0.5rem; align-items: center; }
+  .header-actions { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+  .card-empty { text-align: center; color: #8b949e; }
+  .empty-state { text-align: center; color: #8b949e; padding: 1rem; }
+  .muted-text { color: #8b949e; }
 </style>
 </head>
 <body>
@@ -56,7 +59,7 @@
   </div>
 
   <div id="app" class="hidden">
-    <div class="header-actions" style="margin-bottom: 1rem;">
+    <div class="header-actions">
       <button class="btn btn-secondary" onclick="refresh()">Refresh</button>
       <button class="btn btn-danger" onclick="logout()">Logout</button>
     </div>
@@ -70,7 +73,7 @@
 </div>
 
 <script>
-let token = sessionStorage.getItem("agent-relay-remote-token") || "dev-token-123";
+let token = sessionStorage.getItem("agent-remote-token") || "dev-token-123";
 const input = document.getElementById("token");
 if (input) input.value = token;
 
@@ -86,7 +89,7 @@ async function connect() {
   msgEl.className = "loading";
 
   try {
-    const res = await fetch("/api/agent-relay/status", {
+    const res = await fetch("/api/agent/status", {
       headers: { Authorization: `Bearer ${auth}` }
     });
 
@@ -94,7 +97,7 @@ async function connect() {
       throw new Error("Authentication failed or service unreachable");
     }
 
-    sessionStorage.setItem("agent-relay-remote-token", auth);
+    sessionStorage.setItem("agent-remote-token", auth);
     document.getElementById("auth").classList.add("hidden");
     document.getElementById("app").classList.remove("hidden");
     await refresh();
@@ -110,7 +113,7 @@ function showAuthError(message) {
 }
 
 function logout() {
-  sessionStorage.removeItem("agent-relay-remote-token");
+  sessionStorage.removeItem("agent-remote-token");
   document.getElementById("app").classList.add("hidden");
   document.getElementById("auth").classList.remove("hidden");
   document.getElementById("auth-msg").textContent = "";
@@ -125,8 +128,8 @@ async function refresh() {
   listEl.innerHTML = '<div class="loading">Loading...</div>';
 
   try {
-    const res = await fetch("/api/agent-relay/status", {
-      headers: { Authorization: `Bearer ${sessionStorage.getItem("agent-relay-remote-token") ?? ""}` }
+    const res = await fetch("/api/agent/status", {
+      headers: { Authorization: `Bearer ${sessionStorage.getItem("agent-remote-token") ?? ""}` }
     });
 
     if (!res.ok) {
@@ -159,7 +162,7 @@ function render(status) {
   const pairs = status?.pairs ?? [];
 
   if (pairs.length === 0) {
-    list.innerHTML = '<div class="card" style="text-align: center; color: #8b949e;">No projects or pairs configured</div>';
+    list.innerHTML = '<div class="card card-empty">No projects or pairs configured</div>';
   } else {
     for (const p of pairs) {
       const card = document.createElement("div");
@@ -183,13 +186,13 @@ function render(status) {
   // Render timeline if available
   const events = status?.recentEvents ?? [];
   if (events.length === 0) {
-    timeline.innerHTML = '<div style="text-align: center; color: #8b949e; padding: 1rem;">No recent activity</div>';
+    timeline.innerHTML = '<div class="empty-state">No recent activity</div>';
   } else {
     for (const event of events) {
       const row = document.createElement("div");
       row.className = "timeline-row";
       const time = new Date(event.time).toLocaleTimeString();
-      row.innerHTML = `<span style="color: #8b949e;">${time}</span> · <strong>${escapeHtml(event.pairId ?? "system")}</strong> · ${escapeHtml(event.type)}`;
+      row.innerHTML = `<span class="muted-text">${time}</span> · <strong>${escapeHtml(event.pairId ?? "system")}</strong> · ${escapeHtml(event.type)}`;
       timeline.appendChild(row);
     }
   }
@@ -217,7 +220,7 @@ function escapeHtml(text) {
 }
 
 // Auto-connect if token exists
-if (sessionStorage.getItem("agent-relay-remote-token")) {
+if (sessionStorage.getItem("agent-remote-token")) {
   connect();
 }
 </script>

@@ -1,84 +1,13 @@
 /**
  * Agent-relay codebase — module explanation / info.
  * File: src/supervisor/events.ts
- * Purpose: Source module for events.ts.
+ * Purpose: Supervisor-side event logger implementations. The event type definitions
+ * live in contracts/events.ts so lower layers (recovery, runtime) can emit them
+ * without importing the supervisor layer.
  */
 import { createWriteStream, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import type { SupervisorState } from "../types.js";
-
-export type RuntimeEventType =
-  | "RUNTIME_STARTED"
-  | "RUNTIME_STOPPED"
-  | "PAIR_RUNTIME_STARTED"
-  | "PAIR_RUNTIME_STOPPED"
-  | "PAIR_RUNTIME_FAILED"
-  | "PAIR_RUNTIME_RECOVERED"
-  | "EVENT_SOURCE_DEGRADED"
-  | "SCHEDULER_MODE_CHANGED"
-  | "SHARED_ENDPOINT_DETECTED";
-
-export type SupervisorEventType =
-  | "WATCH_STARTED"
-  | "WATCH_STOPPED"
-  | "STATE_CHANGED"
-  | "STUCK_DETECTED"
-  | "WORKER_MESSAGE_RELAYED"
-  | "PLANNER_MESSAGE_RELAYED"
-  | "DUPLICATE_SKIPPED"
-  | "AMBIGUOUS_DELIVERY"
-  | "AMBIGUOUS_DELIVERY_BLOCKED"
-  | "AMBIGUOUS_DELIVERY_RECONCILED"
-  | "RELAY_FAILED"
-  | "RELAY_BLOCKED"
-  | "CHATGPT_RATE_LIMITED"
-  | "CHATGPT_SUBMISSION_HELD"
-  | "OBSERVATION_ERROR"
-  | "PAUSED"
-  | "PEER_DISCONNECTED"
-  | "RECOVERY_STARTED"
-  | "RECOVERY_RETRY"
-  | "RECOVERY_SUCCEEDED"
-  | "RECOVERY_FAILED"
-  | "RECOVERY_EXHAUSTED"
-  | "BROWSER_RELAUNCHED"
-  | "SESSION_RECONNECTED"
-  | "INTERVENTION_REQUIRED"
-  | "WORKER_MESSAGE_OBSERVED"
-  | "WORKER_ATTENTION_OPENED"
-  | "WORKER_ATTENTION_ACKNOWLEDGED"
-  | "WORKER_ATTENTION_RESOLVED"
-  | "PLANNER_MESSAGE_OBSERVED"
-  | "WORKER_SESSION_CONNECTED"
-  | "WORKER_SESSION_DISCONNECTED"
-  | "PLANNER_SESSION_CONNECTED"
-  | "PLANNER_SESSION_DISCONNECTED"
-  | "PLANNER_GENERATING"
-  | "PLANNER_IDLE"
-  | RuntimeEventType;
-
-export interface SupervisorEvent {
-  time: string;
-  pairId: string;
-  type: SupervisorEventType;
-  state?: SupervisorState;
-  previousState?: SupervisorState;
-  reason?: string;
-  details?: Record<string, unknown>;
-}
-
-export interface RuntimeEvent {
-  time: string;
-  type: RuntimeEventType;
-  pairId?: string;
-  reason?: string;
-  details?: Record<string, unknown>;
-}
-
-export interface SupervisorLogger {
-  write(event: SupervisorEvent | RuntimeEvent): void;
-  close(): void;
-}
+import type { RuntimeEvent, SupervisorEvent, SupervisorLogger } from "../contracts/events.js";
 
 export class MemorySupervisorLogger implements SupervisorLogger {
   readonly events: (SupervisorEvent | RuntimeEvent)[] = [];

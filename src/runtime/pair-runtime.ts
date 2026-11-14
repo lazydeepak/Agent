@@ -7,7 +7,7 @@ import type { ChatGPTBrowserAdapter } from "../adapters/chatgpt/index.js";
 import type { OpenCodeEventSource, OpenCodeSessionManager } from "../adapters/opencode/index.js";
 import type { RelayStore } from "../persistence/index.js";
 import { Supervisor, type SupervisorRecoveryOptions, type SupervisorReport } from "../supervisor/supervisor.js";
-import { type RuntimeEvent, type SupervisorEvent, type SupervisorLogger } from "../supervisor/events.js";
+import { type RuntimeEvent, type SupervisorEvent, type SupervisorLogger } from "../contracts/events.js";
 import { isTerminalFailure } from "../supervisor/state.js";
 import type { SuperviseMode } from "../supervisor/policy.js";
 import { FifoMutex, interruptibleSleep, type SleepFn } from "./scheduler.js";

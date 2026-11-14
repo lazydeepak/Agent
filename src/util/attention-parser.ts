@@ -1,6 +1,6 @@
 /**
  * Agent-relay codebase — module explanation / info.
- * File: src/application/attention-parser.ts
+ * File: src/util/attention-parser.ts
  * Purpose: Source module for attention-parser.ts.
  */
 /** Explicit bounded worker-attention envelope parser.
@@ -16,8 +16,8 @@ import type {
   AttentionStatus,
 } from "../contracts/attention.js";
 
-const ENVELOPE_START = "<agent-relay>";
-const ENVELOPE_END = "</agent-relay>";
+const ENVELOPE_START = "<agent>";
+const ENVELOPE_END = "</agent>";
 
 export function parseWorkerAttentionEnvelope(text: string): WorkerAttentionEnvelope | undefined {
   const trimmed = (text ?? "").trim();

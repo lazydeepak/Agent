@@ -5,6 +5,7 @@
  */
 import { readFile, writeFile } from "node:fs/promises";
 import { z } from "zod";
+import { findDuplicates, formatZodIssue } from "../util/duplicates.js";
 import type { PairsConfig, SessionPair } from "../types.js";
 
 const pairIdPattern = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -51,7 +52,7 @@ const workerSchema = z
       errorMap: () => ({ message: "Worker type must be one of: opencode." })
     }),
     sessionId: z.string().trim().min(1, "Worker sessionId is required."),
-    repoPath: z.string().trim().min(1, "Worker repoPath is required."),
+    repoPath: z.string().trim().min(0).default(""),
     server: openCodeServerSchema,
     readiness: readinessOverridesSchema
   })
@@ -93,7 +94,8 @@ const pairSchema = z
     fallbackModel: z.object({
       providerID: z.string(),
       id: z.string()
-    }).optional()
+    }).optional(),
+    masterWorkerSessionId: z.string().trim().min(1, "masterWorkerSessionId must not be empty when provided.").optional()
   })
   .strict();
 
@@ -283,26 +285,6 @@ function validateConversationUrls(pairs: SessionPair[]): void {
   if (issues.length > 0) {
     throw new ConfigError(issues);
   }
-}
-
-function findDuplicates<T>(items: T[], keyForItem: (item: T) => string): string[] {
-  const seen = new Set<string>();
-  const duplicates = new Set<string>();
-
-  for (const item of items) {
-    const key = keyForItem(item);
-    if (seen.has(key)) {
-      duplicates.add(key);
-    }
-    seen.add(key);
-  }
-
-  return [...duplicates];
-}
-
-function formatZodIssue(issue: z.ZodIssue): string {
-  const path = issue.path.length > 0 ? `${issue.path.join(".")}: ` : "";
-  return `${path}${issue.message}`;
 }
 
 function errorMessage(error: unknown): string {

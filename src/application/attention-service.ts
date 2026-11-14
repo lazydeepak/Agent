@@ -5,12 +5,42 @@
  */
 import type { DesktopApplicationService } from "./desktop-service.js";
 import type { RelayStore } from "../persistence/index.js";
-import { parseWorkerAttentionEnvelope } from "./attention-parser.js";
+import { parseWorkerAttentionEnvelope } from "../util/attention-parser.js";
 import type { AttentionItem, AttentionStatus } from "../contracts/attention.js";
 
 export interface AttentionServiceOptions {
   service: DesktopApplicationService;
   store: RelayStore;
+}
+
+function mapAttentionItem(r: {
+  id: number;
+  pairId: string;
+  kind: string;
+  createdAt: string;
+  blocking: boolean;
+  status: string;
+  summary?: string;
+  sourceMessageId: string;
+  question?: string;
+  acknowledgedAt?: string;
+  resolvedAt?: string;
+  resolvedByMessageId?: string;
+}): AttentionItem {
+  return {
+    id: String(r.id),
+    pairId: r.pairId,
+    kind: r.kind as AttentionItem["kind"],
+    createdAt: r.createdAt,
+    blocking: r.blocking,
+    status: r.status as AttentionStatus,
+    summary: r.summary ?? "",
+    sourceMessageId: r.sourceMessageId,
+    question: r.question,
+    acknowledgedAt: r.acknowledgedAt,
+    resolvedAt: r.resolvedAt,
+    resolvedByMessageId: r.resolvedByMessageId,
+  };
 }
 
 export class AttentionService {
@@ -47,20 +77,7 @@ export class AttentionService {
 
   listAttention(pairId?: string, status?: AttentionStatus): AttentionItem[] {
     const raw = this.options.store.listAttentionItems(pairId, status ?? undefined);
-    return raw.map((r) => ({
-      id: String(r.id),
-      pairId: r.pairId,
-      kind: r.kind as AttentionItem["kind"],
-      createdAt: r.createdAt,
-      blocking: r.blocking,
-      status: r.status as AttentionStatus,
-      summary: r.summary,
-      sourceMessageId: r.sourceMessageId,
-      question: r.question,
-      acknowledgedAt: r.acknowledgedAt,
-      resolvedAt: r.resolvedAt,
-      resolvedByMessageId: r.resolvedByMessageId,
-    }));
+    return raw.map(mapAttentionItem);
   }
 
   acknowledge(id: number): AttentionItem | undefined {
@@ -76,21 +93,7 @@ export class AttentionService {
   private fetchNumeric(id: number): AttentionItem | undefined {
     const items = this.options.store.listAttentionItems();
     const item = items.find((i) => i.id === id);
-    if (!item) return undefined;
-    return {
-      id: String(item.id),
-      pairId: item.pairId,
-      kind: item.kind as AttentionItem["kind"],
-      createdAt: item.createdAt,
-      blocking: item.blocking,
-      status: item.status as AttentionStatus,
-      summary: item.summary,
-      sourceMessageId: item.sourceMessageId,
-      question: item.question,
-      acknowledgedAt: item.acknowledgedAt,
-      resolvedAt: item.resolvedAt,
-      resolvedByMessageId: item.resolvedByMessageId,
-    };
+    return item ? mapAttentionItem(item) : undefined;
   }
 
   private fetchById(id: number): AttentionItem | undefined {

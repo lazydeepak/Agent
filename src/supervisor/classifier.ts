@@ -10,7 +10,7 @@ import type {
 } from "../types.js";
 import { isBusyState } from "./state.js";
 
-export const DEFAULT_STUCK_AFTER_MS = 10 * 60_000;
+export const DEFAULT_STUCK_AFTER_MS = 60 * 60_000;
 
 export interface CycleContext {
   ambiguousDelivery?: boolean;

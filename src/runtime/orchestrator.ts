@@ -4,7 +4,7 @@
  * Purpose: Source module for orchestrator.ts.
  */
 import type { RelayStore } from "../persistence/index.js";
-import type { RuntimeEvent, SupervisorEvent, SupervisorLogger } from "../supervisor/events.js";
+import type { RuntimeEvent, SupervisorEvent, SupervisorLogger } from "../contracts/events.js";
 import type { SupervisorRecoveryOptions, SupervisorReport } from "../supervisor/supervisor.js";
 import { createPairAdapters } from "./adapters.js";
 import type { PairAdapters, RuntimeAdapterOptions } from "./adapters.js";

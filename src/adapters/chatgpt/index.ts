@@ -17,16 +17,28 @@ import type {
   RelayableMessage
 } from "../../types.js";
 import { fail, pass } from "../../util/readiness.js";
-import { SubmissionNotAttemptedError } from "../../relay/delivery-error.js";
-import { plannerControlMessage } from "../../relay/chatgpt-gate.js";
+import { fakeCheck, overrideEnabled } from "../fake-readiness.js";
+import { SubmissionNotAttemptedError } from "../../util/delivery-error.js";
+import { plannerControlMessage } from "../../util/planner-control.js";
+import { stripWatermark } from "../../util/watermark.js";
+import { hashText } from "../../util/canonical.js";
 import { hasVisibleServiceWarning } from "./service-warning.js";
+import { waitForComposerReady as pollComposerReady } from "../../util/composer-polling.js";
+import type { ComposerSnapshot } from "../../util/composer-readiness.js";
 
 export interface ChatGPTBrowserAdapter {
+  // REBUILD: real reload from UI settings
+  reloadFromConfig?(config: unknown): Promise<void> | void;
   checkReadiness(planner: PlannerIdentity): Promise<ReadinessCheck[]>;
   getLatestPlannerMessage(planner: PlannerIdentity): Promise<RelayableMessage | undefined>;
   getLatestPlannerMessages?(planner: PlannerIdentity, options?: { limit?: number }): Promise<RelayableMessage[]>;
   sendWorkerMessage(planner: PlannerIdentity, message: RelayableMessage): Promise<RelayReceipt>;
   observePlannerConversation?(planner: PlannerIdentity): Promise<PlannerObservation>;
+  /**
+   * Force-refresh the exact Planner conversation URL in the bound browser tab (Rule 4).
+   * Used by recovery when the page is alive but the conversation is not progressing.
+   */
+  refreshConversation?(planner: PlannerIdentity): Promise<void>;
   subscribePlannerEvents?(planner: PlannerIdentity, signal: AbortSignal): AsyncIterable<PlannerSessionEvent>;
 }
 
@@ -74,6 +86,11 @@ export class FakeChatGPTBrowserAdapter implements ChatGPTBrowserAdapter {
     };
   }
 
+  /** Rule 12 test attestation — true when a sent message matches the source hash (watermark stripped). */
+  async attestDelivery(_planner: PlannerIdentity, sourceHash: string): Promise<boolean> {
+    return this.sentMessages.some(({ message }) => hashText(stripWatermark(message.text)) === sourceHash);
+  }
+
   async observePlannerConversation(planner: PlannerIdentity): Promise<PlannerObservation> {
     const overrides = planner.readiness ?? {};
     const latest = this.plannerMessages.at(-1);
@@ -108,6 +125,8 @@ export interface ChatGPTReadinessProbe {
 }
 
 export interface ChatGPTBrowserDriver extends ChatGPTReadinessProbe {
+  /** Force-refresh the exact Planner conversation URL (Rule 4). */
+  refreshConversation?(planner: PlannerIdentity): Promise<void>;
   latestPlannerMessage(planner: PlannerIdentity): Promise<RelayableMessage | undefined>;
   latestPlannerMessages?(planner: PlannerIdentity, options?: { limit?: number }): Promise<RelayableMessage[]>;
   sendMessage(planner: PlannerIdentity, message: RelayableMessage): Promise<void>;
@@ -115,9 +134,12 @@ export interface ChatGPTBrowserDriver extends ChatGPTReadinessProbe {
     snapshot: ChatGPTReadinessSnapshot;
     latest: RelayableMessage | undefined;
   }>;
+  waitForComposerReady?(planner: PlannerIdentity, options?: { timeoutMs?: number; intervalMs?: number; signal?: AbortSignal }): Promise<{ ready: boolean; reasons: string[]; attempts: number }>;
   subscribeEvents?(planner: PlannerIdentity, signal: AbortSignal): AsyncIterable<PlannerSessionEvent>;
 }
 
+// REBUILD NOTE: options should load from config/pairs.local.json planner settings.
+// Desktop UI save -> desktop-service -> adapter reload applies instantly.
 export interface LiveChatGPTBrowserOptions extends ChatGPTBrowserConfig {
   probe?: ChatGPTReadinessProbe;
   driver?: ChatGPTBrowserDriver;
@@ -172,6 +194,10 @@ export class LiveChatGPTBrowserAdapter implements ChatGPTBrowserAdapter {
     };
   }
 
+  async refreshConversation(planner: PlannerIdentity): Promise<void> {
+    await this.locked(() => this.driver.refreshConversation?.(planner) ?? Promise.resolve());
+  }
+
   async observePlannerConversation(planner: PlannerIdentity): Promise<PlannerObservation> {
     const detail: string[] = [];
 
@@ -208,11 +234,53 @@ export class LiveChatGPTBrowserAdapter implements ChatGPTBrowserAdapter {
     return this.driver.subscribeEvents?.(planner, signal) ?? emptyPlannerEvents();
   }
 
+  async waitForComposerReady(
+    planner: PlannerIdentity,
+    options: { timeoutMs?: number; intervalMs?: number; signal?: AbortSignal } = {}
+  ): Promise<{ ready: boolean; reasons: string[]; attempts: number }> {
+    const timeoutMs = options.timeoutMs ?? 10 * 60 * 1000;
+    const intervalMs = options.intervalMs ?? 2000;
+    const result = await pollComposerReady(
+      async () => {
+        const snapshot = await this.driver.snapshot(planner);
+        const composerSnapshot: ComposerSnapshot = {
+          generating: !snapshot.notGenerating,
+          latestMessageRole: "assistant",
+          composerCount: snapshot.composerAvailable ? 1 : 0,
+          composerVisible: snapshot.composerAvailable,
+          composerEnabled: snapshot.composerAvailable,
+        };
+        return composerSnapshot;
+      },
+      { timeoutMs, intervalMs, signal: options.signal }
+    );
+    return { ready: result.ready, reasons: result.last.reasons, attempts: result.attempts };
+  }
+
   private async locked<T>(task: () => Promise<T>): Promise<T> {
     if (!this.lock) {
       return task();
     }
     return this.lock.run(task);
+  }
+}
+
+// Module-level cache for managed (non-CDP) browsers so repeated operations reuse
+// the same Chrome instance instead of launching a new one each time.
+const managedBrowserCache = new Map<
+  string,
+  { context: import("playwright-core").BrowserContext; page: import("playwright-core").Page }
+>();
+
+/** Close and clear all cached managed browsers. Call on app shutdown. */
+export async function disposeManagedBrowsers(): Promise<void> {
+  for (const [key, cached] of [...managedBrowserCache.entries()]) {
+    try {
+      await cached.context.close();
+    } catch {
+      // ignore
+    }
+    managedBrowserCache.delete(key);
   }
 }
 
@@ -226,6 +294,12 @@ export class PlaywrightChatGPTBrowserDriver implements ChatGPTBrowserDriver {
 
   constructor(options: ChatGPTBrowserConfig) {
     this.options = options;
+  }
+
+  async refreshConversation(planner: PlannerIdentity): Promise<void> {
+    await this.withPage(planner, async (page) => {
+      await page.goto(planner.conversationUrl, { waitUntil: "domcontentloaded", timeout: 15_000 });
+    });
   }
 
   async dispose(): Promise<void> {
@@ -243,6 +317,15 @@ export class PlaywrightChatGPTBrowserDriver implements ChatGPTBrowserDriver {
       await browser?.close();
     } catch {
       // Browser may already be closed or disconnected
+    }
+    // Close any cached managed browsers.
+    for (const [key, cached] of managedBrowserCache) {
+      try {
+        await cached.context.close();
+      } catch {
+        // ignore
+      }
+      managedBrowserCache.delete(key);
     }
   }
 
@@ -344,7 +427,7 @@ export class PlaywrightChatGPTBrowserDriver implements ChatGPTBrowserDriver {
   async *subscribeEvents(planner: PlannerIdentity, signal: AbortSignal): AsyncIterable<PlannerSessionEvent> {
     const session = await this.openPage(planner);
     const page = session.page;
-    const binding = `__agentRelayPlannerWake${++this.observerSequence}`;
+    const binding = `__agentPlannerWake${++this.observerSequence}`;
     const observerKey = `${binding}Observer`;
     let pendingMessageId: string | undefined;
     let resolveWake: (() => void) | undefined;
@@ -469,9 +552,16 @@ export class PlaywrightChatGPTBrowserDriver implements ChatGPTBrowserDriver {
         };
       }
       const context = browser.contexts()[0] ?? (await browser.newContext());
-      this.cdpPage =
-        context.pages().find((page) => conversationMatches(page.url(), planner.conversationId)) ??
-        (await context.newPage());
+      // Reuse an existing tab instead of opening a new one. Adapter instances are
+      // short-lived (one per validate/start call), so without reuse every operation
+      // creates an extra Chrome tab. Prefer a tab already on this conversation;
+      // otherwise reuse any open ChatGPT tab; only create a new tab as a last resort.
+      const pages = context.pages().filter((page) => !page.isClosed());
+      const existingPage =
+        pages.find((page) => conversationMatches(page.url(), planner.conversationId)) ??
+        pages.find((page) => page.url().includes("chatgpt.com")) ??
+        pages[0];
+      this.cdpPage = existingPage ?? (await context.newPage());
       return {
         page: this.cdpPage,
         cleanup: async () => {
@@ -488,18 +578,28 @@ export class PlaywrightChatGPTBrowserDriver implements ChatGPTBrowserDriver {
     }
 
     const { chromium } = await import("playwright-core");
-    const userDataDir = config.userDataDir ?? join(tmpdir(), "agent-relay-chatgpt-profile");
-    const context = await chromium.launchPersistentContext(userDataDir, {
-      executablePath,
-      headless: config.headless ?? false,
-      timeout: timeoutFor(planner, this.options)
-    });
-    const page = context.pages()[0] ?? (await context.newPage());
+    const userDataDir = config.userDataDir ?? join(tmpdir(), "agent-chatgpt-profile");
+    const cacheKey = `${executablePath}::${userDataDir}::${config.headless ?? false}`;
+
+    // Reuse a previously launched managed browser for this profile instead of
+    // launching a new Chrome instance on every operation (which opened new
+    // windows/tabs repeatedly).
+    let cached = managedBrowserCache.get(cacheKey);
+    if (!cached || cached.page.isClosed()) {
+      const context = await chromium.launchPersistentContext(userDataDir, {
+        executablePath,
+        headless: config.headless ?? false,
+        timeout: timeoutFor(planner, this.options)
+      });
+      const page = context.pages()[0] ?? (await context.newPage());
+      cached = { context, page };
+      managedBrowserCache.set(cacheKey, cached);
+    }
 
     return {
-      page,
+      page: cached.page,
       cleanup: async () => {
-        await context.close();
+        // Keep the managed browser alive for reuse; it is closed on dispose().
       }
     };
   }
@@ -529,6 +629,10 @@ async function* emptyPlannerEvents(): AsyncIterable<PlannerSessionEvent> {
 }
 
 export function shouldNavigatePlannerPage(currentUrl: string, conversationId: string): boolean {
+  if (!conversationId) {
+    // No conversation id to match against: only navigate if not already on ChatGPT.
+    return !currentUrl.includes("chatgpt.com");
+  }
   return !conversationMatches(currentUrl, conversationId);
 }
 
@@ -577,26 +681,6 @@ function buildReadinessChecks(
       : fail("planner.notGenerating", "ChatGPT conversation appears to be generating.")
   ];
 }
-
-function fakeCheck(
-  name: string,
-  overrides: Record<string, boolean | string>,
-  successReason: string
-): ReadinessCheck {
-  const override = overrides[name];
-
-  if (override === undefined || override === true) {
-    return pass(name, successReason);
-  }
-
-  return fail(name, typeof override === "string" ? override : `${name} failed in fake adapter.`);
-}
-
-function overrideEnabled(overrides: Record<string, boolean | string>, name: string): boolean {
-  const override = overrides[name];
-  return override === undefined || override === true;
-}
-
 
 function readableError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -655,6 +739,11 @@ function unreachablePlannerObservation(detail: string[], error?: unknown): Plann
 }
 
 function conversationMatches(url: string, conversationId: string): boolean {
+  if (!conversationId) {
+    // No conversation id: treat any chatgpt.com page as a match to avoid
+    // forcing repeated navigation/tab creation.
+    return url.includes("chatgpt.com");
+  }
   try {
     const parsed = new URL(url);
     return parsed.pathname.split("/").filter(Boolean).join("/").includes(`c/${conversationId}`);
@@ -761,12 +850,27 @@ async function extractAssistantMessages(
     }
 
     const domId = await node.getAttribute("data-message-id").catch(() => undefined);
+    // Consolidated from TerminalBot/RelayLoop: extract structured writing_block
+    // payloads from the assistant node so only the worker prompt is forwarded.
+    const writingBlocks = await node
+      .evaluate((element) => {
+        const widgets = Array.from(element.querySelectorAll('[data-client-defined-widget="writing_block"]'));
+        return widgets
+          .map((widget) => {
+            const surface = widget.querySelector("[data-markdown-copy-text]");
+            return (surface?.getAttribute("data-markdown-copy-text") ?? "").trim();
+          })
+          .filter((value) => value.length > 0);
+      })
+      .catch(() => [] as string[]);
+
     results.push({
       id: domId ?? `chatgpt-assistant-${planner.conversationId}-${index}`,
       source: "planner",
       role: "assistant",
       text,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      ...(writingBlocks.length > 0 ? { writingBlocks } : {})
     });
   }
 

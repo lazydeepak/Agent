@@ -68,9 +68,9 @@ export class HttpOpenCodeEventSource implements OpenCodeEventSource {
     const password =
       options.password ??
       (options.passwordEnv ? process.env[options.passwordEnv] : undefined) ??
-      process.env.AGENT_RELAY_OPENCODE_PASSWORD ??
+      process.env.AGENT_OPENCODE_PASSWORD ??
       process.env.OPENCODE_SERVER_PASSWORD;
-    const username = options.username ?? process.env.AGENT_RELAY_OPENCODE_USERNAME;
+    const username = options.username ?? process.env.AGENT_OPENCODE_USERNAME;
     if ((Boolean(username) || Boolean(password)) && credentialsAllowed(this.baseUrl, options.allowInsecureAuth)) {
       this.authHeader = `Basic ${Buffer.from(`${username ?? "opencode"}:${password ?? ""}`).toString("base64")}`;
     }
@@ -104,7 +104,7 @@ export class HttpOpenCodeEventSource implements OpenCodeEventSource {
               response.status,
               `OpenCode event source is unavailable (HTTP ${response.status}). ` +
                 (response.status === 401 || response.status === 403
-                  ? "The event source requires credentials; set AGENT_RELAY_OPENCODE_USERNAME and AGENT_RELAY_OPENCODE_PASSWORD."
+                  ? "The event source requires credentials; set AGENT_OPENCODE_USERNAME and AGENT_OPENCODE_PASSWORD."
                   : "The server does not expose this event route.")
             );
           }

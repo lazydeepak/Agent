@@ -54,7 +54,14 @@ export async function recoverChatGPT(input: ChatGPTRecoveryInput): Promise<ChatG
         relaunched = true;
       }
     } else {
+      // Rule 4: refresh the exact Planner session — managed browsers reopen via the
+      // handle, and the adapter force-reloads the exact conversation URL.
       await input.browser.openConversation?.(input.planner.conversationUrl);
+      try {
+        await input.adapter.refreshConversation?.(input.planner);
+      } catch {
+        // Refresh failed — the probe below decides whether recovery succeeded.
+      }
     }
 
     if (attempt < maxProbes) {

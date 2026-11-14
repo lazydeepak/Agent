@@ -8,13 +8,13 @@ import type { OpenCodeSessionManager } from "../adapters/opencode/index.js";
 import { RelayStore } from "../persistence/index.js";
 import { relayPlannerToWorker, relayWorkerToPlanner, type RelayResult } from "../relay/index.js";
 import { classifyWorkerMessage } from "../relay/message-classifier.js";
-import { parseWorkerAttentionEnvelope } from "../application/attention-parser.js";
+import { parseWorkerAttentionEnvelope } from "../util/attention-parser.js";
 import { RecoveryEngine } from "../recovery/index.js";
 import { ExternalBrowserManager, type BrowserManager } from "../recovery/index.js";
 import type { BackoffPolicy } from "../recovery/schedule.js";
 import type { OpenCodeServerLauncher } from "../recovery/opencode.js";
 import { ChatGptSubmissionGate } from "../relay/chatgpt-gate.js";
-import { RelayVerifier } from "../relay/verifier.js";
+import { RelayVerifier, RELAY_VERIFY_MAX_ATTEMPTS, RELAY_VERIFY_RETRY_MS } from "../relay/verifier.js";
 import { interruptibleSleep } from "../util/async.js";
 import type {
   ObservationSnapshot,
@@ -35,7 +35,7 @@ import {
   type SupervisorEvent,
   type SupervisorEventType,
   type SupervisorLogger
-} from "./events.js";
+} from "../contracts/events.js";
 import {
   observePlannerConversation,
   observeWorkerSession
@@ -51,6 +51,10 @@ export interface SupervisorRecoveryOptions {
   backoff?: BackoffPolicy;
   startServerLauncher?: OpenCodeServerLauncher;
   baseUrl?: string;
+  verifyAllAffectedWorkersIdle?: () => Promise<boolean>;
+  terminateOpenCodeDesktop?: () => Promise<void>;
+  relaunchOpenCodeDesktop?: () => Promise<void>;
+  relaunchSettleMs?: number;
 }
 
 export interface SupervisorDeps {
@@ -268,21 +272,77 @@ export class Supervisor {
 
     if (cycle.ambiguousDelivery && this.mode !== "observe") {
       const ambiguousRecords = store.listRecords(pair.pairId).filter((r) => r.status === "DELIVERING");
+      const nowMs = this.clock().getTime();
       for (const record of ambiguousRecords) {
+        // Rule 13 — wait 2 minutes between verification attempts of an unconfirmed message.
+        const lastAttemptMs = record.verifyLastAttemptAt ? Date.parse(record.verifyLastAttemptAt) : 0;
+        if (nowMs - lastAttemptMs < RELAY_VERIFY_RETRY_MS) {
+          continue;
+        }
         const identity = {
           pairId: pair.pairId,
           direction: record.direction,
           sourceMessageId: record.sourceMessageId,
           sourceHash: record.sourceHash,
         };
-        const verification = await this.verifier.verify(pair, record);
+        // Rule 12 — verify against the exact destination before any further action.
+        const attemptRecord = store.recordVerificationAttempt(identity);
+        const attempt = attemptRecord?.verifyAttemptCount ?? 1;
+        const verification = await this.verifier.verify(pair, attemptRecord ?? record);
         if (verification.verified) {
           store.reconcileAmbiguous(identity, "DELIVERED", verification.targetId);
           this.emit({
             type: "AMBIGUOUS_DELIVERY_RECONCILED",
-            reason: `Ambiguous delivery for ${record.direction} was verified as DELIVERED.`,
-            details: { direction: record.direction, targetId: verification.targetId },
+            reason: `Ambiguous delivery for ${record.direction} was verified as DELIVERED (attempt ${attempt}).`,
+            details: { direction: record.direction, targetId: verification.targetId, attempt },
           });
+          continue;
+        }
+        this.emit({
+          type: "AMBIGUOUS_DELIVERY",
+          reason: `Delivery ${record.direction} still unverified after verification attempt ${attempt}; retrying in 2 minutes (Rule 13).`,
+          details: { recordId: record.id, direction: record.direction, attempt, reason: verification.reason },
+        });
+        // Rule 12 — verification remains unsuccessful after RELAY_VERIFY_MAX_ATTEMPTS → escalate to the Recovery Agent.
+        if (attempt === RELAY_VERIFY_MAX_ATTEMPTS) {
+          const masterSessionId = pair.masterWorkerSessionId?.trim();
+          if (masterSessionId) {
+            const investigation: RelayableMessage = {
+              id: `ambiguous-delivery-${pair.pairId}-${record.id}`,
+              source: "planner",
+              role: "user",
+              text: `Ambiguous delivery investigation request for pair ${pair.pairId}: a ${record.direction} message (${record.sourceMessageId}) could not be verified as delivered after ${attempt} attempts. Inspect the target session state and report what happened. Do not resend the message; the delivery ledger needs the operator's or Recovery Agent's reconciliation decision.`,
+              createdAt: this.clock().getTime(),
+            };
+            try {
+              const master = { ...pair.worker, sessionId: masterSessionId };
+              const receipt = await worker.sendPlannerMessage(master, investigation);
+              if (receipt.delivered) {
+                this.emit({
+                  type: "ESCALATED_TO_AGENT",
+                  reason: `Ambiguous ${record.direction} delivery for pair ${pair.pairId} escalated to the Recovery Agent.`,
+                  details: { action: "ambiguous-delivery", recordId: record.id, targetId: receipt.targetId },
+                });
+              } else {
+                this.emit({
+                  type: "AMBIGUOUS_DELIVERY_BLOCKED",
+                  reason: "Ambiguous delivery escalation to the Recovery Agent was not accepted for delivery.",
+                  details: { recordId: record.id, direction: record.direction },
+                });
+              }
+            } catch (error) {
+              this.emit({
+                type: "AMBIGUOUS_DELIVERY_BLOCKED",
+                reason: `Ambiguous delivery escalation to the Recovery Agent failed: ${error instanceof Error ? error.message : String(error)}`,
+                details: { recordId: record.id, direction: record.direction },
+              });
+            }
+          } else {
+            this.emit({
+              type: "INTERVENTION_REQUIRED",
+              reason: `Ambiguous ${record.direction} delivery for pair ${pair.pairId} could not be verified after ${attempt} attempts. masterWorkerSessionId is not configured — the operator must reconcile the delivery ledger (Rule 11).`,
+            });
+          }
         }
       }
       // Refresh cycle after reconciliation
@@ -633,7 +693,11 @@ export class Supervisor {
       backoff: recovery.backoff,
       signal: this.abortController?.signal ?? this.externalSignal,
       startServerLauncher: recovery.startServerLauncher,
-      baseUrl: recovery.baseUrl
+      baseUrl: recovery.baseUrl,
+      verifyAllAffectedWorkersIdle: recovery.verifyAllAffectedWorkersIdle,
+      terminateOpenCodeDesktop: recovery.terminateOpenCodeDesktop,
+      relaunchOpenCodeDesktop: recovery.relaunchOpenCodeDesktop,
+      relaunchSettleMs: recovery.relaunchSettleMs
     });
     return this.recoveryEngine;
   }

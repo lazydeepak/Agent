@@ -188,9 +188,3 @@ export async function interruptible(task: Promise<void>, signal?: AbortSignal): 
     })
   ]);
 }
-/** Terminal replies from the existing planner protocol are never worker tasks. */
-export function plannerControlMessage(text: string): "complete" | "blocked" | undefined {
-  const marker = text.trim().match(/^(?:\*\*)?(RELAY_COMPLETE|RELAY_BLOCKED)(?:\*\*)?(?:\s|$)/)?.[1]
-    ?? text.trim().match(/(?:^|\n)(?:\*\*)?(RELAY_COMPLETE|RELAY_BLOCKED)(?:\*\*)?$/)?.[1];
-  return marker === "RELAY_COMPLETE" ? "complete" : marker === "RELAY_BLOCKED" ? "blocked" : undefined;
-}

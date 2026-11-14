@@ -209,16 +209,16 @@ export class OpenCodeHttpClient {
       this.pinnedMode = options.apiProtocol;
       this.pinApiProtocol(options.apiProtocol);
     }
-    this.baseUrl = normalizeBaseUrl(options.baseUrl ?? process.env.AGENT_RELAY_OPENCODE_BASE_URL);
+    this.baseUrl = normalizeBaseUrl(options.baseUrl ?? process.env.AGENT_OPENCODE_BASE_URL);
     this.fetchImpl = options.fetch ?? fetch;
     this.usesInjectedFetch = Boolean(options.fetch);
     this.signal = options.signal;
 
-    const username = options.username ?? process.env.AGENT_RELAY_OPENCODE_USERNAME;
+    const username = options.username ?? process.env.AGENT_OPENCODE_USERNAME;
     const password =
       options.password ??
       (options.passwordEnv ? process.env[options.passwordEnv] : undefined) ??
-      process.env.AGENT_RELAY_OPENCODE_PASSWORD ??
+      process.env.AGENT_OPENCODE_PASSWORD ??
       process.env.OPENCODE_SERVER_PASSWORD;
 
     if ((Boolean(username) || Boolean(password)) && credentialsAllowed(this.baseUrl, options.allowInsecureAuth)) {
@@ -626,7 +626,7 @@ export class OpenCodeHttpClient {
             directory: resolvedDir
           },
           metadata: {
-            createdBy: "agent-relay"
+            createdBy: "agent"
           }
         })
       })) as { data?: OpenCodeSessionInfo } | OpenCodeSessionInfo;
@@ -953,7 +953,7 @@ function admittedMessageId(result: unknown): string | undefined {
 function normalizeBaseUrl(baseUrl?: string): string {
   if (!baseUrl) {
     throw new Error(
-      "OpenCode server URL is required. Set worker.server.baseUrl, --opencode-url, or AGENT_RELAY_OPENCODE_BASE_URL."
+      "OpenCode server URL is required. Set worker.server.baseUrl, --opencode-url, or AGENT_OPENCODE_BASE_URL."
     );
   }
 

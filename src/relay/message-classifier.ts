@@ -3,7 +3,7 @@
  * File: src/relay/message-classifier.ts
  * Purpose: Source module for message-classifier.ts.
  */
-import { parseWorkerAttentionEnvelope } from "../application/attention-parser.js";
+import { parseWorkerAttentionEnvelope } from "../util/attention-parser.js";
 import type { WorkerMessageClassification, WorkerQuestionNature } from "../types.js";
 
 const QUESTION_PHRASES = [

@@ -75,6 +75,13 @@ export interface SessionPair {
   projectPairId?: string;
   /** Worker model to fall back to when resuming a pair after a model failure. */
   fallbackModel?: { providerID: string; id: string };
+  /**
+   * Dedicated OpenCode session that receives verbatim Planner replies which do
+   * not contain a Worker prompt after one regeneration request. Recovery Agent
+   * has exclusive authority to stop automation; TerminalBot itself must not
+   * pause, hold, or terminate automation based on Planner prose.
+   */
+  masterWorkerSessionId?: string;
 }
 
 export interface PairsConfig {
@@ -115,6 +122,13 @@ export interface RelayableMessage {
   role: "assistant" | "user";
   text: string;
   createdAt?: number;
+  /**
+   * Optional structured "writing_block" payloads extracted from a planner
+   * (ChatGPT) assistant message, per the TerminalBot/RelayLoop proven behavior.
+   * When present and non-empty, only these blocks are forwarded as worker prompts;
+   * surrounding commentary is ignored. Consolidated from TerminalBot/RelayLoop.
+   */
+  writingBlocks?: string[];
 }
 
 export interface RelayReceipt {
@@ -162,8 +176,30 @@ export interface RelayRecord {
   deliveredAt?: string;
   lastAttemptAt?: string;
   attemptCount: number;
+  /** Rule 12/13 — separate accounting for delivery *verification* attempts (distinct from delivery attempts). */
+  verifyAttemptCount?: number;
+  verifyLastAttemptAt?: string;
   error?: string;
   classification?: WorkerMessageClassification;
+}
+
+/** v1.1 §4 — narrow startup activation exception record. */
+export type StartupOperationStatus = "pending" | "stabilized" | "hold" | "aborted";
+
+export interface StartupOperation {
+  id: string;
+  pairId: string;
+  mode: "fresh" | "resume";
+  plannerSessionId: string;
+  workerSessionId: string;
+  status: StartupOperationStatus;
+  attemptCount: number;
+  maxAttempts: number;
+  acceptedResponseId?: string;
+  holdReason?: string;
+  createdAt: string;
+  updatedAt: string;
+  settledAt?: string;
 }
 
 export interface PairRelayState {
@@ -245,6 +281,10 @@ export interface SupervisorContinuity {
   projectPairId?: string;
   recoveryPolicy?: RecoveryPolicy;
   recoveryAttemptCount?: number;
+  /** v1.1 §11 — set when repeated matching failures suspend automated recovery for this pair. Operator release only. */
+  recoverySuspended?: boolean;
+  /** v1.1 §11 — when the suspension was recorded. */
+  recoverySuspendedAt?: string;
   lastRecoveryAttemptAt?: string;
   lastRecoverySuccessAt?: string;
   lastRecoveryErrorCode?: RecoveryErrorCode;
@@ -264,6 +304,7 @@ export type RecoveryErrorCode =
   | "CHATGPT_CONVERSATION_MISMATCH"
   | "RELAY_AMBIGUOUS"
   | "RELAY_DELIVERY_FAILED"
+  | "RECOVERY_SUSPENDED"
   | "STUCK_UNRESOLVED"
   | "RECOVERY_RETRY_EXHAUSTED";
 
@@ -333,6 +374,8 @@ export interface RuntimeMetadata {
   schedulerModeChangedAt?: string;
   dormantReason?: string;
   resumeAfterRestart?: boolean;
+  /** Rule 15 — operator-configured per-pair auto-resume after restart (default: disabled). */
+  autoResumeAfterRestart?: boolean;
 }
 
 export type RelayCycleStatus =

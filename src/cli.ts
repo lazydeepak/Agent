@@ -196,11 +196,7 @@ async function runBindOpenCode(args: ParsedArgs): Promise<void> {
 }
 
 async function runRelay(args: ParsedArgs): Promise<void> {
-  const config = await loadPairsConfig(args.configPath);
-  const [pair] = selectPairs(config.pairs, args);
-  if (!pair) {
-    throw new ConfigError([`Unknown pairId "${args.pairId}". Check the configured pairs or use --all.`]);
-  }
+  const pair = await loadSelectedPair(args);
 
   const worker = new LiveOpenCodeAdapter(workerOptionsFromCli(pair, args));
   const planner = shouldUseLiveChatGPT(args, pair)
@@ -238,11 +234,7 @@ async function runSeed(args: ParsedArgs): Promise<void> {
   if (args.subcommand !== "local-agent") {
     throw new CliError("Seed command requires the local-agent subcommand.");
   }
-  const config = await loadPairsConfig(args.configPath);
-  const [pair] = selectPairs(config.pairs, args);
-  if (!pair) {
-    throw new ConfigError([`Unknown pairId "${args.pairId}". Check the configured pairs or use --all.`]);
-  }
+  const pair = await loadSelectedPair(args);
 
   const planner = shouldUseLiveChatGPT(args, pair)
     ? new LiveChatGPTBrowserAdapter({ ...pair.planner.browser, ...args.chatgpt })
@@ -407,11 +399,7 @@ async function runPrune(args: ParsedArgs): Promise<void> {
 }
 
 async function runSupervise(args: ParsedArgs): Promise<void> {
-  const config = await loadPairsConfig(args.configPath);
-  const [pair] = selectPairs(config.pairs, args);
-  if (!pair) {
-    throw new ConfigError([`Unknown pairId "${args.pairId}". Check the configured pairs or use --all.`]);
-  }
+  const pair = await loadSelectedPair(args);
 
   const worker = new LiveOpenCodeAdapter(workerOptionsFromCli(pair, args));
   const planner = shouldUseLiveChatGPT(args, pair)
@@ -710,12 +698,17 @@ function shouldUseLiveChatGPT(args: ParsedArgs, pair: SessionPair): boolean {
   return args.liveChatGPT || hasChatGPTBrowserConfig(args.chatgpt) || hasChatGPTBrowserConfig(pair.planner.browser);
 }
 
-async function runRecoveryCommand(args: ParsedArgs): Promise<void> {
+async function loadSelectedPair(args: ParsedArgs): Promise<SessionPair> {
   const config = await loadPairsConfig(args.configPath);
   const [pair] = selectPairs(config.pairs, args);
   if (!pair) {
     throw new ConfigError([`Unknown pairId "${args.pairId}". Check the configured pairs or use --all.`]);
   }
+  return pair;
+}
+
+async function runRecoveryCommand(args: ParsedArgs): Promise<void> {
+  const pair = await loadSelectedPair(args);
 
   const store = await openStore(args);
   const pairId = args.pairId as string;
@@ -789,11 +782,7 @@ async function runRecoveryCommand(args: ParsedArgs): Promise<void> {
 }
 
 async function runBrowserCommand(args: ParsedArgs): Promise<void> {
-  const config = await loadPairsConfig(args.configPath);
-  const [pair] = selectPairs(config.pairs, args);
-  if (!pair) {
-    throw new ConfigError([`Unknown pairId "${args.pairId}". Check the configured pairs or use --all.`]);
-  }
+  const pair = await loadSelectedPair(args);
 
   const browser = browserManagerFor(pair.planner.browser);
 
@@ -1069,7 +1058,7 @@ export function recoveryOptions(
     policy: args.recoveryPolicy === "none" ? "none" : "safe",
     browser,
     maxAttempts: args.recoveryMaxAttempts,
-    baseUrl: args.opencode.baseUrl ?? pair.worker.server?.baseUrl ?? process.env.AGENT_RELAY_OPENCODE_BASE_URL,
+    baseUrl: args.opencode.baseUrl ?? pair.worker.server?.baseUrl ?? process.env.AGENT_OPENCODE_BASE_URL,
     startServerLauncher:
       args.recoveryPolicy === "safe"
         ? (repoPath, baseUrl) => launcher.startOpenCode({ repoPath, baseUrl })
@@ -1148,7 +1137,7 @@ async function runModelCommand(args: ParsedArgs): Promise<void> {
     if (args.subcommand === "list") {
       // list can show all pairs or require --all
       throw new ConfigError([
-        "Usage: agent-relay model list [--all|--pairId <pairId>] [--config <path>]"
+        "Usage: agent model list [--all|--pairId <pairId>] [--config <path>]"
       ]);
     }
     throw new ConfigError([
@@ -1177,7 +1166,7 @@ async function runModelCommand(args: ParsedArgs): Promise<void> {
 
   if (args.subcommand === "switch") {
     if (!args.model) {
-      throw new CliError("Usage: agent-relay model switch <pairId> <providerID/id> [--config <path>]");
+      throw new CliError("Usage: agent model switch <pairId> <providerID/id> [--config <path>]");
     }
     const [provider, id] = args.model.split("/");
     if (!provider || !id) {
@@ -1191,7 +1180,7 @@ async function runModelCommand(args: ParsedArgs): Promise<void> {
 
   if (args.subcommand === "fallback") {
     if (!args.model) {
-      throw new CliError("Usage: agent-relay model fallback <pairId> <providerID/id> [--config <path>]");
+      throw new CliError("Usage: agent model fallback <pairId> <providerID/id> [--config <path>]");
     }
     const [provider, id] = args.model.split("/");
     if (!provider || !id) {
@@ -1209,11 +1198,11 @@ async function runModelCommand(args: ParsedArgs): Promise<void> {
     }
     console.log(`Pair ${pair.pairId} supervision paused, model switched to ${provider}/${id}.`);
     console.log("Pair must be restarted for the change to take effect.");
-    console.log("Use: agent-relay runtime start --all");
+    console.log("Use: agent runtime start --all");
     return;
   }
 
-  throw new CliError("Usage: agent-relay model <list|switch|fallback> <pairId> [--config <path>] [--model <provider/id>]");
+  throw new CliError("Usage: agent model <list|switch|fallback> <pairId> [--config <path>] [--model <provider/id>]");
 }
 
 async function runService(args: ParsedArgs): Promise<void> {

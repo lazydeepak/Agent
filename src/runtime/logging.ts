@@ -5,7 +5,7 @@
  */
 import { createWriteStream, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import type { SupervisorLogger, SupervisorEvent, RuntimeEvent } from "../supervisor/events.js";
+import type { SupervisorLogger, SupervisorEvent, RuntimeEvent } from "../contracts/events.js";
 
 export const defaultPerPairLogRoot = () => resolve("logs", "pairs");
 

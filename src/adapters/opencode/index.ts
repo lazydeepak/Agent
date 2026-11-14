@@ -5,6 +5,7 @@
  */
 import { resolve } from "node:path";
 import { hashText } from "../../util/canonical.js";
+import { stripWatermark } from "../../util/watermark.js";
 import type {
   OpenCodeServerConfig,
   ReadinessCheck,
@@ -17,6 +18,7 @@ import type {
   OpenCodeModelInfo
 } from "../../types.js";
 import { fail, pass } from "../../util/readiness.js";
+import { fakeCheck } from "../fake-readiness.js";
 import {
   OpenCodeHttpClient,
   OpenCodeHttpError,
@@ -35,7 +37,10 @@ export {
   type OpenCodeSessionEvent
 } from "./event-source.js";
 
+// REBUILD: reload mechanism — adapter updates when config/pairs.local.json changes.
 export interface OpenCodeAdapter {
+  // REBUILD: real reload from UI settings
+  reloadFromConfig?(config: unknown): Promise<void> | void;
   checkReadiness(worker: WorkerIdentity): Promise<ReadinessCheck[]>;
 }
 
@@ -67,6 +72,11 @@ export interface OpenCodeSessionManager extends OpenCodeAdapter {
   createSession(input: { repoPath: string; title?: string; sessionId?: string }): Promise<OpenCodeSessionSummary>;
   bindSession(worker: WorkerIdentity, sessionId: string): WorkerIdentity;
   observeWorkerSession?(worker: WorkerIdentity): Promise<WorkerObservation>;
+  /** Rule 12 — find a user message in the session by exact id or by content hash (watermark stripped). */
+  findUserMessageByIdentity?(
+    worker: WorkerIdentity,
+    input: { targetId?: string; sourceHash: string }
+  ): Promise<{ id: string } | undefined>;
 }
 
 export class FakeOpenCodeAdapter implements OpenCodeAdapter {
@@ -104,7 +114,7 @@ export class LiveOpenCodeAdapter implements OpenCodeAdapter, OpenCodeSessionMana
       if (error instanceof OpenCodeHttpError && error.status === 401) {
         throw new Error(
           `OpenCode server at ${this.client.url} requires authentication (username/password). ` +
-          `Set AGENT_RELAY_OPENCODE_USERNAME and AGENT_RELAY_OPENCODE_PASSWORD, or configure ` +
+          `Set AGENT_OPENCODE_USERNAME and AGENT_OPENCODE_PASSWORD, or configure ` +
           `opencode.username and opencode.password in the desktop service options.`
         );
       }
@@ -161,6 +171,30 @@ export class LiveOpenCodeAdapter implements OpenCodeAdapter, OpenCodeSessionMana
     const messages = chronological(await this.client.listSessionMessages(worker.sessionId));
     const assistantMessages = messages.map(toRelayableAssistantMessage).filter(isDefined);
     return assistantMessages.at(-1);
+  }
+
+  async findUserMessageByIdentity(
+    worker: WorkerIdentity,
+    input: { targetId?: string; sourceHash: string }
+  ): Promise<{ id: string } | undefined> {
+    const messages = chronological(await this.client.listSessionMessages(worker.sessionId));
+    if (input.targetId) {
+      const byId = messages.find((message) => roleOfMessage(message) === "user" && messageId(message) === input.targetId);
+      if (byId) {
+        const id = messageId(byId);
+        if (id) return { id };
+      }
+    }
+    for (const message of messages) {
+      if (roleOfMessage(message) !== "user") continue;
+      const text = textFromMessage(message);
+      if (!text) continue;
+      if (hashText(stripWatermark(text)) === input.sourceHash) {
+        const id = messageId(message);
+        if (id) return { id };
+      }
+    }
+    return undefined;
   }
 
   async getAssistantResponseForDispatch(
@@ -475,6 +509,25 @@ export class StaticOpenCodeAdapter extends FakeOpenCodeAdapter implements OpenCo
     return this.messages.at(-1);
   }
 
+  async findUserMessageByIdentity(
+    _worker: WorkerIdentity,
+    input: { targetId?: string; sourceHash: string }
+  ): Promise<{ id: string } | undefined> {
+    for (const message of this.messages) {
+      if (message.role !== "user") continue;
+      if (input.targetId && message.id === input.targetId) {
+        return { id: message.id };
+      }
+    }
+    for (const message of this.messages) {
+      if (message.role !== "user" || !message.text) continue;
+      if (hashText(stripWatermark(message.text)) === input.sourceHash) {
+        return { id: message.id };
+      }
+    }
+    return undefined;
+  }
+
   async getAssistantResponseForDispatch(
     _worker: WorkerIdentity,
     dispatchMessageId: string,
@@ -527,20 +580,6 @@ export class StaticOpenCodeAdapter extends FakeOpenCodeAdapter implements OpenCo
       detail: []
     };
   }
-}
-
-function fakeCheck(
-  name: string,
-  overrides: Record<string, boolean | string>,
-  successReason: string
-): ReadinessCheck {
-  const override = overrides[name];
-
-  if (override === undefined || override === true) {
-    return pass(name, successReason);
-  }
-
-  return fail(name, typeof override === "string" ? override : `${name} failed in fake adapter.`);
 }
 
 function toSessionSummary(session: OpenCodeSessionInfo): OpenCodeSessionSummary {

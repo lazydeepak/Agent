@@ -96,7 +96,7 @@ export class HeadlessService {
     // Emit structured readiness handshake to stdout for native sidecar parsing
     const address = remote.server.address();
     const readyPort = typeof address === "object" && address ? (address as any).port : (this.options.port ?? 8181);
-    console.log(JSON.stringify({ type: "agent-relay-ready", host: this.options.host ?? process.env.RELAY_REMOTE_HOST ?? "127.0.0.1", port: readyPort }));
+    console.log(JSON.stringify({ type: "agent-ready", host: this.options.host ?? process.env.RELAY_REMOTE_HOST ?? "127.0.0.1", port: readyPort }));
 
     await this.service.resumeManagedPairs();
   }

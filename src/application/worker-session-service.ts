@@ -25,6 +25,7 @@ import type { DesktopToolLauncher } from "./desktop-tool-manager.js";
 import { DesktopToolError } from "./desktop-tool-manager.js";
 import { DesktopApplicationError } from "./desktop-service.js";
 import type { RelayableMessage, SessionPair } from "../types.js";
+import { isModelApproved } from "./approved-models.js";
 
 /**
  * Everything the worker-session service needs from the owning application service. Declared as an
@@ -91,6 +92,12 @@ export class WorkerSessionService {
       const selected = available.find(
         (candidate) => candidate.enabled !== false && candidate.providerID === model.providerID && candidate.id === model.id
       );
+      if (!isModelApproved(model.providerID, model.id)) {
+        throw new DesktopApplicationError(
+          "MODEL_NOT_AUTHORIZED",
+          `Model ${model.providerID}/${model.id} is not in the operator-approved list (config/models.local.json). Request operator approval to use this model or choose an approved one.`
+        );
+      }
       if (!selected) {
         throw new DesktopApplicationError("UNKNOWN_WORKER_MODEL", "The selected worker model is not available from the configured OpenCode server.");
       }
@@ -153,7 +160,7 @@ export class WorkerSessionService {
   }
 
     getOpenCodeEndpoint(): string {
-    const configured = this.ctx.options.opencode?.baseUrl ?? process.env.AGENT_RELAY_OPENCODE_BASE_URL;
+    const configured = this.ctx.options.opencode?.baseUrl ?? process.env.AGENT_OPENCODE_BASE_URL;
     if (configured) return configured;
 
     const first = this.firstWorkerServer()?.baseUrl;

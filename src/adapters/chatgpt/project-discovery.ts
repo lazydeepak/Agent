@@ -3,7 +3,7 @@
  * File: src/adapters/chatgpt/project-discovery.ts
  * Purpose: Source module for project-discovery.ts.
  */
-import { parseChatGptConversationUrl } from "../../sessions/chatgpt-url.js";
+import { parseChatGptConversationUrl } from "../../util/chatgpt-url.js";
 
 export interface CdpListTarget {
   type?: string;

@@ -20,7 +20,9 @@ import type {
   SchedulerMode,
   SupervisorContinuity,
   SupervisorState,
-  WorkerMessageClassification
+  WorkerMessageClassification,
+  StartupOperation,
+  StartupOperationStatus
 } from "../types.js";
 
 export interface RelayStore {
@@ -40,6 +42,8 @@ export interface RelayStore {
     fields: { targetId?: string; error?: string; classification?: WorkerMessageClassification }
   ): RelayRecord | undefined;
   recordFailure(identity: CanonicalRelayIdentity, error: string): RelayRecord | undefined;
+  /** Rule 12/13 — bump the attempt counter for an unconfirmed delivery without changing its status. */
+  recordVerificationAttempt(identity: CanonicalRelayIdentity): RelayRecord | undefined;
   recordDelivered(identity: CanonicalRelayIdentity, targetId: string): RelayRecord | undefined;
   touchPairState(state: Partial<PairRelayState> & { pairId: string }): void;
   getPairState(pairId: string): PairRelayState | undefined;
@@ -50,6 +54,22 @@ export interface RelayStore {
   getRuntimeState(pairId: string): RuntimeMetadata | undefined;
   touchResumeState(state: { pairId: string; resumeAfterRestart: boolean }): void;
   listResumeState(): Array<{ pairId: string; resumeAfterRestart: boolean }>;
+  /** v1.1 §4 — durable startup-operation identity and acceptance fence. */
+  createStartupOperation(input: { pairId: string; mode: "fresh" | "resume"; plannerSessionId: string; workerSessionId: string; maxAttempts?: number }): StartupOperation;
+  /** v1.1 §4 — readback for audit/reconciliation; works for pending/stabilized/hold/aborted. */
+  getStartupOperation(id: string): StartupOperation | undefined;
+  getOpenStartupOperation(pairId: string): StartupOperation | undefined;
+  recordStartupAttempt(id: string): StartupOperation | undefined;
+  /** Atomic fence: accept exactly one response as the first continuation; false if already accepted. */
+  acceptStartupResponse(id: string, responseId: string): boolean;
+  markStartupOperationHold(id: string, reason: string): StartupOperation | undefined;
+  stabilizeStartupOperation(id: string): void;
+  abortStartupOperation(id: string, reason: string): void;
+  /** Rule 15 — operator-configured per-pair auto-resume after restart (default: disabled). */
+  touchAutoResumeState(state: { pairId: string; autoResumeAfterRestart: boolean }): void;
+  listAutoResumeState(): string[];
+  /** Rule 24 — delete rows older than `maxAgeDays` (attention items only when resolved, non-pending proposals only). Never touches the relay ledger. */
+  applyHistoryRetention(maxAgeDays: number): { deletedCycles: number; deletedResolvedAttention: number; deletedProposals: number };
   touchSchedulerMode(
     state: {
       pairId: string;
@@ -159,6 +179,25 @@ export class RelayStoreError extends Error {
   }
 }
 
+const STARTUP_SCHEMA = `
+CREATE TABLE IF NOT EXISTS startup_operations (
+  id TEXT PRIMARY KEY,
+  pair_id TEXT NOT NULL,
+  mode TEXT NOT NULL,
+  planner_session_id TEXT NOT NULL,
+  worker_session_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  max_attempts INTEGER NOT NULL DEFAULT 3,
+  accepted_response_id TEXT,
+  hold_reason TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  settled_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_startup_ops_pair ON startup_operations(pair_id, status);
+`;
+
 const ATTENTION_SCHEMA = `
 CREATE TABLE IF NOT EXISTS attention_items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -202,7 +241,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_proposal_identity
 CREATE INDEX IF NOT EXISTS idx_proposal_pair ON ai_proposals (pair_id, status);
 `;
 
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 14;  // v13: supervisor_state.recovery_suspended*; v14: startup_operations  // v11: runtime_state.auto_resume_after_restart; v12: relay_records.verify_*; v13: supervisor_state.recovery_suspended*
 
 const RECOVERY_SUPERVISOR_COLUMNS = [
   "candidate_worker_message_id TEXT",
@@ -274,7 +313,8 @@ CREATE TABLE IF NOT EXISTS runtime_state (
   scheduler_mode TEXT,
   scheduler_mode_changed_at TEXT,
   dormant_reason TEXT,
-  resume_after_restart INTEGER NOT NULL DEFAULT 0
+  resume_after_restart INTEGER NOT NULL DEFAULT 0,
+  auto_resume_after_restart INTEGER NOT NULL DEFAULT 0
 );
 `;
 
@@ -380,6 +420,33 @@ export class SqliteRelayStore implements RelayStore {
       }
       if (current < 10) {
         this.db.exec(PROPOSAL_SCHEMA);
+      }
+      if (current < 11) {
+        if (!this.columnExists("runtime_state", "auto_resume_after_restart")) {
+          this.db.exec("ALTER TABLE runtime_state ADD COLUMN auto_resume_after_restart INTEGER NOT NULL DEFAULT 0");
+        }
+        if (!this.columnExists("relay_records", "verify_attempt_count")) {
+          this.db.exec("ALTER TABLE relay_records ADD COLUMN verify_attempt_count INTEGER NOT NULL DEFAULT 0");
+        }
+        if (!this.columnExists("relay_records", "verify_last_attempt_at")) {
+          this.db.exec("ALTER TABLE relay_records ADD COLUMN verify_last_attempt_at TEXT");
+        }
+      }
+      if (current < 12) {
+        if (!this.columnExists("relay_records", "verify_last_attempt_at")) {
+          this.db.exec("ALTER TABLE relay_records ADD COLUMN verify_last_attempt_at TEXT");
+        }
+      }
+      if (current < 13) {
+        if (!this.columnExists("supervisor_state", "recovery_suspended")) {
+          this.db.exec("ALTER TABLE supervisor_state ADD COLUMN recovery_suspended INTEGER NOT NULL DEFAULT 0");
+        }
+        if (!this.columnExists("supervisor_state", "recovery_suspended_at")) {
+          this.db.exec("ALTER TABLE supervisor_state ADD COLUMN recovery_suspended_at TEXT");
+        }
+      }
+      if (current < 14) {
+        this.db.exec(STARTUP_SCHEMA);
       }
       if (row === undefined) {
         this.db.prepare("INSERT INTO schema_version (version) VALUES (?)").run(SCHEMA_VERSION);
@@ -524,6 +591,22 @@ export class SqliteRelayStore implements RelayStore {
 
   recordFailure(identity: CanonicalRelayIdentity, error: string): RelayRecord | undefined {
     return this.updateStatus(identity, "FAILED", { error });
+  }
+
+  recordVerificationAttempt(identity: CanonicalRelayIdentity): RelayRecord | undefined {
+    const now = new Date().toISOString();
+    const existing = this.findRecord(identity);
+    if (!existing) {
+      return undefined;
+    }
+    this.db
+      .prepare(
+        `UPDATE relay_records
+         SET verify_attempt_count = verify_attempt_count + 1, verify_last_attempt_at = ?
+         WHERE id = ?`
+      )
+      .run(now, existing.id);
+    return this.findRecord(identity);
   }
 
   recordDelivered(identity: CanonicalRelayIdentity, targetId: string): RelayRecord | undefined {
@@ -829,9 +912,10 @@ export class SqliteRelayStore implements RelayStore {
 
   touchSupervisorState(state: Partial<Omit<SupervisorContinuity, "pairId">> & { pairId: string }): void {
     const existingRow = this.db
-      .prepare("SELECT recovery_attempt_count AS count FROM supervisor_state WHERE pair_id = ?")
-      .get(state.pairId) as { count: number } | undefined;
+      .prepare("SELECT recovery_attempt_count AS count, recovery_suspended AS suspended FROM supervisor_state WHERE pair_id = ?")
+      .get(state.pairId) as { count: number; suspended: number } | undefined;
     const recoveryAttemptCount = state.recoveryAttemptCount ?? existingRow?.count ?? 0;
+    const recoverySuspendedValue = state.recoverySuspended === undefined ? existingRow?.suspended ?? 0 : state.recoverySuspended ? 1 : 0;
 
     this.db
       .prepare(
@@ -844,8 +928,8 @@ export class SqliteRelayStore implements RelayStore {
            baseline_worker_message_id, baseline_worker_message_created_at,
            recovery_policy, recovery_attempt_count, last_recovery_attempt_at,
            last_recovery_success_at, last_recovery_error_code, last_recovery_error,
-           project_pair_id
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           project_pair_id, recovery_suspended, recovery_suspended_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(pair_id) DO UPDATE SET
            last_supervisor_state = COALESCE(excluded.last_supervisor_state, supervisor_state.last_supervisor_state),
            state_changed_at = COALESCE(excluded.state_changed_at, supervisor_state.state_changed_at),
@@ -907,7 +991,9 @@ export class SqliteRelayStore implements RelayStore {
              supervisor_state.last_recovery_error_code
            ),
             last_recovery_error = COALESCE(excluded.last_recovery_error, supervisor_state.last_recovery_error),
-            project_pair_id = COALESCE(excluded.project_pair_id, supervisor_state.project_pair_id)`
+            project_pair_id = COALESCE(excluded.project_pair_id, supervisor_state.project_pair_id),
+            recovery_suspended = COALESCE(excluded.recovery_suspended, supervisor_state.recovery_suspended),
+            recovery_suspended_at = COALESCE(excluded.recovery_suspended_at, supervisor_state.recovery_suspended_at)`
       )
       .run(
         state.pairId,
@@ -932,7 +1018,9 @@ export class SqliteRelayStore implements RelayStore {
         state.lastRecoverySuccessAt ?? null,
         state.lastRecoveryErrorCode ?? null,
         state.lastRecoveryError ?? null,
-        (state as { projectPairId?: string }).projectPairId ?? null
+        (state as { projectPairId?: string }).projectPairId ?? null,
+        recoverySuspendedValue,
+        state.recoverySuspendedAt ?? null
       );
   }
 
@@ -974,7 +1062,9 @@ export class SqliteRelayStore implements RelayStore {
       lastRecoverySuccessAt: nullableString(row.last_recovery_success_at),
       lastRecoveryErrorCode: nullableRecoveryErrorCode(row.last_recovery_error_code),
       lastRecoveryError: nullableString(row.last_recovery_error),
-      projectPairId: nullableString(row.project_pair_id) || undefined
+      projectPairId: nullableString(row.project_pair_id) || undefined,
+      recoverySuspended: Number(row.recovery_suspended ?? 0) === 1 || undefined,
+      recoverySuspendedAt: nullableString(row.recovery_suspended_at)
     };
   }
 
@@ -1049,6 +1139,86 @@ export class SqliteRelayStore implements RelayStore {
       );
   }
 
+  createStartupOperation(input: {
+    pairId: string;
+    mode: "fresh" | "resume";
+    plannerSessionId: string;
+    workerSessionId: string;
+    maxAttempts?: number;
+  }): StartupOperation {
+    const now = new Date().toISOString();
+    const id = `startup-${input.pairId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    this.db
+      .prepare(
+        `INSERT INTO startup_operations
+         (id, pair_id, mode, planner_session_id, worker_session_id, status, attempt_count, max_attempts, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?)`
+      )
+      .run(id, input.pairId, input.mode, input.plannerSessionId, input.workerSessionId, input.maxAttempts ?? 3, now, now);
+    return this.getStartupOperation(id)!;
+  }
+
+  getStartupOperation(id: string): StartupOperation | undefined {
+    const row = this.db.prepare("SELECT * FROM startup_operations WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+    if (!row) return undefined;
+    return rowToStartupOperation(row);
+  }
+
+  getOpenStartupOperation(pairId: string): StartupOperation | undefined {
+    const row = this.db
+      .prepare("SELECT * FROM startup_operations WHERE pair_id = ? AND status IN ('pending', 'hold') ORDER BY created_at DESC LIMIT 1")
+      .get(pairId) as Record<string, unknown> | undefined;
+    return row ? rowToStartupOperation(row) : undefined;
+  }
+
+  recordStartupAttempt(id: string): StartupOperation | undefined {
+    this.db
+      .prepare(
+        `UPDATE startup_operations
+         SET attempt_count = attempt_count + 1, updated_at = ?
+         WHERE id = ? AND status = 'pending'`
+      )
+      .run(new Date().toISOString(), id);
+    return this.getStartupOperation(id);
+  }
+
+  acceptStartupResponse(id: string, responseId: string): boolean {
+    const now = new Date().toISOString();
+    const result = this.db
+      .prepare(
+        `UPDATE startup_operations
+         SET accepted_response_id = ?, status = 'stabilized', updated_at = ?, settled_at = ?
+         WHERE id = ? AND accepted_response_id IS NULL AND status = 'pending'`
+      )
+      .run(responseId, now, now, id);
+    return Number(result.changes ?? 0) > 0;
+  }
+
+  markStartupOperationHold(id: string, reason: string): StartupOperation | undefined {
+    this.db
+      .prepare(
+        `UPDATE startup_operations SET status = 'hold', hold_reason = ?, updated_at = ? WHERE id = ?`
+      )
+      .run(reason, new Date().toISOString(), id);
+    return this.getStartupOperation(id);
+  }
+
+  stabilizeStartupOperation(id: string): void {
+    this.db
+      .prepare(
+        `UPDATE startup_operations SET status = 'stabilized', updated_at = ?, settled_at = ? WHERE id = ?`
+      )
+      .run(new Date().toISOString(), new Date().toISOString(), id);
+  }
+
+  abortStartupOperation(id: string, reason: string): void {
+    this.db
+      .prepare(
+        `UPDATE startup_operations SET status = 'aborted', hold_reason = ?, updated_at = ?, settled_at = ? WHERE id = ?`
+      )
+      .run(reason, new Date().toISOString(), new Date().toISOString(), id);
+  }
+
   touchResumeState(state: { pairId: string; resumeAfterRestart: boolean }): void {
     this.db
       .prepare(
@@ -1063,6 +1233,47 @@ export class SqliteRelayStore implements RelayStore {
       .prepare("SELECT pair_id, resume_after_restart FROM runtime_state WHERE resume_after_restart = 1")
       .all() as Array<{ pair_id: string; resume_after_restart: number }>;
     return rows.map((row) => ({ pairId: String(row.pair_id), resumeAfterRestart: Number(row.resume_after_restart) === 1 }));
+  }
+
+  touchAutoResumeState(state: { pairId: string; autoResumeAfterRestart: boolean }): void {
+    this.db
+      .prepare(
+        `INSERT INTO runtime_state (pair_id, auto_resume_after_restart) VALUES (?, ?)
+         ON CONFLICT(pair_id) DO UPDATE SET auto_resume_after_restart = excluded.auto_resume_after_restart`
+      )
+      .run(state.pairId, state.autoResumeAfterRestart ? 1 : 0);
+  }
+
+  listAutoResumeState(): string[] {
+    const rows = this.db
+      .prepare("SELECT pair_id FROM runtime_state WHERE auto_resume_after_restart = 1")
+      .all() as Array<{ pair_id: string }>;
+    return rows.map((row) => String(row.pair_id));
+  }
+
+  applyHistoryRetention(maxAgeDays: number): { deletedCycles: number; deletedResolvedAttention: number; deletedProposals: number } {
+    if (!Number.isFinite(maxAgeDays) || maxAgeDays <= 0) {
+      return { deletedCycles: 0, deletedResolvedAttention: 0, deletedProposals: 0 };
+    }
+    const cutoff = new Date(Date.now() - maxAgeDays * 86_400_000).toISOString();
+    // v1.1 §12.5 — unresolved transport/ownership/incident evidence is never deleted.
+    // Only cycles proven delivered are eligible for age-based deletion.
+    const cycles = this.db
+      .prepare(
+        "DELETE FROM relay_cycles WHERE cycle_status = 'DELIVERED' AND COALESCE(worker_completed_at, dispatched_at) < ?"
+      )
+      .run(cutoff);
+    const attention = this.db
+      .prepare("DELETE FROM attention_items WHERE resolved_at IS NOT NULL AND resolved_at < ?")
+      .run(cutoff);
+    const proposals = this.db
+      .prepare("DELETE FROM ai_proposals WHERE status != 'PENDING' AND created_at < ?")
+      .run(cutoff);
+    return {
+      deletedCycles: Number(cycles.changes ?? 0),
+      deletedResolvedAttention: Number(attention.changes ?? 0),
+      deletedProposals: Number(proposals.changes ?? 0)
+    };
   }
 
   touchSchedulerMode(
@@ -1107,7 +1318,8 @@ export class SqliteRelayStore implements RelayStore {
       schedulerMode: nullableSchedulerMode(row.scheduler_mode),
       schedulerModeChangedAt: nullableString(row.scheduler_mode_changed_at),
       dormantReason: nullableString(row.dormant_reason),
-      resumeAfterRestart: Number(row.resume_after_restart ?? 0) === 1
+      resumeAfterRestart: Number(row.resume_after_restart ?? 0) === 1,
+      autoResumeAfterRestart: Number(row.auto_resume_after_restart ?? 0) === 1
     };
   }
 
@@ -1124,7 +1336,8 @@ export class SqliteRelayStore implements RelayStore {
         schedulerMode: nullableSchedulerMode(record.scheduler_mode),
         schedulerModeChangedAt: nullableString(record.scheduler_mode_changed_at),
         dormantReason: nullableString(record.dormant_reason),
-        resumeAfterRestart: Number(record.resume_after_restart ?? 0) === 1
+        resumeAfterRestart: Number(record.resume_after_restart ?? 0) === 1,
+        autoResumeAfterRestart: Number(record.auto_resume_after_restart ?? 0) === 1
       };
     });
   }
@@ -1208,7 +1421,7 @@ export function resolveDbPath(configuredPath?: string): string {
   if (configuredPath) {
     return resolve(configuredPath);
   }
-  return resolve(process.env.AGENT_RELAY_DB ?? "data/agent-relay.sqlite");
+  return resolve(process.env.AGENT_DB ?? "data/agent.sqlite");
 }
 
 export async function ensureDbParent(dbPath: string): Promise<void> {
@@ -1236,6 +1449,8 @@ function rowToRelayRecord(row: unknown): RelayRecord | undefined {
     deliveredAt: nullableString(record.delivered_at),
     lastAttemptAt: nullableString(record.last_attempt_at),
     attemptCount: Number(record.attempt_count ?? 0),
+    verifyAttemptCount: Number(record.verify_attempt_count ?? 0),
+    verifyLastAttemptAt: nullableString(record.verify_last_attempt_at),
     error: nullableString(record.error),
     classification: nullableWorkerMessageClassification(record.classification)
   };
@@ -1333,6 +1548,24 @@ function nullableRecoveryErrorCode(value: unknown): RecoveryErrorCode | undefine
   return isRecoveryErrorCode(stringValue) ? stringValue : undefined;
 }
 
+function rowToStartupOperation(row: Record<string, unknown>): StartupOperation {
+  return {
+    id: String(row.id),
+    pairId: String(row.pair_id),
+    mode: String(row.mode) as "fresh" | "resume",
+    plannerSessionId: String(row.planner_session_id),
+    workerSessionId: String(row.worker_session_id),
+    status: String(row.status) as StartupOperationStatus,
+    attemptCount: Number(row.attempt_count ?? 0),
+    maxAttempts: Number(row.max_attempts ?? 3),
+    acceptedResponseId: row.accepted_response_id === null || row.accepted_response_id === undefined ? undefined : String(row.accepted_response_id),
+    holdReason: row.hold_reason === null || row.hold_reason === undefined ? undefined : String(row.hold_reason),
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+    settledAt: row.settled_at === null || row.settled_at === undefined ? undefined : String(row.settled_at)
+  };
+}
+
 function isRecoveryErrorCode(value: string): value is RecoveryErrorCode {
   const codes: RecoveryErrorCode[] = [
     "OPENCODE_UNREACHABLE",
@@ -1345,6 +1578,7 @@ function isRecoveryErrorCode(value: string): value is RecoveryErrorCode {
     "CHATGPT_CONVERSATION_MISMATCH",
     "RELAY_AMBIGUOUS",
     "RELAY_DELIVERY_FAILED",
+    "RECOVERY_SUSPENDED",
     "STUCK_UNRESOLVED",
     "RECOVERY_RETRY_EXHAUSTED"
   ];

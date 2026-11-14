@@ -82,6 +82,8 @@ export interface PairIdentityDto {
   enabled: boolean;
   localAgentMode?: boolean;
   projectPairId?: string;
+  /** OpenCode session that will receive verbatim Planner replies lacking a Worker prompt after one regeneration request. */
+  masterWorkerSessionId?: string;
   worker: {
     type: string;
     sessionId: string;
@@ -211,7 +213,20 @@ export interface CandidatePairDto {
     conversationUrl: string;
     browser?: { cdpUrl?: string };
   };
+  /** OpenCode session that receives verbatim Planner replies lacking a Worker prompt after one regeneration request. */
+  masterWorkerSessionId?: string;
   projectPairId?: string;
+}
+
+/** Rule 24 — operator-configurable history retention. */
+export interface SettingsDto {
+  /** Days of history to keep in SQLite (relay cycles, resolved attention items, non-pending proposals). 0 or absent = keep forever. Never applies to the relay ledger. */
+  historyRetentionDays?: number;
+}
+
+export interface AutoResumeStateDto {
+  pairId: string;
+  autoResumeAfterRestart: boolean;
 }
 
 export interface UpdatePairDto {
@@ -224,6 +239,7 @@ export interface UpdatePairDto {
     browser?: { cdpUrl?: string };
   };
   projectPairId?: string;
+  masterWorkerSessionId?: string;
 }
 
 export interface ProjectPairDto {

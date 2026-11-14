@@ -23,6 +23,7 @@ import {
 } from "./project-pair-repository.js";
 import { ProjectPairConfigError } from "../sessions/project-pairs.js";
 import { DesktopApplicationError } from "./desktop-service.js";
+import type { CreateProjectPairDto, OpenCodeProjectDto } from "../contracts/desktop.js";
 import type { ProjectPair } from "../types.js";
 
 export interface ProjectPairServiceOptions {
@@ -34,23 +35,8 @@ export interface ProjectPairServiceOptions {
   openCodeDesktopScan?: () => Promise<OpenCodeDesktopSession>;
 }
 
-export interface CreateProjectPairInput {
-  projectPairId?: string;
-  worker: {
-    repoPath: string;
-    projectId?: string;
-  };
-  planner: {
-    projectSlug: string;
-    projectName?: string;
-  };
-}
-
-export interface OpenCodeProjectDiscovery {
-  repoPath: string;
-  name: string;
-  sessionCount: number;
-}
+export type CreateProjectPairInput = CreateProjectPairDto;
+export type OpenCodeProjectDiscovery = OpenCodeProjectDto;
 
 const DEFAULT_OPENCODE_BASE_URL = "http://127.0.0.1:4096";
 const DEFAULT_CHATGTP_CDP_URL = "http://127.0.0.1:9222";
@@ -261,7 +247,7 @@ export class ProjectPairService {
   private opencodeBaseUrl(): string {
     return (
       this.options.opencodeBaseUrl ??
-      process.env.AGENT_RELAY_OPENCODE_BASE_URL ??
+      process.env.AGENT_OPENCODE_BASE_URL ??
       DEFAULT_OPENCODE_BASE_URL
     );
   }

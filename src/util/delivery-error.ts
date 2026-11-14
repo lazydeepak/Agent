@@ -1,6 +1,6 @@
 /**
  * Agent-relay codebase — module explanation / info.
- * File: src/relay/delivery-error.ts
+ * File: src/util/delivery-error.ts
  * Purpose: Source module for delivery-error.ts.
  */
 /**

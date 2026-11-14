@@ -7,19 +7,25 @@ import type { ChatGPTBrowserAdapter } from "../adapters/chatgpt/index.js";
 import type { OpenCodeSessionManager } from "../adapters/opencode/index.js";
 import { canonicalRelayIdentity, type RelayStore } from "../persistence/index.js";
 export * from "./chatgpt-gate.js";
+export * from "./planner-prompt.js";
+export * from "./receipt-verification.js";
+export * from "../util/composer-readiness.js";
+export * from "../util/composer-polling.js";
 import type {
   PairReadinessReport,
   RelayDirection,
   RelayReceipt,
   RelayableMessage,
   SessionPair,
+  WorkerIdentity,
   WorkerMessageClassification
 } from "../types.js";
 import { validatePair } from "../validator/readiness.js";
-import { SubmissionNotAttemptedError } from "./delivery-error.js";
-import { plannerControlMessage } from "./chatgpt-gate.js";
-import { parseWorkerAttentionEnvelope } from "../application/attention-parser.js";
+import { SubmissionNotAttemptedError } from "../util/delivery-error.js";
+import { plannerControlMessage } from "../util/planner-control.js";
+import { parseWorkerAttentionEnvelope } from "../util/attention-parser.js";
 import { classifyWorkerMessage } from "./message-classifier.js";
+import { withWatermark, makeWatermark, renderWatermark } from "../util/watermark.js";
 
 export interface RelayAdapters {
   worker: OpenCodeSessionManager;
@@ -122,7 +128,7 @@ async function relayMessage(
   // ----------------------------------------------------------------
 
   if (!options.persistence) {
-    const receipt = await send(sourceMessage);
+    const receipt = await send({ ...sourceMessage, text: withWatermark(sourceMessage.text) });
     if (!receipt.delivered) {
       return { pairId: pair.pairId, status: "AMBIGUOUS", direction, sourceMessage,
         classification: options.classification,
@@ -192,6 +198,66 @@ async function relayMessage(
     };
   }
 
+  // v1.1 §4 — narrow startup activation exception.
+  // While a startup operation is open, admit at most ONE planner response as the
+  // continuation, using the durable atomic acceptance fence before dispatch.
+  if (direction === "planner-to-worker" && options.persistence?.store) {
+    const open = options.persistence.store.getOpenStartupOperation(pair.pairId);
+    if (open) {
+      // Attribution gate: only responses newer than the activation are attributable to it.
+      const attributable = typeof sourceMessage.createdAt === "number" && sourceMessage.createdAt >= Date.parse(open.createdAt);
+      if (!attributable) {
+        return {
+          pairId: pair.pairId,
+          status: "AMBIGUOUS",
+          direction,
+          sourceMessage,
+          classification,
+          sourceHash: identity.sourceHash,
+          reason: `Planner message is not attributable to the open startup activation (created ${sourceMessage.createdAt ?? "unknown"} vs activation ${open.createdAt}); holding (v1.1 §4).`
+        };
+      }
+      if (open.status === "hold") {
+        return {
+          pairId: pair.pairId,
+          status: "AMBIGUOUS",
+          direction,
+          sourceMessage,
+          classification,
+          sourceHash: identity.sourceHash,
+          reason: `Startup activation is on hold for pair ${pair.pairId}: ${open.holdReason ?? "operator/agent reconciliation required before dispatch"} (v1.1 §4).`
+        };
+      }
+      if (open.acceptedResponseId && open.acceptedResponseId !== sourceMessage.id) {
+        return {
+          pairId: pair.pairId,
+          status: "AMBIGUOUS",
+          direction,
+          sourceMessage,
+          classification,
+          sourceHash: identity.sourceHash,
+          recordId: undefined,
+          reason: "A different planner response was already accepted as the startup continuation; holding dispatch (v1.1 §4)."
+        };
+      }
+      if (!open.acceptedResponseId) {
+        const accepted = options.persistence.store.acceptStartupResponse(open.id, sourceMessage.id);
+        if (!accepted) {
+          return {
+            pairId: pair.pairId,
+            status: "AMBIGUOUS",
+            direction,
+            sourceMessage,
+            classification,
+            sourceHash: identity.sourceHash,
+            recordId: undefined,
+            reason: "Startup acceptance fence was lost to a competing response; holding dispatch (v1.1 §4)."
+          };
+        }
+      }
+    }
+  }
+
   const record =
     existing ??
     store.createRecord(identity, sourceMessage.createdAt, classification);
@@ -200,7 +266,7 @@ async function relayMessage(
 
   let receipt: RelayReceipt;
   try {
-    receipt = await send(sourceMessage);
+    receipt = await send({ ...sourceMessage, text: withWatermark(sourceMessage.text) });
     if (!receipt.delivered) throw new Error("Target acceptance was not confirmed.");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -301,6 +367,131 @@ export async function relayPlannerToWorker(
       };
     }
   }
+
+  // Exact relay rules: a Planner reply that contains a Worker prompt is delivered
+  // immediately — there is no authorization gate. A reply without a prompt is
+  // asked about once; if the Planner still produces no prompt, the exact reply is
+  // escalated to the pair's Recovery Agent session. TerminalBot/Agent itself must
+  // not hold, pause, or terminate automation based on Planner prose.
+  const writingBlocks = sourceMessage.writingBlocks;
+  if (Array.isArray(writingBlocks)) {
+    const nonEmpty = writingBlocks.map((b) => b.trim()).filter((b) => b.length > 0);
+    if (nonEmpty.length === 1) {
+      // Exactly one prompt: deliver it (instruction task still applies above).
+      if (options.persistence?.store) {
+        options.persistence.store.touchPairState({
+          pairId: pair.pairId,
+          lastPlannerMessageId: sourceMessage.id,
+          lastDirection: "planner-to-worker",
+          lastError: "PROMPT_RECOVERY_RESOLVED"
+        });
+      }
+      if (instruction) {
+        return relayMessage(
+          pair,
+          adapters,
+          "planner-to-worker",
+          { ...options, sourceMessage: { ...sourceMessage, text: instruction.task } },
+          () => Promise.resolve({ ...sourceMessage, text: instruction.task }),
+          (message) => adapters.worker.sendPlannerMessage(pair.worker, message),
+          (messageId) => ({ lastPlannerMessageId: messageId })
+        );
+      }
+      return relayMessage(
+        pair,
+        adapters,
+        "planner-to-worker",
+        { ...options, sourceMessage: { ...sourceMessage, text: nonEmpty[0] } },
+        () => Promise.resolve({ ...sourceMessage, text: nonEmpty[0] }),
+        (message) => adapters.worker.sendPlannerMessage(pair.worker, message),
+        (messageId) => ({ lastPlannerMessageId: messageId })
+      );
+    }
+
+    // 0 or multiple structured blocks: not an unambiguous Worker prompt.
+    if (!options.persistence?.store) {
+      return {
+        pairId: pair.pairId,
+        status: "HELD",
+        direction: "planner-to-worker",
+        sourceMessage,
+        reason: "Worker prompt not available; regeneration requested but no durable store is configured to track state."
+      };
+    }
+    const store = options.persistence.store;
+    const priorState = store.getPairState(pair.pairId);
+    const alreadyAsked = priorState?.lastError === "PROMPT_RECOVERY_REQUESTED" || priorState?.lastError === "CONFIG_MISSING_MASTER";
+    const alreadyEscalated = priorState?.lastError === "ESCALATED_TO_AGENT";
+
+    if (alreadyEscalated) {
+      return {
+        pairId: pair.pairId,
+        status: "HELD",
+        direction: "planner-to-worker",
+        sourceMessage,
+        reason: "Already escalated to Recovery Agent; the relay stays open. Waiting for Planner to provide a valid Worker prompt."
+      };
+    }
+
+    if (!alreadyAsked) {
+      // Ask the Planner once for the missing Worker prompt.
+      const regenerationId = `prompt-recovery-${pair.pairId}-${Date.now()}`;
+      await adapters.planner.sendWorkerMessage(pair.planner, {
+        id: regenerationId,
+        source: "worker",
+        role: "user",
+        text: "Worker prompt not found. Please generate the next Worker prompt.",
+        createdAt: Date.now()
+      });
+      store.touchPairState({
+        pairId: pair.pairId,
+        lastPlannerMessageId: sourceMessage.id,
+        lastDirection: "planner-to-worker",
+        lastError: "PROMPT_RECOVERY_REQUESTED"
+      });
+      return {
+        pairId: pair.pairId,
+        status: "HELD",
+        direction: "planner-to-worker",
+        sourceMessage,
+        reason: "Worker prompt not available; asked Planner once for regeneration."
+      };
+    }
+
+    // Second consecutive missing/ambiguous prompt: escalate to Recovery Agent.
+    if (!pair.masterWorkerSessionId) {
+      store.touchPairState({
+        pairId: pair.pairId,
+        lastPlannerMessageId: sourceMessage.id,
+        lastDirection: "planner-to-worker",
+        lastError: "CONFIG_MISSING_MASTER"
+      });
+      return {
+        pairId: pair.pairId,
+        status: "HELD",
+        direction: "planner-to-worker",
+        sourceMessage,
+        reason: "Worker prompt not available after one request; masterWorkerSessionId is not configured for this pair. Configure it in pair settings to escalate to Recovery Agent."
+      };
+    }
+    const masterWorker: WorkerIdentity = { ...pair.worker, sessionId: pair.masterWorkerSessionId };
+    const escalation = await adapters.worker.sendPlannerMessage(masterWorker, { ...sourceMessage });
+    store.touchPairState({
+      pairId: pair.pairId,
+      lastPlannerMessageId: sourceMessage.id,
+      lastDirection: "planner-to-worker",
+      lastError: "ESCALATED_TO_AGENT"
+    });
+    return {
+      pairId: pair.pairId,
+      status: escalation.delivered ? "DELIVERED" : "AMBIGUOUS",
+      direction: "planner-to-worker",
+      sourceMessage,
+      reason: "Worker prompt not available after one request; verbatim Planner reply escalated to Recovery Agent.",
+      receipt: { ...escalation, pairId: pair.pairId }
+    };
+  }
+
   const workerMessage = instruction
     ? { ...sourceMessage, text: instruction.task }
     : sourceMessage;
@@ -412,7 +603,7 @@ function touchPairStateForFailure(
 function stripAttentionEnvelope(text: string): string {
   const envelope = parseWorkerAttentionEnvelope(text);
   if (!envelope) return text;
-  return text.replace(/<agent-relay>.*?<\/agent-relay>/g, "").trim();
+  return text.replace(/<agent>.*?<\/agent>/g, "").trim();
 }
 
 function nowIso(now?: Date): string {

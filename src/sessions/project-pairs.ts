@@ -5,6 +5,7 @@
  */
 import { isAbsolute } from "node:path";
 import { z } from "zod";
+import { findDuplicates, formatZodIssue } from "../util/duplicates.js";
 import type { ProjectPair, ProjectPairsConfig } from "../types.js";
 
 const projectPairIdPattern = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -20,8 +21,8 @@ const workerProjectSchema = z
     repoPath: z
       .string()
       .trim()
-      .min(1, "Worker repoPath is required.")
-      .refine((value) => isAbsolute(value), "Worker repoPath must be an absolute path."),
+      .refine((value) => value === "" || isAbsolute(value), "Worker repoPath must be an absolute path.")
+      .default(""),
     projectId: z.string().trim().min(1, "Worker projectId cannot be empty.").optional()
   })
   .strict();
@@ -101,7 +102,10 @@ function validateUniqueProjectPairs(pairs: ProjectPair[]): void {
     ...findDuplicates(pairs, (pair) => pair.projectPairId).map(
       (id) => `Duplicate projectPairId "${id}". Each project pair must have a stable unique id.`
     ),
-    ...findDuplicates(pairs, (pair) => pair.worker.repoPath).map(
+    ...findDuplicates(
+      pairs.filter((pair) => pair.worker.repoPath.trim() !== ""),
+      (pair) => pair.worker.repoPath
+    ).map(
       (repoPath) =>
         `Duplicate worker project ownership "${repoPath}". One worker project can belong to only one project pair.`
     ),
@@ -116,22 +120,4 @@ function validateUniqueProjectPairs(pairs: ProjectPair[]): void {
   }
 }
 
-function findDuplicates<T>(items: T[], keyForItem: (item: T) => string): string[] {
-  const seen = new Set<string>();
-  const duplicates = new Set<string>();
 
-  for (const item of items) {
-    const key = keyForItem(item);
-    if (seen.has(key)) {
-      duplicates.add(key);
-    }
-    seen.add(key);
-  }
-
-  return [...duplicates];
-}
-
-function formatZodIssue(issue: z.ZodIssue): string {
-  const path = issue.path.length > 0 ? `${issue.path.join(".")}: ` : "";
-  return `${path}${issue.message}`;
-}

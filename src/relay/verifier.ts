@@ -1,11 +1,21 @@
 /**
- * Agent-relay codebase — module explanation / info.
+ * Agent codebase — module explanation / info.
  * File: src/relay/verifier.ts
- * Purpose: Source module for verifier.ts.
+ * Purpose: Deterministic delivery verification (Rule 12).
+ *
+ * Verification strategy per direction:
+ * - planner-to-worker: the OpenCode session can be searched for the delivered user message
+ *   by exact target id (recorded on the relay record) or by content hash (source hash of the
+ *   pre-watermark text). Deterministic message-identity evidence.
+ * - worker-to-planner: live ChatGPT observation cannot surface user messages; the fake/test
+ *   adapter attests delivery via its own sent-message log. When no evidence is available,
+ *   verification deterministically reports "unverified" and the supervisor retries on the
+ *   Rule 13 interval, then escalates to the Recovery Agent — it never resends blindly.
  */
 import type { ChatGPTBrowserAdapter } from "../adapters/chatgpt/index.js";
 import type { OpenCodeSessionManager } from "../adapters/opencode/index.js";
-import { canonicalizeText } from "../persistence/canonical.js";
+import { stripWatermark } from "../util/watermark.js";
+import { hashText } from "../util/canonical.js";
 import type { RelayRecord, SessionPair } from "../types.js";
 
 export interface VerifierAdapters {
@@ -19,6 +29,19 @@ export interface VerificationResult {
   reason?: string;
 }
 
+/** Rule 13 — wait 2 minutes between verification retries of an unconfirmed message. */
+export const RELAY_VERIFY_RETRY_MS = 2 * 60 * 1000;
+
+/** Rule 12 — after this many failed verification attempts, escalate to the Recovery Agent. */
+export const RELAY_VERIFY_MAX_ATTEMPTS = 3;
+
+/** Normalize an observed message back to its pre-watermark form before hashing. */
+function sourceHashOfObserved(text: string): string {
+  return hashText(stripWatermark(text));
+}
+
+export { sourceHashOfObserved };
+
 /**
  * Deterministic verifier to reconcile AMBIGUOUS (interrupted) deliveries.
  * It checks the target side for the presence of a message that matches the source.
@@ -27,53 +50,58 @@ export class RelayVerifier {
   constructor(private readonly adapters: VerifierAdapters) {}
 
   async verify(pair: SessionPair, record: RelayRecord): Promise<VerificationResult> {
-    if (record.direction === "worker-to-planner") {
-      return this.verifyWorkerToPlanner(pair, record);
-    } else {
+    if (record.direction === "planner-to-worker") {
       return this.verifyPlannerToWorker(pair, record);
+    }
+    return this.verifyWorkerToPlanner(pair, record);
+  }
+
+  private async verifyPlannerToWorker(pair: SessionPair, record: RelayRecord): Promise<VerificationResult> {
+    const { worker } = this.adapters;
+    if (typeof worker.findUserMessageByIdentity !== "function") {
+      return { verified: false, reason: "Worker adapter cannot look up messages by identity." };
+    }
+    try {
+      const found = await worker.findUserMessageByIdentity(pair.worker, {
+        targetId: record.targetId,
+        sourceHash: record.sourceHash
+      });
+      if (found) {
+        return { verified: true, targetId: found.id };
+      }
+      return {
+        verified: false,
+        reason: "No user message matching the relay identity exists in the worker session."
+      };
+    } catch (error) {
+      return {
+        verified: false,
+        reason: `Verification failed: ${error instanceof Error ? error.message : String(error)}`
+      };
     }
   }
 
   private async verifyWorkerToPlanner(pair: SessionPair, record: RelayRecord): Promise<VerificationResult> {
     const { planner } = this.adapters;
-    try {
-      const messages = await planner.getLatestPlannerMessages?.(pair.planner, { limit: 5 });
-      if (!messages) {
-        return { verified: false, reason: "Planner adapter does not support multi-message retrieval." };
-      }
-
-      // We look for a message that matches the sourceHash (which is based on canonicalized text).
-      // Since we don't have user messages in the planner observation (usually only assistant),
-      // we need to rely on the fact that some adapters might show them.
-      // In the case of Playwright driver, it extracts assistant messages.
-      // To verify a worker->planner relay, we need to find the user message we sent.
-      
-      // If we can't see user messages in the planner adapter, we might need to assume 
-      // that if the *latest* assistant message is a response to our suspected message, it was delivered.
-      // But that's less deterministic.
-      
-      return { verified: false, reason: "Worker-to-planner verification requires user message retrieval from ChatGPT." };
-    } catch (error) {
-      return { verified: false, reason: `Verification failed: ${error instanceof Error ? error.message : String(error)}` };
+    const attester = (planner as ChatGPTBrowserAdapter & {
+      attestDelivery?(planner: SessionPair["planner"], sourceHash: string): Promise<boolean>;
+    }).attestDelivery;
+    if (typeof attester !== "function") {
+      return {
+        verified: false,
+        reason: "Planner adapter cannot expose user-message history; reconciliation needs a CDP-backed check."
+      };
     }
-  }
-
-  private async verifyPlannerToWorker(pair: SessionPair, record: RelayRecord): Promise<VerificationResult> {
-    const { worker } = this.adapters;
     try {
-      // For planner-to-worker, we check if the OpenCode session has the message.
-      const latest = await worker.getLatestAssistantMessage(pair.worker);
-      // We check if the latest assistant message was created after the record's first_seen_at
-      // OR if we can find a message that matches the text.
-      // OpenCode adapter's getLatestAssistantMessage returns the latest *assistant* (worker) message.
-      // We want to check if the *planner* (user) message we sent is there.
-      
-      // Let's add getLatestUserMessage to OpenCodeSessionManager if needed, 
-      // but we can also just check if the worker has responded to it.
-      
-      return { verified: false, reason: "Planner-to-worker verification not yet implemented." };
+      const attested = await attester.call(planner, pair.planner, record.sourceHash);
+      return attested
+        ? { verified: true, targetId: record.targetId }
+        : { verified: false, reason: "The planner adapter attests no delivery with this content hash." };
     } catch (error) {
-      return { verified: false, reason: `Verification failed: ${error instanceof Error ? error.message : String(error)}` };
+      return {
+        verified: false,
+        reason: `Verification failed: ${error instanceof Error ? error.message : String(error)}`
+      };
     }
   }
 }

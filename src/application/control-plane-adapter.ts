@@ -9,7 +9,7 @@ import { ProjectPairService } from "./project-pair-service.js";
 import type { RelayStore } from "../persistence/index.js";
 import { AttentionService } from "./attention-service.js";
 import { LiveOpenCodeAdapter } from "../adapters/opencode/index.js";
-import { parseWorkerAttentionEnvelope } from "./attention-parser.js";
+import { parseWorkerAttentionEnvelope } from "../util/attention-parser.js";
 import type {
   ControlPlaneOperation,
   GetStatusPayload,

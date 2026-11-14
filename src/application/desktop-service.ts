@@ -18,7 +18,7 @@ import { ExternalBrowserManager, type BrowserManager } from "../recovery/index.j
 import { LockRegistry, createPairAdapters, isFailedRuntime, type RuntimeAdapterOptions, type RuntimeStatusSummary } from "../runtime/index.js";
 import type { OpenCodeModelInfo, OpenCodeModelRef } from "../types.js";
 import { ConfigError } from "../sessions/pairs.js";
-import { ChatGptUrlError, parseChatGptConversationUrl } from "../sessions/chatgpt-url.js";
+import { ChatGptUrlError, parseChatGptConversationUrl } from "../util/chatgpt-url.js";
 import { validatePair } from "../validator/readiness.js";
 import { PairConfigError, PairConfigRepository, type PairEdits } from "./pair-config-repository.js";
 import {
@@ -32,6 +32,9 @@ import type { RelayableMessage } from "../types.js";
 import type { SupervisorRecoveryOptions, SupervisorReport } from "../supervisor/supervisor.js";
 import { UNIVERSAL_PLANNER_PROMPT, UNIVERSAL_PLANNER_PROMPT_VERSION } from "./universal-planner-prompt.js";
 import { RelayEngine } from "./relay-engine.js";
+import { readSettings, writeSettings } from "./settings-repository.js";
+import { createOpenCodeDesktopControl } from "./opencode-desktop.js";
+import type { SettingsDto } from "../contracts/desktop.js";
 
 export interface DesktopServiceOptions {
   configPath: string;
@@ -162,6 +165,8 @@ export interface RecentEventsFilter {
   limit?: number;
 }
 
+// REBUILD: desktop save -> adapter reload (opencode/chatgpt settings).
+// REBUILD: applyAdapterSettings connects UI save to adapter reload.
 export class DesktopApplicationService {
   private readonly options: DesktopServiceOptions;
   private readonly maxEvents: number;
@@ -256,6 +261,19 @@ export class DesktopApplicationService {
       this.archive = archive;
     } catch (error) {
       throw toDesktopApplicationError(error);
+    }
+    try {
+      const configuredDays = readSettings().historyRetentionDays ?? 0;
+      if (configuredDays > 0) {
+        const result = this.ensureStore().applyHistoryRetention(configuredDays);
+        this.recordEvent("HISTORY_RETENTION_APPLIED", undefined, {
+          reason: `Applied history retention of ${configuredDays} days.`,
+          details: result
+        });
+      }
+    } catch (error) {
+      // Retention is maintenance; a failure must not block startup.
+      this.recordEvent("HISTORY_RETENTION_FAILED", undefined, { reason: messageOf(error) });
     }
     try {
       const config = await this.loadConfig();
@@ -399,7 +417,10 @@ export class DesktopApplicationService {
     const rawStatus = this.relayEngine.getStatus();
     return {
       ...rawStatus,
-      pairs: rawStatus.pairs.map((pair) => ({ ...pair, hasRelayHistory: this.hasRelayHistory(pair.pairId) }))
+      pairs: rawStatus.pairs.map((pair) => ({
+        ...pair,
+        hasRelayHistory: this.hasRelayHistory(pair.pairId)
+      }))
     };
   }
 
@@ -662,6 +683,7 @@ export class DesktopApplicationService {
         throw toDesktopApplicationError(error);
       }
       this.storeResume(pairId, false);
+      this.clearAutoResumeToggle(pairId);
       return this.relayEngine.getStatus();
     });
   }
@@ -722,7 +744,15 @@ export class DesktopApplicationService {
       }
       for (const pair of this.pairs) {
         this.storeResume(pair.pairId, false);
+        this.clearAutoResumeToggle(pair.pairId);
       }
+      // v1.1 §5.4: Stop All is a one-time command, not a persistent lock. It blocks relay transport,
+      // disables Auto Resume for every pair, and requests Bot-owned Worker terminations. This engine
+      // cannot distinguish Bot-owned processes from unrelated ones — termination is UNVERIFIED.
+      this.recordEvent("STOP_ALL_REQUESTED", undefined, {
+        reason: "Stop All issued: relay transport blocked for all pairs, Auto Resume disabled for all pairs, Bot-owned Worker terminations requested. Termination is UNVERIFIED — do not report the command as proof that every Worker stopped.",
+        details: { status: "termination-unverified" }
+      });
       return this.relayEngine.getStatus();
     });
   }
@@ -856,6 +886,8 @@ export class DesktopApplicationService {
       this.assertOrchestratorQuiescentForConfigMutation();
       this.assertPairStopped(pairId);
       const edits: PairEdits = {};
+      if (input.projectPairId !== undefined) edits.projectPairId = input.projectPairId.trim() === "" ? undefined : input.projectPairId;
+      if (input.masterWorkerSessionId !== undefined) edits.masterWorkerSessionId = input.masterWorkerSessionId.trim() === "" ? undefined : input.masterWorkerSessionId;
       if (input.enabled !== undefined) {
         edits.enabled = input.enabled;
       }
@@ -1107,7 +1139,8 @@ export class DesktopApplicationService {
         conversationUrl: input.planner.conversationUrl,
         ...(input.planner.browser ? { browser: input.planner.browser } : {})
       },
-      ...(input.projectPairId ? { projectPairId: input.projectPairId.trim() } : {})
+      ...(input.projectPairId ? { projectPairId: input.projectPairId.trim() } : {}),
+      ...(input.masterWorkerSessionId ? { masterWorkerSessionId: input.masterWorkerSessionId.trim() } : {})
     };
   }
 
@@ -1131,7 +1164,8 @@ export class DesktopApplicationService {
         conversationUrl: pair.planner.conversationUrl,
         browser: pair.planner.browser ? { cdpUrl: pair.planner.browser.cdpUrl } : undefined,
         automation: pair.planner.automation
-      }
+      },
+      masterWorkerSessionId: pair.masterWorkerSessionId
     };
   }
 
@@ -1180,6 +1214,14 @@ export class DesktopApplicationService {
     }
   }
 
+  private clearAutoResumeToggle(pairId: string): void {
+    try {
+      this.ensureStore().touchAutoResumeState({ pairId, autoResumeAfterRestart: false });
+    } catch {
+      // best-effort; a broken store must not block stop/stop-all
+    }
+  }
+
   private storeResume(pairId: string, resumeAfterRestart: boolean): void {
     const store = this.ensureStore();
     try {
@@ -1215,9 +1257,74 @@ export class DesktopApplicationService {
     return this.pairs.map((pair) => ({ pairId: pair.pairId, resumeAfterRestart: resume.get(pair.pairId) ?? false }));
   }
 
+  /** v1.1 §11.4 — operator-only release of a pair's recovery suspension. Resets the repeat counter; preserves history. */
+  releaseRecoverySuspension(pairId: string): RuntimeStatusSummary {
+    this.assertKnownPair(pairId);
+    const store = this.ensureStore();
+    const existing = store.getSupervisorState(pairId);
+    store.touchSupervisorState({
+      pairId,
+      recoverySuspended: false,
+      recoverySuspendedAt: undefined,
+      recoveryAttemptCount: 0
+    });
+    this.recordEvent("RECOVERY_SUSPENSION_RELEASED", pairId, {
+      reason: existing?.recoverySuspended
+        ? "Operator released the recovery suspension; automated recovery is enabled again."
+        : "Operator release requested; no suspension was active."
+    });
+    return this.relayEngine.getStatus();
+  }
+
+  /** Rule 15 — operator-configured per-pair auto-resume after restart (default: disabled). */
+  getAutoResumeState(): Array<{ pairId: string; autoResumeAfterRestart: boolean }> {
+    const store = this.ensureStore();
+    const resume = new Set(store.listAutoResumeState());
+    return this.pairs.map((pair) => ({ pairId: pair.pairId, autoResumeAfterRestart: resume.has(pair.pairId) }));
+  }
+
+  setAutoResumeAfterRestart(pairId: string, enabled: boolean): Array<{ pairId: string; autoResumeAfterRestart: boolean }> {
+    this.assertKnownPair(pairId);
+    this.ensureStore().touchAutoResumeState({ pairId, autoResumeAfterRestart: Boolean(enabled) });
+    this.recordEvent("AUTO_RESUME_UPDATED", pairId, {
+      reason: `Auto-resume after restart ${enabled ? "enabled" : "disabled"} by the operator.`,
+      details: { autoResumeAfterRestart: Boolean(enabled) }
+    });
+    return this.getAutoResumeState();
+  }
+
+  /** Rule 24 — operator-configured history retention settings. */
+  getSettings(): SettingsDto {
+    return readSettings();
+  }
+
+  updateSettings(input: SettingsDto): SettingsDto {
+    if (!input || typeof input !== "object") {
+      throw new DesktopApplicationError("INVALID_SETTINGS", "Settings payload must be an object.");
+    }
+    const days = input.historyRetentionDays;
+    if (days !== undefined && (!Number.isFinite(days) || days < 0 || days > 36500)) {
+      throw new DesktopApplicationError(
+        "INVALID_SETTINGS",
+        "historyRetentionDays must be an integer between 0 (keep forever) and 36500."
+      );
+    }
+    const saved = writeSettings({ historyRetentionDays: days });
+    if (saved.historyRetentionDays && saved.historyRetentionDays > 0) {
+      const result = this.ensureStore().applyHistoryRetention(saved.historyRetentionDays);
+      this.recordEvent("HISTORY_RETENTION_APPLIED", undefined, {
+        reason: `Applied history retention of ${saved.historyRetentionDays} days.`,
+        details: result
+      });
+    }
+    return saved;
+  }
+
   async resumeManagedPairs(): Promise<void> {
     const store = this.ensureStore();
-    const resume = new Set(store.listResumeState().map((entry) => entry.pairId));
+    // v1.1 §6.2–6.3: only operator-enabled pairs with Auto Resume on resume automatically after a
+    // restart — including explicitly paused pairs. Stop / Stop All disable Auto Resume per pair.
+    const resume = new Set(store.listAutoResumeState());
     const toResume = this.pairs.filter((pair) => pair.enabled && resume.has(pair.pairId));
     if (toResume.length === 0) return;
 
@@ -1257,11 +1364,35 @@ export class DesktopApplicationService {
       return undefined;
     }
     const browser: BrowserManager = new ExternalBrowserManager();
+    const desktopControl = createOpenCodeDesktopControl();
     return {
       policy: this.options.recoveryPolicy === "none" ? "none" : "safe",
       browser,
       maxAttempts: this.options.recoveryMaxAttempts,
       baseUrl: pair.worker.server?.baseUrl,
+      // v1.1 §9 — shared OpenCode restart only after EVERY potentially affected Worker is verified idle.
+      // Idle requires reachability + session existence + not gathering; anything else is NOT idle.
+      verifyAllAffectedWorkersIdle: async () => {
+        const others = this.pairs.filter(
+          (candidate) => candidate.enabled && candidate.pairId !== pair.pairId
+        );
+        for (const other of others) {
+          try {
+            const endpoint = other.worker.server?.baseUrl ?? this.getOpenCodeEndpoint();
+            const adapter = new LiveOpenCodeAdapter(this.openCodeClientOptions(endpoint));
+            const observation = await adapter.observeWorkerSession(other.worker);
+            if (!observation.reachable || !observation.sessionExists || observation.gathering) {
+              return false; // affected Worker is active/busy — restart is unsafe
+            }
+          } catch {
+            return false; // unobservable is NOT idle — never restart on uncertainty
+          }
+        }
+        return true; // no other enabled pair is affected — safe
+      },
+      // v1.1 §9 — predefined shared-service recovery, gated on verified idle.
+      terminateOpenCodeDesktop: this.options.recoveryPolicy === "safe" ? desktopControl.terminateOpenCodeDesktop : undefined,
+      relaunchOpenCodeDesktop: this.options.recoveryPolicy === "safe" ? desktopControl.relaunchOpenCodeDesktop : undefined,
       startServerLauncher:
         this.options.recoveryPolicy === "safe"
           ? (repoPath, baseUrl) => this.desktopTools.startOpenCode({ repoPath, baseUrl })

@@ -127,7 +127,7 @@ export class LocalDesktopToolLauncher implements DesktopToolLauncher {
       if (await endpointAcceptsConnections(endpoint)) {
         throw new DesktopToolError(
           "OPENCODE_ENDPOINT_OCCUPIED",
-          `Another OpenCode server already owns ${endpoint} and rejected this launcher's credentials. Stop it, or set AGENT_RELAY_OPENCODE_USERNAME and AGENT_RELAY_OPENCODE_PASSWORD to match the server that is running.`
+          `Another OpenCode server already owns ${endpoint} and rejected this launcher's credentials. Stop it, or set AGENT_OPENCODE_USERNAME and AGENT_OPENCODE_PASSWORD to match the server that is running.`
         );
       }
       throw error;
@@ -154,7 +154,7 @@ export class LocalDesktopToolLauncher implements DesktopToolLauncher {
     if (!executable) {
       throw new DesktopToolError("CHROME_EXECUTABLE_NOT_FOUND", "Agent could not find Google Chrome.");
     }
-    const profile = join(homedir(), ".agent-relay", "chrome-profile");
+    const profile = join(homedir(), ".agent", "chrome-profile");
     await mkdir(profile, { recursive: true });
     const child = spawn(executable, [
       `--remote-debugging-address=${endpointHost(endpoint)}`,
@@ -225,7 +225,7 @@ export class LocalDesktopToolLauncher implements DesktopToolLauncher {
 
 /**
  * Resolves the password used to secure a locally launched OpenCode server. Both names are read:
- * `AGENT_RELAY_OPENCODE_PASSWORD` is the Agent spelling, `OPENCODE_SERVER_PASSWORD` is the
+ * `AGENT_OPENCODE_PASSWORD` is the Agent spelling, `OPENCODE_SERVER_PASSWORD` is the
  * variable OpenCode itself checks (and therefore the one commonly set in `.env`).
  *
  * OpenCode >= 2 always authenticates its API and, when no password is supplied, prints a randomly
@@ -235,7 +235,7 @@ export class LocalDesktopToolLauncher implements DesktopToolLauncher {
  * holding a server it cannot authenticate against.
  */
 function resolveOpenCodeServerPassword(): string {
-  const configured = process.env.AGENT_RELAY_OPENCODE_PASSWORD?.trim() || process.env.OPENCODE_SERVER_PASSWORD?.trim();
+  const configured = process.env.AGENT_OPENCODE_PASSWORD?.trim() || process.env.OPENCODE_SERVER_PASSWORD?.trim();
   if (configured) return configured;
   if (!generatedOpenCodePassword) {
     generatedOpenCodePassword = randomBytes(24).toString("base64url");
@@ -278,7 +278,7 @@ function endpointPort(endpoint: string): number {
 }
 
 function findOpenCodeExecutable(): string | undefined {
-  const configured = process.env.AGENT_RELAY_OPENCODE_EXECUTABLE;
+  const configured = process.env.AGENT_OPENCODE_EXECUTABLE;
   const names = process.platform === "win32" ? ["opencode.exe"] : ["opencode"];
   const pathCandidates = (process.env.PATH ?? "").split(delimiter).flatMap((directory) =>
     names.map((name) => join(directory, name))
@@ -311,7 +311,7 @@ function findOpenCodeExecutable(): string | undefined {
 }
 
 function findChromeExecutable(): string | undefined {
-  const configured = process.env.AGENT_RELAY_CHROME_EXECUTABLE;
+  const configured = process.env.AGENT_CHROME_EXECUTABLE;
   const candidates = process.platform === "darwin"
     ? [configured, "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"]
     : process.platform === "win32"

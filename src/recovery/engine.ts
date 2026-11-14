@@ -12,7 +12,7 @@ import type {
   SupervisorState
 } from "../types.js";
 import type { RelayStore } from "../persistence/index.js";
-import { type SupervisorEvent, type SupervisorLogger } from "../supervisor/events.js";
+import { type SupervisorEvent, type SupervisorLogger } from "../contracts/events.js";
 import type { BrowserManager } from "./browser.js";
 import { recoverChatGPT } from "./chatgpt.js";
 import { recoverOpenCode, type OpenCodeServerLauncher } from "./opencode.js";
@@ -38,6 +38,10 @@ export interface RecoveryEngineDeps {
   signal?: AbortSignal;
   startServerLauncher?: OpenCodeServerLauncher;
   baseUrl?: string;
+  verifyAllAffectedWorkersIdle?: () => Promise<boolean>;
+  terminateOpenCodeDesktop?: () => Promise<void>;
+  relaunchOpenCodeDesktop?: () => Promise<void>;
+  relaunchSettleMs?: number;
 }
 
 export interface RecoveryRunResult {
@@ -58,6 +62,11 @@ interface AttemptInput {
   previousState?: SupervisorState;
 }
 
+/** v1.1 §11.3 — maximum corrective attempts per incident before the pair is suspended from automated recovery. */
+export const RECOVERY_CORRECTIVE_BUDGET = 3;
+/** v1.1 §11.3 — maximum active recovery duration per incident. */
+export const RECOVERY_DURATION_LIMIT_MS = 10 * 60_000;
+
 export class RecoveryEngine {
   private readonly now: () => Date;
   private readonly logger: SupervisorLogger | undefined;
@@ -76,6 +85,20 @@ export class RecoveryEngine {
         attemptCount: 0,
         intervention: false,
         cancelled: false
+      };
+    }
+
+    // v1.1 §11 — a suspended pair is not eligible for automated recovery until the operator releases it.
+    if (input.continuity.recoverySuspended) {
+      return {
+        performed: false,
+        recovered: false,
+        action: "none",
+        attemptCount: input.continuity.recoveryAttemptCount ?? 0,
+        intervention: true,
+        cancelled: false,
+        code: "RECOVERY_SUSPENDED",
+        reason: `Recovery suspended for pair ${this.deps.pair.pairId} (v1.1 §11): repeated failures exhausted the corrective budget. Only the operator may release the suspension.`
       };
     }
 
@@ -228,17 +251,111 @@ export class RecoveryEngine {
     return this.writeMetadata(input, result);
   }
 
+  /**
+   * v1.1 §2.2 / §8 / §10 — ask the dedicated Recovery Agent to look at the failure.
+   * If the agent is unreachable, attempt a bounded, non-disruptive reconnection to the SAME
+   * session (never replacement) before falling back to operator intervention.
+   */
+  private async escalateToAgent(
+    text: string,
+    details: Record<string, unknown>,
+    action: string
+  ): Promise<boolean> {
+    const agentSessionId = this.deps.pair.masterWorkerSessionId?.trim();
+    if (!agentSessionId) {
+      this.emit("INTERVENTION_REQUIRED", {
+        reason: `Recovery Agent is required for ${action} for pair ${this.deps.pair.pairId}, but masterWorkerSessionId is not configured. Operator intervention required.`,
+        details: { ...details, action, agentUnavailable: true }
+      });
+      return false;
+    }
+
+    const agent = { ...this.deps.pair.worker, sessionId: agentSessionId };
+    const message: RelayableMessage = {
+      id: `${action}-${this.deps.pair.pairId}-${this.now().getTime()}`,
+      source: "worker",
+      role: "user",
+      text,
+      createdAt: this.now().getTime()
+    };
+
+    try {
+      const receipt = await this.deps.worker.sendPlannerMessage(agent, message);
+      if (receipt.delivered) {
+        this.emit("ESCALATED_TO_AGENT", {
+          reason: text.slice(0, 200),
+          details: { ...details, action, targetId: receipt.targetId }
+        });
+        return true;
+      }
+      this.emit("RECOVERY_FAILED", {
+        reason: `Recovery Agent message was not accepted for delivery (${action}).`,
+        details: { ...details, action }
+      });
+      return false;
+    } catch (error) {
+      const failure = error instanceof Error ? error.message : String(error);
+      // v1.1 §10.5 — bounded, non-disruptive reconnection to the SAME agent session.
+      if (await this.reconnectAgentSession(agentSessionId)) {
+        try {
+          const receipt = await this.deps.worker.sendPlannerMessage(agent, message);
+          if (receipt.delivered) {
+            this.emit("ESCALATED_TO_AGENT", {
+              reason: text.slice(0, 200),
+              details: { ...details, action, targetId: receipt.targetId, reconnected: true }
+            });
+            return true;
+          }
+        } catch {
+          // fall through to the operator-intervention path below
+        }
+      }
+      this.emit("INTERVENTION_REQUIRED", {
+        reason: `Recovery Agent unavailable for pair ${this.deps.pair.pairId} (${action}): ${failure}. Bounded reconnection to the same agent session failed. Operator intervention required.`,
+        details: { ...details, action, agentUnavailable: true }
+      });
+      return false;
+    }
+  }
+
+  private async reconnectAgentSession(agentSessionId: string): Promise<boolean> {
+    // v1.1 §10.5 — bounded attempts against the SAME session only; never replaced.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        await this.deps.worker.checkServer();
+        const session = await this.deps.worker.getSession(agentSessionId);
+        if (session) {
+          return true;
+        }
+      } catch {
+        // bounded loop — keep trying
+      }
+    }
+    return false;
+  }
+
   private async recoverWorker(): Promise<
       { recovered: boolean; code?: RecoveryErrorCode; intervention: boolean } | undefined
   > {
+    // Rule 5: retry once immediately; if unsuccessful, wait 10 minutes and retry;
+    // if still unsuccessful, contact Recovery Agent.
+    const masterStopLocation = this.deps.pair.masterWorkerSessionId;
     const outcome = await recoverOpenCode({
       worker: this.deps.worker,
       sessionId: this.deps.pair.worker.sessionId,
       expectedRepoPath: this.deps.pair.worker.repoPath,
-      maxAttempts: this.deps.maxAttempts,
-      backoff: this.deps.backoff,
+      maxAttempts: 2,
+      backoff: { delaysMs: [1_000, 600_000] },
       sleep: this.deps.sleep,
       signal: this.deps.signal,
+      masterWorkerRepair: masterStopLocation
+        ? async (error) =>
+            this.escalateToAgent(
+              `Recovery Agent repair request for pair ${this.deps.pair.pairId}: ${error.message}. Investigate the OpenCode worker and authorized model state. Do not start or kill OpenCode processes while other pairs may depend on them.`,
+              { worker: this.deps.pair.worker.sessionId },
+              "worker-repair"
+            )
+        : undefined,
       onRetry: (attempt, delayMs, error) => {
         this.emit("RECOVERY_RETRY", {
           reason: `OpenCode reconnect attempt ${attempt} retried in ${delayMs}ms: ${error.message}`,
@@ -246,7 +363,19 @@ export class RecoveryEngine {
         });
       },
       startServerLauncher: this.deps.startServerLauncher,
-      baseUrl: this.deps.baseUrl ?? this.deps.pair.worker.server?.baseUrl ?? process.env.AGENT_RELAY_OPENCODE_BASE_URL,
+      baseUrl: this.deps.baseUrl ?? this.deps.pair.worker.server?.baseUrl ?? process.env.AGENT_OPENCODE_BASE_URL,
+      verifyAllAffectedWorkersIdle: this.deps.verifyAllAffectedWorkersIdle,
+      onRestartUnsafeHold: (reason) => {
+        try {
+          this.deps.store.touchPairState({ pairId: this.deps.pair.pairId, lastError: "AWAITING_OPERATOR_SHARED_RESTART_UNSAFE" });
+        } catch {
+          // best-effort marker for operator visibility
+        }
+        this.emit("INTERVENTION_REQUIRED", { reason });
+      },
+      terminateOpenCodeDesktop: this.deps.terminateOpenCodeDesktop,
+      relaunchOpenCodeDesktop: this.deps.relaunchOpenCodeDesktop,
+      relaunchSettleMs: this.deps.relaunchSettleMs,
       onStartAttempt: () => this.emit("RECOVERY_RETRY", { reason: "Checking/starting the configured OpenCode server.", details: { action: "start-server" } }),
       onStartError: (error) => this.emit("RECOVERY_RETRY", { reason: `OpenCode server start failed: ${error.message}`, details: { action: "start-server" } })
     });
@@ -309,10 +438,17 @@ export class RecoveryEngine {
       outcome.code === "CHATGPT_CDP_UNREACHABLE" ? "RECOVERY_EXHAUSTED" : "RECOVERY_FAILED",
       { reason: outcome.reason, details: { code: outcome.code } }
     );
-    if (outcome.intervention) {
-      this.emit("INTERVENTION_REQUIRED", { reason: outcome.reason });
-    }
-    return { recovered: false, code: outcome.code, intervention: outcome.intervention };
+
+    // v1.1 §8.1 — if the Planner remains unavailable after refresh/reopen attempts, report to the Recovery Agent.
+    await this.escalateToAgent(
+      `Planner (ChatGPT) unrecoverable for pair ${this.deps.pair.pairId}: ${outcome.reason}. Inspect the Planner session state; do not kill or rebind sessions without operator approval.`,
+      { code: outcome.code },
+      "planner-investigation"
+    );
+
+    // Rule 11: an unrecoverable Planner always demands operator attention.
+    this.emit("INTERVENTION_REQUIRED", { reason: outcome.reason });
+    return { recovered: false, code: outcome.code, intervention: true };
   }
 
   private async verifyStuck(input: AttemptInput): Promise<
@@ -341,41 +477,14 @@ export class RecoveryEngine {
       return { recovered: false, code: "OPENCODE_UNREACHABLE", intervention: false };
     }
 
-    // The worker is healthy, but the already-delivered instruction has not
-    // started.  A verify-only recovery leaves the pair permanently stuck:
-    // the runtime has no way to make an idle OpenCode session re-enter its
-    // work loop.  Send one uniquely identified, bounded continuation nudge.
-    // This is safe here because ambiguous/in-flight relay records were
-    // rejected above, and the nudge does not replay the original task.
-    const nudge: RelayableMessage = {
-      id: `recovery-nudge-${this.deps.pair.pairId}-${this.now().getTime()}`,
-      source: "planner",
-      role: "user",
-      text: "Recovery check: inspect the current task state and continue the existing work. Report the next concrete step when done.",
-      createdAt: this.now().getTime()
-    };
-
-    try {
-      const receipt = await this.deps.worker.sendPlannerMessage(this.deps.pair.worker, nudge);
-      if (receipt.delivered) {
-        this.emit("RECOVERY_RETRY", {
-          reason: "STUCK verification found no progress; sent one bounded continuation nudge to the healthy worker.",
-          details: { action: "continue-worker", targetId: receipt.targetId }
-        });
-        return { recovered: false, intervention: false };
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.emit("RECOVERY_FAILED", {
-        reason: `Continuation nudge failed: ${message}`,
-        details: { action: "continue-worker" }
-      });
-    }
-
-    this.emit("INTERVENTION_REQUIRED", {
-      reason: "STUCK verification found no progress and the bounded continuation nudge was not accepted."
-    });
-    return { recovered: false, code: "STUCK_UNRESOLVED", intervention: true };
+    // v1.1 §8.4 — one hour without verifiable progress is escalated to the Recovery Agent.
+    // Recovery never autonomously re-prompts the stuck Worker.
+    const delivered = await this.escalateToAgent(
+      `STUCK investigation request for pair ${this.deps.pair.pairId}: the Worker session ${this.deps.pair.worker.sessionId} shows no verifiable progress for at least one hour. Inspect the corresponding OpenCode session and model state, within the operator-approved model list. Do not restart, kill, or rebind the Worker; report findings to the operator.`,
+      { worker: this.deps.pair.worker.sessionId },
+      "stuck-investigation"
+    );
+    return { recovered: false, code: "STUCK_UNRESOLVED", intervention: !delivered };
   }
 
   private pendingAmbiguousRelay():
@@ -396,11 +505,30 @@ export class RecoveryEngine {
     const attemptCount = result.performed ? (input.continuity.recoveryAttemptCount ?? 0) + 1 : input.continuity.recoveryAttemptCount ?? 0;
     const nowIso = this.now().toISOString();
 
+    // v1.1 §11.3 — exhaustively tracked corrective attempts; exceeding the budget suspends automated recovery.
+    const durationExceeded = input.continuity.lastRecoveryAttemptAt
+      ? nowIso && (this.now().getTime() - Date.parse(input.continuity.lastRecoveryAttemptAt)) > RECOVERY_DURATION_LIMIT_MS
+      : false;
+    const budgetExhausted = result.performed && (attemptCount >= RECOVERY_CORRECTIVE_BUDGET || durationExceeded);
+
     this.deps.store.touchSupervisorState({
       pairId: this.deps.pair.pairId,
       recoveryAttemptCount: attemptCount,
-      lastRecoveryAttemptAt: result.performed ? nowIso : undefined
+      lastRecoveryAttemptAt: result.performed ? nowIso : undefined,
+      ...(budgetExhausted ? {
+        recoverySuspended: true,
+        recoverySuspendedAt: nowIso,
+        lastRecoveryErrorCode: "RECOVERY_SUSPENDED" as RecoveryErrorCode,
+        lastRecoveryError: `Corrective budget exhausted (${attemptCount}/${RECOVERY_CORRECTIVE_BUDGET}${durationExceeded ? ", duration limit reached" : ""}); operator release required.`
+      } : {})
     });
+
+    if (budgetExhausted) {
+      this.emit("RECOVERY_SUSPENDED", {
+        reason: `Recovery suspended for pair ${this.deps.pair.pairId} after ${attemptCount} corrective attempt(s)${durationExceeded ? " and the 10-minute recovery window" : ""}. Automated recovery will not run again until the operator releases the suspension.`,
+        details: { action: "recovery-suspended", attemptCount, budget: RECOVERY_CORRECTIVE_BUDGET }
+      });
+    }
 
     if (result.recovered) {
       this.deps.store.touchSupervisorState({

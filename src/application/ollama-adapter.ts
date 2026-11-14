@@ -65,7 +65,7 @@ export class OllamaAdvisorProvider implements AttentionAdvisorProvider {
 
   private parseProposal(text: string): AttentionAdvisorResult {
     const lower = text.toLowerCase();
-    if (lower.includes("<agent-relay>") || lower.includes("kind") || lower.includes("blocking")) {
+    if (lower.includes("<agent>") || lower.includes("kind") || lower.includes("blocking")) {
       // The model must not invent its own envelope; any envelope in response indicates confusion.
       return { disposition: "needs_human", rationaleSummary: "Response contained unexpected structured markers; requires human review." };
     }
@@ -89,6 +89,6 @@ Instructions:
 - If kind is "question": provide a bounded, safe planner-level answer (max 250 chars) that does not invent technical details, does not expose secrets, and does not assume external systems.
 - If kind is "report" or "completed": confirm no additional action is needed.
 - Never include bearer tokens, passwords, cookies, environment variables, or arbitrary file paths.
-- Your answer must be plain bounded text only. Do not embed <agent-relay> tags or JSON objects.
+- Your answer must be plain bounded text only. Do not embed <agent> tags or JSON objects.
 Response:`;
 }
