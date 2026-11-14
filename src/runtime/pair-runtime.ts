@@ -12,6 +12,7 @@ import { isTerminalFailure } from "../supervisor/state.js";
 import type { SuperviseMode } from "../supervisor/policy.js";
 import { FifoMutex, interruptibleSleep, type SleepFn } from "./scheduler.js";
 import { WakeBus } from "./wake-bus.js";
+import { OpenCodeEventSourceTerminalError } from "../adapters/opencode/event-source.js";
 import type {
   PairRuntimeState,
   PeerActivity,
@@ -333,35 +334,64 @@ export class PairRuntime {
     });
   }
 
+  /** v1.1 §7.2 — replay cursor observed from worker SSE; survives bounded resubscribe within one runtime. */
+  private lastWorkerSeq: number | undefined;
+
   private async consumeWorkerEvents(): Promise<void> {
     const source = this.options.workerEvents;
     if (!source) {
       return;
     }
 
-    try {
-      for await (const event of source.subscribe(
-        this.options.pair.worker.sessionId,
-        this.abortController.signal
-      )) {
-        this.queueWorkerWake(event);
+    // v1.1 §7.2 — bounded resubscribe with the replay cursor instead of silently
+    // accepting an incomplete event window. Terminal errors are not retried.
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      if (this.abortController.signal.aborted) {
+        return;
       }
-    } catch (error) {
-      if (!this.abortController.signal.aborted) {
-        this.emit("EVENT_SOURCE_DEGRADED", this.pairId, {
-          reason: "OpenCode event source disconnected; polling fallback remains active.",
-          details: { source: "opencode", error: messageOf(error) }
-        });
-        // v1.1 §8.5 — mark the gap explicitly instead of implying completeness.
-        try {
-          this.options.store.touchSupervisorState({
-            pairId: this.pairId,
-            lastError: `UNRECOVERABLE_GAPS: opencode event source degraded at ${this.clock().toISOString()}; event window may contain gaps; completeness is UNKNOWN until verified by inspection.`
-          });
-        } catch {
-          // Marker is advisory; never let it crash the worker loop.
+      try {
+        for await (const event of source.subscribe(
+          this.options.pair.worker.sessionId,
+          this.abortController.signal,
+          this.lastWorkerSeq !== undefined ? { afterSeq: this.lastWorkerSeq } : undefined
+        )) {
+          if (typeof event.seq === "number") {
+            this.lastWorkerSeq = event.seq;
+          }
+          this.queueWorkerWake(event);
         }
+        return;
+      } catch (error) {
+        if (this.abortController.signal.aborted) {
+          return;
+        }
+        if (error instanceof OpenCodeEventSourceTerminalError) {
+          this.noteWorkerGaps(error);
+          return;
+        }
+        if (attempt < 3) {
+          // Bounded, explicit re-subscribe: keep the sequence cursor, no silent loss.
+          continue;
+        }
+        this.noteWorkerGaps(error);
+        return;
       }
+    }
+  }
+
+  private noteWorkerGaps(error: unknown): void {
+    this.emit("EVENT_SOURCE_DEGRADED", this.pairId, {
+      reason: "OpenCode event source disconnected; polling fallback remains active.",
+      details: { source: "opencode", error: messageOf(error) }
+    });
+    // v1.1 §8.5 — mark the gap explicitly instead of implying completeness.
+    try {
+      this.options.store.touchSupervisorState({
+        pairId: this.pairId,
+        lastError: `UNRECOVERABLE_GAPS: opencode event source exhausted 3 bounded resubscribe attempts at ${this.clock().toISOString()}; event window may contain gaps (completeness UNKNOWN).`
+      });
+    } catch {
+      // Marker is advisory; never let it crash the worker loop.
     }
   }
 
