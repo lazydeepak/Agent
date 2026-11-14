@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="system">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -17,12 +17,19 @@
     <header class="app-header">
       <div class="brand">
         <button id="sidebar-toggle" class="sidebar-toggle-btn btn btn-ghost btn-icon" aria-label="Toggle navigation menu" title="Toggle navigation">☰</button>
+        <svg class="brand-logo" viewBox="0 0 32 32" width="30" height="30" aria-hidden="true">
+          <circle cx="16" cy="16" r="13" fill="none" stroke="#4de2ff" stroke-width="2" stroke-opacity="0.5"/>
+          <path d="M16 5 L23 16 L16 27 L9 16 Z" fill="#4de2ff" fill-opacity="0.25" stroke="#4de2ff" stroke-width="1.5"/>
+          <circle cx="16" cy="16" r="3.5" fill="#4de2ff"/>
+        </svg>
         <span class="brand-name">Agent</span>
       </div>
       <div class="global-actions">
+        <button id="add-pair" class="btn btn-primary btn-sm">+ Add Session</button>
+        <button id="add-project-pair" class="btn btn-ghost btn-sm">+ Add Project</button>
         <button id="refresh" class="btn" title="Refresh status">Refresh</button>
         <button id="start-all" class="btn btn-primary">Start All</button>
-        <button id="stop-all" class="btn btn-danger">Stop All</button>
+        <button id="stop-all" class="btn btn-danger" title="Block all relay transport for every pair (one-time command). Bot-owned Worker terminations are requested but unverified; Auto Resume is disabled for every pair. Not a persistent lock.">Stop All</button>
       </div>
     </header>
 
@@ -30,10 +37,9 @@
       <aside class="sidebar-nav">
         <div class="sidebar-header">
           <span class="sidebar-title">Workspace</span>
+          <button id="sidebar-fold" class="sidebar-fold-btn btn btn-ghost btn-icon" aria-label="Fold sidebar" title="Fold/unfold sidebar"> « </button>
         </div>
-        <div class="sidebar-search">
-          <input type="text" id="sidebar-search-input" placeholder="Filter projects…" autocomplete="off" />
-        </div>
+
         <nav class="sidebar-menu">
           <button id="nav-home" class="sidebar-item active">
             <span class="sidebar-item-icon">⌂</span>
@@ -44,50 +50,59 @@
             <span class="sidebar-item-label">Projects</span>
             <span id="nav-projects-count" class="sidebar-count">0</span>
           </button>
+          <button id="nav-pairs" class="sidebar-item">
+            <span class="sidebar-item-icon"> (P) </span>
+            <span class="sidebar-item-label">Pairs</span>
+            <span id="nav-pairs-count" class="sidebar-count">0</span>
+          </button>
           <button id="nav-activity" class="sidebar-item">
             <span class="sidebar-item-icon">◷</span>
             <span class="sidebar-item-label">Activity</span>
             <span id="nav-activity-count" class="sidebar-count">0</span>
           </button>
+          <button id="nav-recovery" class="sidebar-item">
+            <span class="sidebar-item-icon">⚕</span>
+            <span class="sidebar-item-label">Recovery</span>
+            <span id="nav-recovery-count" class="sidebar-count hidden">0</span>
+          </button>
+          <button id="nav-models" class="sidebar-item">
+            <span class="sidebar-item-icon">◇</span>
+            <span class="sidebar-item-label">Models</span>
+          </button>
+          <button id="nav-modules" class="sidebar-item">
+            <span class="sidebar-item-icon">•</span>
+            <span class="sidebar-item-label">Modules & Plugins</span>
+          </button>
+          <button id="nav-logs" class="sidebar-item">
+            <span class="sidebar-item-icon">≡</span>
+            <span class="sidebar-item-label">Logs</span>
+          </button>
+          <button id="nav-source" class="sidebar-item">
+            <span class="sidebar-item-icon"> »</span>
+            <span class="sidebar-item-label">Source</span>
+          </button>
+          <button id="nav-config" class="sidebar-item">
+            <span class="sidebar-item-icon">⚙</span>
+            <span class="sidebar-item-label">Config</span>
+          </button>
+          <button id="nav-devices" class="sidebar-item">
+            <span class="sidebar-item-icon">•</span>
+            <span class="sidebar-item-label">Devices</span>
+          </button>
+          <button id="nav-health" class="sidebar-item">
+            <span class="sidebar-item-icon">•</span>
+            <span class="sidebar-item-label">Health</span>
+          </button>
+          <button id="nav-developer" class="sidebar-item">
+            <span class="sidebar-item-icon">•</span>
+            <span class="sidebar-item-label">Developer</span>
+          </button>
+          <button id="nav-setup" class="sidebar-item">
+            <span class="sidebar-item-icon">•</span>
+            <span class="sidebar-item-label">Setup</span>
+          </button>
         </nav>
-        <div class="sidebar-section-divider"></div>
-        <div class="sidebar-header sidebar-header--mt-4">
-          <span class="sidebar-title">Projects</span>
-        </div>
-        <div id="sidebar-projects-list" class="sidebar-projects-list"></div>
-        <div class="sidebar-section-divider"></div>
-        <div class="sidebar-actions">
-          <button id="add-pair" class="btn btn-primary btn-sm btn-full">+ Add Session</button>
-          <button id="add-project-pair" class="btn btn-ghost btn-sm btn-full">+ Add Project</button>
-        </div>
-
         <div class="sidebar-footer">
-          <div class="sidebar-section-divider"></div>
-          <div class="sidebar-footer-section">
-            <span class="sidebar-title">Preferences</span>
-            <label class="pref-toggle">
-              <input type="checkbox" id="show-worker-on-start" />
-              <span>Show worker on start</span>
-            </label>
-          </div>
-          <div class="sidebar-footer-section">
-            <span class="sidebar-title">Appearance</span>
-            <div class="theme-toggle">
-              <select id="theme-select" aria-label="Select theme">
-                <option value="system">System</option>
-                <option value="dark">Dark</option>
-                <option value="light">Light</option>
-              </select>
-            </div>
-          </div>
-          <div class="sidebar-footer-section config-info">
-            <span class="sidebar-title">Configuration</span>
-            <span class="config-path-label" id="config-path-display">No config loaded</span>
-          </div>
-          <div class="sidebar-footer-section about-info">
-            <span class="sidebar-title">About</span>
-            <span class="about-label">Agent v0.1.0</span>
-          </div>
         </div>
       </aside>
       <div id="sidebar-backdrop" class="sidebar-backdrop hidden"></div>
@@ -120,40 +135,51 @@
               </div>
             </div>
 
-            <div class="dashboard-section dashboard-backend-health-section">
+            <div id="ambiguous-delivery-alert" class="dashboard-alert dashboard-alert--warning hidden">
+              <strong>Ambiguous delivery detected.</strong> A delivery is in <code>DELIVERING</code> state; resolve before resending.
+            </div>
+
+            <div class="dashboard-section dashboard-activity-trend-section">
               <div class="section-header">
                 <div>
-                  <h3>Backend Agent Health & Server Controls</h3>
-                  <span class="section-hint">Monitor and manage OpenCode and ChatGPT server/browser daemon endpoints</span>
+                  <h3>Project Activity Trend (7 days)</h3>
+                  <span class="section-hint">Completed assignments per project</span>
                 </div>
               </div>
-              <div class="dashboard-backend-grid">
-                <!-- OpenCode Health & Server Control -->
-                <div class="dashboard-backend-card">
-                  <div class="backend-card-header">
-                    <h4>OpenCode Server</h4>
-                    <span id="backend-opencode-status" class="badge badge-neutral">Checking…</span>
-                  </div>
-                  <p id="backend-opencode-detail" class="backend-card-detail">Endpoint: checking…</p>
-                  <div class="backend-card-actions">
-                    <button id="backend-test-opencode" class="btn btn-sm btn-ghost">Test Endpoint</button>
-                    <button id="backend-start-opencode" class="btn btn-sm btn-primary">Start Server</button>
-                    <button id="backend-update-opencode" class="btn btn-sm btn-ghost">Update</button>
-                  </div>
-                </div>
+              <div class="activity-trend-bars">
+                <div class="trend-bar trend-h-40"><span>Mon</span></div>
+                <div class="trend-bar trend-h-65"><span>Tue</span></div>
+                <div class="trend-bar trend-h-50"><span>Wed</span></div>
+                <div class="trend-bar trend-h-80"><span>Thu</span></div>
+                <div class="trend-bar trend-h-30"><span>Fri</span></div>
+                <div class="trend-bar trend-h-55"><span>Sat</span></div>
+                <div class="trend-bar trend-h-20"><span>Sun</span></div>
+              </div>
+            </div>
 
-                <!-- ChatGPT / Planner Health & Server Control -->
-                <div class="dashboard-backend-card">
-                  <div class="backend-card-header">
-                    <h4>ChatGPT / Planner Browser</h4>
-                    <span id="backend-chatgpt-status" class="badge badge-neutral">Checking…</span>
-                  </div>
-                  <p id="backend-chatgpt-detail" class="backend-card-detail">CDP Endpoint: checking…</p>
-                  <div class="backend-card-actions">
-                    <button id="backend-test-chatgpt" class="btn btn-sm btn-ghost">Test Endpoint</button>
-                    <button id="backend-start-chatgpt" class="btn btn-sm btn-primary">Start Browser</button>
-                  </div>
+            <div class="dashboard-section dashboard-diagnostics-section">
+              <div class="section-header">
+                <div>
+                  <h3>Diagnostics</h3>
+                  <span class="section-hint">Bounded telemetry buffer (500 samples)</span>
                 </div>
+              </div>
+              <pre class="diagnostics-report">No samples recorded yet.</pre>
+            </div>
+
+            <div class="dashboard-section dashboard-invariant-guard-section">
+              <div class="section-header">
+                <div>
+                  <h3>Engine Invariant Guard</h3>
+                  <span class="section-hint">Read-only rules enforced by the relay engine</span>
+                </div>
+              </div>
+              <div class="invariant-guard-list">
+                <div class="invariant-rule">• Observable evidence only — no inferred click success.</div>
+                <div class="invariant-rule">• Delivery ambiguity blocks resend until reconciled.</div>
+                <div class="invariant-rule">• Handoff completion ≠ assignment completion.</div>
+                <div class="invariant-rule">• Soft suspension before runtime death.</div>
+                <div class="invariant-rule">• One pair's failure never stalls the others.</div>
               </div>
             </div>
 
@@ -223,6 +249,68 @@
           <div id="project-pairs-list" class="project-pairs-list"></div>
         </section>
 
+        <section class="panel pairs-panel hidden" id="pairs-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Pairs</h2>
+              <p class="panel-subtitle">Session pairs (worker ↔ planner)</p>
+            </div>
+            <div class="panel-header-actions">
+              <button id="refresh-pairs" class="btn btn-ghost btn-sm" title="Refresh pairs">Refresh</button>
+            </div>
+          </div>
+          <div id="no-pairs" class="empty-state hidden">No pairs configured</div>
+          <div id="pairs-list" class="pairs-list"></div>
+          <div class="pair-create-separator"></div>
+          <div class="pair-create-panel">
+            <div class="pair-create-title"><span class="add-icon">+</span> Create New Session Pair</div>
+            <div class="pair-create-grid">
+              <div class="field">
+                <label for="pair-create-id">Pair ID <span class="hint">(auto-calculated)</span></label>
+                <input id="pair-create-id" readonly placeholder="Generated from pair name" value="" class="input-readonly" />
+              </div>
+              <div class="field">
+                <label for="pair-create-name">Pair Name</label>
+                <input id="pair-create-name" placeholder="e.g. Backend Sprint Pair" />
+              </div>
+            </div>
+            <div class="field">
+              <label for="pair-create-url">ChatGPT Thread URL</label>
+              <input id="pair-create-url" placeholder="https://chatgpt.com/g/.../c/..." />
+            </div>
+            <div class="field">
+              <label for="pair-create-session">OpenCode Session ID</label>
+              <input id="pair-create-session" placeholder="ses_..." />
+            </div>
+            <div class="field">
+              <label for="pair-create-repo">Project folder</label>
+              <div class="repo-row">
+                <input id="pair-create-repo" placeholder="No folder selected" readonly />
+                <button id="pair-create-folder" class="btn btn-primary" type="button">Choose folder…</button>
+              </div>
+              <p class="field-hint">The folder used by the selected OpenCode Worker session. The path is verified automatically.</p>
+            </div>
+            <div class="pair-create-actions">
+              <button id="pair-create-save" class="btn btn-primary">Save Pair</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel recovery-panel hidden" id="recovery-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Recovery Incidents</h2>
+              <p class="panel-subtitle">Grouped by urgency — Requires Attention → Active → Queued → Resolved</p>
+            </div>
+            <div class="panel-header-actions">
+              <button id="recovery-refresh" class="btn btn-sm btn-ghost" title="Refresh incidents">Refresh</button>
+            </div>
+          </div>
+          <div id="recovery-panel-content" class="recovery-panel-content">
+            <div class="empty-state">Loading incidents…</div>
+          </div>
+        </section>
+
         <section class="panel activity-panel hidden" id="activity-panel">
           <div class="panel-header">
             <div>
@@ -260,6 +348,146 @@
           <div id="activity-summary" class="activity-summary"></div>
           <div id="activity-list" class="activity-list">
             <div class="empty-state">No activity recorded yet.</div>
+          </div>
+        </section>
+
+        <section class="panel source-panel hidden" id="source-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Source Code</h2>
+              <p class="panel-subtitle">Module and symbol index across <code>src/</code></p>
+            </div>
+            <div class="panel-header-actions">
+              <div class="source-search-wrap">
+                <input id="source-search" type="text" autocomplete="off" placeholder="Search modules and symbols…" />
+              </div>
+            </div>
+          </div>
+          <div id="source-totals" class="source-totals"></div>
+          <div class="source-view-bar">
+            <span class="source-view-title" id="source-view-title">Module browser</span>
+            <button id="source-back-to-modules" class="btn btn-sm btn-ghost hidden" title="Return to the module and symbol browser">Back to Modules</button>
+          </div>
+          <div class="source-block source-view" id="source-modules">
+            <div id="source-list" class="source-list">
+              <div class="empty-state">Loading index…</div>
+            </div>
+          </div>
+          <div class="source-block source-view hidden" id="source-symbols">
+            <div id="symbols-list" class="symbols-list">Searchable symbol index</div>
+          </div>
+          <div class="source-block source-view hidden" id="source-missing-headers">
+            <div id="missing-headers-list" class="missing-headers-list">Modules missing a header comment</div>
+          </div>
+          <div class="duplicate-section source-view hidden" id="duplicate-section">
+            <div class="duplicate-header">
+              <div>
+                <h3 class="duplicate-title">Duplicate Code Blocks</h3>
+                <p class="duplicate-hint" id="duplicate-hint">Cached from the last source index; distinct duplication groups, not occurrences.</p>
+              </div>
+              <button id="duplicate-rescan" class="btn btn-sm btn-ghost" title="Re-scan with jscpd">Rescan</button>
+            </div>
+            <div id="duplicate-status" class="duplicate-status"></div>
+            <div id="duplicate-groups" class="duplicate-groups"></div>
+          </div>
+        </section>
+
+        <section class="panel mock-page-panel hidden" id="mock-page-panel">
+          <div class="panel-header">
+            <div>
+              <h2 id="mock-page-title">Page</h2>
+              <p class="panel-subtitle" id="mock-page-subtitle">This view is wired as features are implemented.</p>
+            </div>
+          </div>
+          <div class="mock-page-body" id="mock-page-body">
+            <div class="empty-state">This page will be wired up as features are implemented.</div>
+          </div>
+          <div class="mock-config-content hidden" id="config-content">
+            <div class="settings-card">
+              <div class="field">
+                <label for="config-opencode-url">OpenCode Server URL</label>
+                <input id="config-opencode-url" type="text" value="http://127.0.0.1:4096/" autocomplete="off" />
+              </div>
+              <div class="field">
+                <label for="config-chatgpt-url">ChatGPT Browser URL</label>
+                <input id="config-chatgpt-url" type="text" value="https://chatgpt.com/c/" autocomplete="off" />
+              </div>
+              <div class="settings-actions">
+                <button id="config-save-settings" class="btn btn-primary">Save Settings</button>
+                <button id="config-reset-settings" class="btn btn-ghost" type="button">Reset</button>
+              </div>
+              <p id="config-status" class="settings-status" role="status"></p>
+            </div>
+            <div class="settings-card">
+              <h4 class="settings-title settings-card-title">Preferences</h4>
+              <label class="pref-toggle">
+                <input type="checkbox" id="show-worker-on-start" />
+                <span>Show worker on start</span>
+              </label>
+              <p class="settings-hint">Pairs with <strong>Auto-resume after restart</strong> enabled — including explicitly paused pairs — resume automatically after an engine or computer restart. Default: off. Stopping a pair or Stop All disables Auto Resume for it.</p>
+              <div class="prefs-grid">
+                <div class="field">
+                  <label>Appearance</label>
+                  <span class="about-label">Dark (Relay Beacon)</span>
+                </div>
+                <div class="field">
+                  <label>Configuration</label>
+                  <span class="config-path-label" id="config-path-display">No config loaded</span>
+                </div>
+                <div class="field">
+                  <label>About</label>
+                  <span class="about-label">Agent v0.1.0</span>
+                </div>
+              </div>
+            </div>
+            <div class="settings-card">
+              <h4 class="settings-title settings-card-title">History &amp; Data</h4>
+              <div class="field">
+                <label for="history-retention-days">History retention (days)</label>
+                <input id="history-retention-days" type="number" min="0" max="36500" step="1" placeholder="0 = keep forever" autocomplete="off" />
+                <p class="settings-hint">Oldest relay cycles, resolved attention items and non-pending proposals are deleted after this many days. 0 or blank keeps everything. The relay ledger is never deleted.</p>
+              </div>
+              <div class="settings-actions">
+                <button id="history-retention-save" class="btn btn-primary">Save Retention</button>
+              </div>
+              <p id="history-retention-status" class="settings-status" role="status"></p>
+            </div>
+                        <div class="dashboard-section dashboard-backend-health-section">
+              <div class="section-header">
+                <div>
+                  <h3>Backend Agent Health & Server Controls</h3>
+                  <span class="section-hint">Monitor and manage OpenCode and ChatGPT server/browser daemon endpoints</span>
+                </div>
+              </div>
+              <div class="dashboard-backend-grid">
+                <!-- OpenCode Health & Server Control -->
+                <div class="dashboard-backend-card">
+                  <div class="backend-card-header">
+                    <h4>OpenCode Server</h4>
+                    <span id="backend-opencode-status" class="badge badge-neutral">Checking…</span>
+                  </div>
+                  <p id="backend-opencode-detail" class="backend-card-detail">Endpoint: checking…</p>
+                  <div class="backend-card-actions">
+                    <button id="backend-test-opencode" class="btn btn-sm btn-ghost">Test Endpoint</button>
+                    <button id="backend-start-opencode" class="btn btn-sm btn-primary">Start Server</button>
+                    <button id="backend-update-opencode" class="btn btn-sm btn-ghost">Update</button>
+                  </div>
+                </div>
+
+                <!-- ChatGPT / Planner Health & Server Control -->
+                <div class="dashboard-backend-card">
+                  <div class="backend-card-header">
+                    <h4>ChatGPT / Planner Browser</h4>
+                    <span id="backend-chatgpt-status" class="badge badge-neutral">Checking…</span>
+                  </div>
+                  <p id="backend-chatgpt-detail" class="backend-card-detail">CDP Endpoint: checking…</p>
+                  <div class="backend-card-actions">
+                    <button id="backend-test-chatgpt" class="btn btn-sm btn-ghost">Test Endpoint</button>
+                    <button id="backend-start-chatgpt" class="btn btn-sm btn-primary">Start Browser</button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
       </main>

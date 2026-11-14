@@ -1,4 +1,7 @@
-import { clipboard } from "electron";
+import { spawn } from "node:child_process";
+import { dialog } from "electron";
+import { readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { DesktopApplicationError, type DesktopApplicationService } from "../../src/application/desktop-service.js";
 import type { ProjectPairService } from "../../src/application/project-pair-service.js";
 import type { WorkerProgressService } from "../../src/application/worker-progress.js";
@@ -17,7 +20,6 @@ import {
   castOpenCodeEndpoint,
   castOpenCodeEndpointTest,
   castPlannerEndpoint,
-  castRecentEventsFilter,
   castStartPriming,
   castStartWorkerServer,
   castUpdatePair,
@@ -93,18 +95,31 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   }));
   handle(IPC_CHANNELS.listPairs, guarded(async () => ctx.requireService().listPairs()));
   handle(IPC_CHANNELS.status, guarded(async () => ctx.requireService().getStatus()));
-  handle(IPC_CHANNELS.pairStatus, guarded(async (_e, pairId: unknown) => ctx.requireService().getPairStatus(asPairId(pairId))));
-  handle(IPC_CHANNELS.pairDetail, guarded(async (_e, pairId: unknown) => ctx.requireService().getPairDetail(asPairId(pairId))));
   handle(IPC_CHANNELS.pausePair, guarded(async (_e, pairId: unknown) => ctx.requireService().pausePair(asPairId(pairId))));
   handle(IPC_CHANNELS.resumePair, guarded(async (_e, pairId: unknown) => ctx.requireService().resumePair(asPairId(pairId))));
   handle(IPC_CHANNELS.startPair, guarded(async (_e, pairId: unknown, priming: unknown) => ctx.requireService().startPair(asPairId(pairId), castStartPriming(priming))));
   handle(IPC_CHANNELS.stopPair, guarded(async (_e, pairId: unknown) => ctx.requireService().stopPair(asPairId(pairId))));
   handle(IPC_CHANNELS.startAll, guarded(async () => ctx.requireService().startAll()));
   handle(IPC_CHANNELS.stopAll, guarded(async () => ctx.requireService().stopAll()));
+  handle(IPC_CHANNELS.getAutoResumeState, guarded(async () => ctx.requireService().getAutoResumeState()));
+  handle(IPC_CHANNELS.setAutoResumeAfterRestart, guarded(async (_e, pairId: unknown, enabled: unknown) => {
+    if (typeof enabled !== "boolean") throw new Error("autoResumeAfterRestart must be a boolean.");
+    return ctx.requireService().setAutoResumeAfterRestart(asPairId(pairId), enabled);
+  }));
+  handle(IPC_CHANNELS.getSettings, guarded(async () => ctx.requireService().getSettings()));
+  handle(IPC_CHANNELS.releaseRecoverySuspension, guarded(async (_e, pairId: unknown) =>
+    ctx.requireService().releaseRecoverySuspension(asPairId(pairId))));
+  handle(IPC_CHANNELS.updateSettings, guarded(async (_e, input: unknown) => {
+    if (!input || typeof input !== "object") throw new Error("Settings payload must be an object.");
+    const days = (input as { historyRetentionDays?: unknown }).historyRetentionDays;
+    if (days !== undefined && (typeof days !== "number" || !Number.isFinite(days) || days < 0)) {
+      throw new Error("historyRetentionDays must be a finite number >= 0.");
+    }
+    return ctx.requireService().updateSettings(days === undefined ? {} : { historyRetentionDays: days });
+  }));
   handle(IPC_CHANNELS.validatePair, guarded(async (_e, pairId: unknown) => ctx.requireService().validatePair(asPairId(pairId))));
   handle(IPC_CHANNELS.initializePair, guarded(async (_e, pairId: unknown) => ctx.requireService().initializePair(asPairId(pairId))));
   handle(IPC_CHANNELS.getValidation, guarded(async (_e, pairId: unknown) => ctx.requireService().getLastValidation(asPairId(pairId))));
-  handle(IPC_CHANNELS.getRecentEvents, guarded(async (_e, filter: unknown) => ctx.requireService().getRecentEvents(castRecentEventsFilter(filter))));
   handle(IPC_CHANNELS.getAutomationInfo, guarded(async () => ctx.requireService().getAutomationInfo()));
   handle(IPC_CHANNELS.seedPlanner, guarded(async (_e, pairId: unknown) => ctx.requireService().seedPlanner(asPairId(pairId))));
   handle(
@@ -246,14 +261,6 @@ export function registerIpcHandlers(ctx: IpcContext): void {
     })
   );
   handle(
-    IPC_CHANNELS.resumeProject,
-    guarded(async (_e, projectPairId: unknown) => {
-      const svc = ctx.requireService();
-      const result = await svc.resumeProject(String(projectPairId ?? ""));
-      return result;
-    })
-  );
-  handle(
     IPC_CHANNELS.suggestWorkerSessionTitle,
     guarded(async (_e, pairId: unknown) => ctx.requireService().suggestWorkerSessionTitle(asPairId(pairId)))
   );
@@ -280,11 +287,11 @@ export function registerIpcHandlers(ctx: IpcContext): void {
           }
           const url = raw;
           const serverConfig = (pair.worker.server || {}) as { username?: string; password?: string; passwordEnv?: string };
-          const username = serverConfig.username || process.env.AGENT_RELAY_OPENCODE_USERNAME || "opencode";
+          const username = serverConfig.username || process.env.AGENT_OPENCODE_USERNAME || "opencode";
           const secret =
             serverConfig.password ||
             (serverConfig.passwordEnv ? process.env[serverConfig.passwordEnv] : undefined) ||
-            process.env.AGENT_RELAY_OPENCODE_PASSWORD ||
+            process.env.AGENT_OPENCODE_PASSWORD ||
             process.env.OPENCODE_SERVER_PASSWORD;
           // Match the OpenCode client’s credential sources. If the managed server is protected
           // by an environment password, opening the system browser would otherwise discard it.
@@ -386,10 +393,56 @@ export function registerIpcHandlers(ctx: IpcContext): void {
     guarded(async (_e, input: unknown) => ctx.requireProjectPairService().discoverChatGptProjects(castCdpUrl(input)))
   );
   handle(IPC_CHANNELS.listArchive, guarded(async () => ctx.requireService().listArchivedPairs()));
-  handle(IPC_CHANNELS.copyText, guarded(async (_e, text: unknown) => {
-    const textValue = typeof text === "string" ? text : String(text ?? "");
-    clipboard.writeText(textValue);
-    return { copied: true };
+  handle(IPC_CHANNELS.duplicateReport, guarded(async () => {
+    try {
+      const raw = readFileSync(resolve("docs", "duplication-report.json"), "utf8");
+      const data = JSON.parse(raw) as Record<string, unknown>;
+      if (data.status === "failed") {
+        return { status: "failed" as const, error: String(data.error ?? "duplication analysis failed"), generatedAt: (data.generatedAt as string | undefined) ?? null };
+      }
+      if (data.status !== "ok") {
+        return { status: "not-scanned" as const };
+      }
+      return { status: "ok" as const, report: data };
+    } catch {
+      return { status: "not-scanned" as const };
+    }
+  }));
+  handle(IPC_CHANNELS.scanDuplicates, guarded(async (_e, minLines: unknown) => {
+    const lines = typeof minLines === "number" && Number.isFinite(minLines) && minLines >= 1 ? Math.floor(minLines) : 10;
+    try {
+      const child = spawn(
+        process.execPath,
+        [resolve("scripts", "analyze-duplicates.mjs"), "--min-lines", String(lines)],
+        { detached: true, stdio: "ignore", cwd: resolve(".") }
+      );
+      child.unref();
+      return { started: true, minLines: lines, pid: child.pid };
+    } catch (error) {
+      return { started: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  }));
+  handle(IPC_CHANNELS.codeIndex, guarded(async () => {
+    try {
+      const data = readFileSync(resolve("docs/code-index.json"), "utf8");
+      return JSON.parse(data) as unknown;
+    } catch {
+      throw new DesktopApplicationError("CODE_INDEX_UNAVAILABLE", "The code index is not available. Run `npm run index:code` to generate it.");
+    }
+  }));
+  handle(IPC_CHANNELS.pickFolder, guarded(async () => {
+    const result = await dialog.showOpenDialog({
+      title: "Choose project folder",
+      properties: ["openDirectory"]
+    });
+    return { folderPath: result.canceled ? undefined : result.filePaths[0] };
+  }));
+  handle(IPC_CHANNELS.adapterSettings, guarded(async (_e, settings: unknown) => {
+    const svc = ctx.requireService();
+    if (typeof (svc as unknown as { applyAdapterSettings?: (c: unknown) => Promise<void> | void }).applyAdapterSettings === "function") {
+      await (svc as unknown as { applyAdapterSettings: (c: unknown) => Promise<void> | void }).applyAdapterSettings(settings);
+    }
+    return { ok: true };
   }));
   handle(
     IPC_CHANNELS.deleteArchive,

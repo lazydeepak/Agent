@@ -21,8 +21,10 @@ import type {
   WorkerModelDto,
   WorkerModelSwitchResultDto
 } from "../../src/contracts/desktop.js";
+import { overallHealth, evaluateSessionDrift, evaluateTransportHealth } from "../../src/application/health-monitors.js";
 import { runAction, setRunActionHook, type RunActionErrorHook } from "./actions.js";
 import { noteActivityEvent, openActivityView, wireActivityView } from "./activity-view.js";
+import { refreshRecoveryPanel, initRecoveryPanel } from "./recovery-view.js";
 import { launchPlannerForPair } from "./planner.js";
 import { appendPairCard, expandedPairs, setPairCardHooks } from "./pair-card.js";
 import {
@@ -85,10 +87,7 @@ import {
   type PairControls
 } from "./state.js";
 import {
-  applyThemePreference,
-  normalizeThemePreference,
-  readStoredThemePreference,
-  storeThemePreference
+  applyThemePreference
 } from "./theme.js";
 import {
   candidateIssues,
@@ -115,17 +114,19 @@ declare global {
       configPath: string;
       listPairs(): Promise<PairIdentityDto[]>;
       getStatus(): Promise<StatusSummaryDto>;
-      getPairStatus(pairId: string): Promise<PeerHealthDto>;
-      getPairDetail(pairId: string): Promise<PairIdentityDto | undefined>;
       pausePair(pairId: string): Promise<StatusSummaryDto>;
       resumePair(pairId: string): Promise<StatusSummaryDto>;
       startPair(pairId: string, priming?: PairStartPriming): Promise<StatusSummaryDto>;
       stopPair(pairId: string): Promise<StatusSummaryDto>;
       startAll(): Promise<StatusSummaryDto>;
       stopAll(): Promise<StatusSummaryDto>;
+      releaseRecoverySuspension(pairId: string): Promise<StatusSummaryDto>;
+      getAutoResumeState(): Promise<Array<{ pairId: string; autoResumeAfterRestart: boolean }>>;
+      setAutoResumeAfterRestart(pairId: string, enabled: boolean): Promise<Array<{ pairId: string; autoResumeAfterRestart: boolean }>>;
+      getSettings(): Promise<{ historyRetentionDays?: number }>;
+      updateSettings(input: { historyRetentionDays?: number }): Promise<{ historyRetentionDays?: number }>;
       validatePair(pairId: string): Promise<ValidationResultDto>;
       getValidation(pairId: string): Promise<ValidationResultDto | undefined>;
-      getRecentEvents(filter?: { pairId?: string; limit?: number }): Promise<EventRecordDto[]>;
       getAutomationInfo(): Promise<AutomationInfoDto>;
       seedPlanner(pairId: string): Promise<{ pairId: string; promptVersion: string; sentAt: string }>;
       feedLocalAgent(pairId: string): Promise<{
@@ -169,10 +170,26 @@ declare global {
       listWorkerModels(pairId: string): Promise<WorkerModelDto[]>;
       switchWorkerModel(pairId: string, input: { providerId: string; modelId: string; notifyPlanner?: boolean }): Promise<WorkerModelSwitchResultDto>;
       resumeWithFallbackModel(pairId: string, input: { providerId: string; modelId: string }): Promise<StatusSummaryDto>;
+      adapterSettings(settings: unknown): Promise<{ ok: boolean }>;
+      pickFolder(): Promise<{ folderPath?: string }>;
+      getCodeIndex(): Promise<{
+        totals?: { modules?: number; symbols?: number; modulesMissingHeader?: number };
+        categories?: Array<{ category: string; modules: number }>;
+        modules?: Array<{
+          path: string;
+          dir: string;
+          category: string;
+          purpose?: string;
+          hasHeader?: boolean;
+          symbolCount?: number;
+          symbols?: Array<{ name: string; kind: string; line?: number; signature?: string }>;
+        }>;
+      }>;
+      getDuplicateReport(): Promise<{ status: "ok" | "not-scanned" | "failed"; report?: DuplicationReport; error?: string; generatedAt?: string | null }>;
+      scanDuplicates(minLines?: number): Promise<{ started: boolean; minLines?: number; pid?: number; error?: string }>;
       getWorkerProgress(pairId: string, forceRefresh?: boolean): Promise<import("../shared/worker-progress.js").WorkerProgressDto>;
       getTimeline(pairId?: string, limit?: number): Promise<Array<{ time: string; pairId?: string; projectPairId?: string; type: string; state?: string; previousState?: string; reason?: string; details?: Record<string, unknown> }>>;
       startProject(projectPairId: string): Promise<StatusSummaryDto>;
-      resumeProject(projectPairId: string): Promise<StatusSummaryDto>;
       pauseProject(projectPairId: string): Promise<StatusSummaryDto>;
       listProjectPairs(): Promise<ProjectPairDto[]>;
       createProjectPair(input: CreateProjectPairDto): Promise<ProjectPairDto>;
@@ -181,7 +198,6 @@ declare global {
       discoverChatGptProjects(input?: { cdpUrl?: string }): Promise<ChatGptProjectDto[]>;
       listArchive(): Promise<ArchivedPairSummaryDto[]>;
       deleteArchive(ref: string): Promise<{ ref: string }>;
-      copyText(text: string): Promise<{ copied: boolean }>;
       listWorkerQuestions(pairId: string): Promise<import("../../src/contracts/worker-question.js").WorkerQuestion[]>;
       getWorkerTranscript(pairId: string): Promise<import("../../src/contracts/worker-transcript.js").WorkerTranscript>;
       answerWorkerQuestion(pairId: string, input: { requestId: string; answers: string[][] }): Promise<{ answered: boolean }>;
@@ -194,7 +210,7 @@ declare global {
   }
 }
 
-const SHOW_WORKER_ON_START_KEY = "agent-relay.showWorkerOnStart";
+const SHOW_WORKER_ON_START_KEY = "agent.showWorkerOnStart";
 
 function showWorkerOnStartPref(): boolean {
   return localStorage.getItem(SHOW_WORKER_ON_START_KEY) === "1";
@@ -209,17 +225,8 @@ function setShowWorkerOnStartPref(enabled: boolean): void {
 }
 
 function initTheme(): void {
-  const select = document.getElementById("theme-select") as HTMLSelectElement | null;
-  const stored = readStoredThemePreference();
-  applyThemePreference(stored);
-  if (select) {
-    select.value = stored;
-    select.addEventListener("change", () => {
-      const preference = normalizeThemePreference(select.value);
-      applyThemePreference(preference);
-      storeThemePreference(preference);
-    });
-  }
+  // Relay Beacon is a dark operations console — hardwire theme to dark.
+  applyThemePreference("dark");
 }
 function expandAllPairs(): void {
   for (const pair of state.pairs) {
@@ -262,7 +269,18 @@ function projectPairPresence(pair: ProjectPairDto): ProjectPairPresence {
   return "idle";
 }
 
-type ViewMode = "sessions" | "home" | "activity";
+/** Re-render the standalone Pairs panel (used by view switch and by live refresh so status badges stay current). */
+function renderPairsPanel(): void {
+  const pairsList = document.getElementById("pairs-list");
+  if (!pairsList) return;
+  const fragment = document.createDocumentFragment();
+  for (const pair of state.pairs) {
+    appendPairCard(fragment, pair);
+  }
+  pairsList.replaceChildren(fragment);
+}
+
+type ViewMode = "sessions" | "home" | "activity" | "recovery" | "pairs" | "models" | "modules" | "logs" | "config" | "devices" | "health" | "developer" | "setup" | "source";
 let currentView: ViewMode = "home";
 
 function closeMobileSidebar(): void {
@@ -288,6 +306,13 @@ export function setView(view: ViewMode): void {
   const dashboardPanel = document.getElementById("dashboard-panel");
   const projectPairsPanel = document.getElementById("project-pairs-panel");
   const activityPanel = document.getElementById("activity-panel");
+  const recoveryPanel = document.getElementById("recovery-panel");
+  const pairsPanel = document.getElementById("pairs-panel");
+  const pairsList = document.getElementById("pairs-list");
+  const noPairs = document.getElementById("no-pairs");
+  const mockPagePanel = document.getElementById("mock-page-panel");
+  const mockPageTitle = document.getElementById("mock-page-title");
+  const sourcePanel = document.getElementById("source-panel");
   const projectsPanelHeader = document.getElementById("projects-panel-header");
   const projectPairsList = document.getElementById("project-pairs-list");
   const noProjectPairs = document.getElementById("no-project-pairs");
@@ -295,25 +320,115 @@ export function setView(view: ViewMode): void {
 
   navHome?.classList.toggle("active", view === "home");
   navAllSessions?.classList.toggle("active", view === "sessions");
+  document.getElementById("nav-pairs")?.classList.toggle("active", view === "pairs");
   navActivity?.classList.toggle("active", view === "activity");
+  document.getElementById("nav-recovery")?.classList.toggle("active", view === "recovery");
+  document.getElementById("nav-models")?.classList.toggle("active", view === "models");
+  document.getElementById("nav-modules")?.classList.toggle("active", view === "modules");
+  document.getElementById("nav-logs")?.classList.toggle("active", view === "logs");
+  document.getElementById("nav-source")?.classList.toggle("active", view === "source");
+  document.getElementById("nav-config")?.classList.toggle("active", view === "config");
+  document.getElementById("nav-devices")?.classList.toggle("active", view === "devices");
+  document.getElementById("nav-health")?.classList.toggle("active", view === "health");
+  document.getElementById("nav-developer")?.classList.toggle("active", view === "developer");
+  document.getElementById("nav-setup")?.classList.toggle("active", view === "setup");
 
   if (view === "activity") {
     layout?.classList.remove("view-home", "view-sessions");
     layout?.classList.add("view-activity");
     dashboardPanel?.classList.add("hidden");
     projectPairsPanel?.classList.add("hidden");
+    pairsPanel?.classList.add("hidden");
     activityPanel?.classList.remove("hidden");
+    recoveryPanel?.classList.add("hidden");
+    mockPagePanel?.classList.add("hidden");
     void openActivityView();
     return;
   }
 
+  if (view === "recovery") {
+    layout?.classList.remove("view-home", "view-sessions");
+    recoveryPanel?.classList.remove("hidden");
+    dashboardPanel?.classList.add("hidden");
+    projectPairsPanel?.classList.add("hidden");
+    pairsPanel?.classList.add("hidden");
+    activityPanel?.classList.add("hidden");
+    mockPagePanel?.classList.add("hidden");
+    void refreshRecoveryPanel();
+    return;
+  }
+
+  if (view === "source") {
+    layout?.classList.remove("view-home", "view-sessions", "view-activity");
+    dashboardPanel?.classList.add("hidden");
+    projectPairsPanel?.classList.add("hidden");
+    pairsPanel?.classList.add("hidden");
+    activityPanel?.classList.add("hidden");
+    recoveryPanel?.classList.add("hidden");
+    mockPagePanel?.classList.add("hidden");
+    sourcePanel?.classList.remove("hidden");
+    void loadAndRenderSourceIndex();
+    return;
+  }
+
+  sourcePanel?.classList.add("hidden");
+
+  if (view === "pairs") {
+    layout?.classList.remove("view-home", "view-sessions", "view-activity");
+    dashboardPanel?.classList.add("hidden");
+    projectPairsPanel?.classList.add("hidden");
+    activityPanel?.classList.add("hidden");
+    mockPagePanel?.classList.add("hidden");
+    pairsPanel?.classList.remove("hidden");
+    // render pairs
+    renderPairsPanel();
+    if (noPairs) noPairs.classList.toggle("hidden", state.pairs.length > 0);
+    return;
+  }
+
+  pairsPanel?.classList.add("hidden");
+
+  const mockViews: Record<string, { title: string; description: string }> = {
+    models: { title: "Models", description: "Worker AI models: list, switch, fallback." },
+    modules: { title: "Modules & Plugins", description: "Install and manage local plugins and diagnostic capability." },
+    logs: { title: "Logs", description: "Supervisor and relay logs from logs/ and pairs logs." },
+    config: { title: "Config", description: "" },
+    devices: { title: "Devices", description: "Mobile devices connected via the remote service." },
+    health: { title: "Health", description: "Worker connectivity, browser state, and delivery health." },
+    developer: { title: "Developer", description: "Low-level diagnostics, logs, registry and internal state." },
+    setup: { title: "Setup", description: "Bootstrap a new pair or project." },
+  };
+  if (view in mockViews) {
+    layout?.classList.remove("view-home", "view-sessions", "view-activity");
+    dashboardPanel?.classList.add("hidden");
+    projectPairsPanel?.classList.add("hidden");
+    activityPanel?.classList.add("hidden");
+    mockPagePanel?.classList.remove("hidden");
+    const body = document.getElementById("mock-page-body");
+    const configContent = document.getElementById("config-content");
+    const isConfig = view === "config";
+    if (mockPagePanel) {
+      const sub = document.getElementById("mock-page-subtitle");
+      if (sub) {
+        sub.textContent = isConfig ? "Edit adapter endpoints; changes apply immediately." : mockViews[view].description;
+      }
+    }
+    if (body) body.classList.toggle("hidden", isConfig);
+    if (configContent) configContent.classList.toggle("hidden", !isConfig);
+    if (mockPageTitle) mockPageTitle.textContent = isConfig ? "Adapter Settings" : mockViews[view].title;
+    return;
+  }
+
   activityPanel?.classList.add("hidden");
+  recoveryPanel?.classList.add("hidden");
+  mockPagePanel?.classList.add("hidden");
 
   if (view === "home") {
     layout?.classList.remove("view-sessions", "view-activity");
     layout?.classList.add("view-home");
     dashboardPanel?.classList.remove("hidden");
     projectPairsPanel?.classList.add("hidden");
+    pairsPanel?.classList.add("hidden");
     renderDashboard();
   } else {
     layout?.classList.remove("view-home", "view-activity");
@@ -321,11 +436,29 @@ export function setView(view: ViewMode): void {
     dashboardPanel?.classList.add("hidden");
     projectPairsPanel?.classList.remove("hidden");
     projectPairsPanel?.classList.add("panel-full-width");
+    pairsPanel?.classList.add("hidden");
     projectsPanelHeader?.classList.remove("hidden");
     projectPairsList?.classList.remove("hidden");
     const hasContent = state.projectPairs.length > 0 || state.pairs.length > 0;
     noProjectPairs?.classList.toggle("hidden", hasContent);
   }
+}
+
+function animateCount(element: HTMLElement, target: number, duration = 600): void {
+  const start = Number(element.textContent) || 0;
+  const delta = target - start;
+  if (delta === 0) {
+    element.textContent = String(target);
+    return;
+  }
+  const startTime = performance.now();
+  const tick = (now: number): void => {
+    const elapsed = Math.min(1, (now - startTime) / duration);
+    const ease = 1 - Math.pow(1 - elapsed, 3);
+    element.textContent = String(Math.round(start + delta * ease));
+    if (elapsed < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 }
 
 function renderDashboard(): void {
@@ -343,13 +476,33 @@ function renderDashboard(): void {
   const failedCount = statuses.filter(s => s.runtimeState === "ERROR" || s.supervisorState === "FAILED" || s.supervisorState === "STUCK" || s.worker === "FAIL" || s.planner === "FAIL").length;
   const totalCount = Math.max(state.pairs.length, statuses.length);
 
-  if (running) running.textContent = String(runningCount);
-  if (healthy) healthy.textContent = String(healthyCount);
-  if (failed) failed.textContent = String(failedCount);
-  if (total) total.textContent = String(totalCount);
+  if (running) animateCount(running, runningCount);
+  if (healthy) animateCount(healthy, healthyCount);
+  if (failed) animateCount(failed, failedCount);
+  if (total) animateCount(total, totalCount);
 
   if (gettingStarted) {
     gettingStarted.classList.toggle("hidden", state.projectPairs.length > 0 || state.pairs.length > 0);
+  }
+
+  const diagReport = document.querySelector(".diagnostics-report");
+  if (diagReport) {
+    const transport = evaluateTransportHealth(failedCount === 0, healthyCount > 0);
+    const drift = evaluateSessionDrift(runningCount, Math.max(1, totalCount));
+    const overall = overallHealth([transport, drift]);
+    const lines = [
+      `Overall health: ${overall.toUpperCase()}`,
+      `Transport: ${transport.status} — ${transport.message}`,
+      `Session drift: ${drift.status} — ${drift.message}`,
+      `Pairs: ${totalCount}`,
+      `Running: ${runningCount}`,
+      `Healthy: ${healthyCount}`,
+      `Failed: ${failedCount}`,
+      `Last refresh: ${new Date().toLocaleTimeString()}`,
+    ];
+    diagReport.textContent = lines.join("\n");
+    diagReport.classList.toggle("health-critical", overall === "critical");
+    diagReport.classList.toggle("health-warning", overall === "warning");
   }
 
   if (agentHealthContainer) {
@@ -359,6 +512,7 @@ function renderDashboard(): void {
   void updateBackendHealthStatus();
 
   if (historyContainer) {
+    if (window.desktop && typeof window.desktop.getTimeline === "function") {
     void (async () => {
       const timeline = await window.desktop.getTimeline(undefined, 50);
       const transportEvents = timeline.filter(e => !e.type.includes("ERROR") && e.type !== "FAIL" && e.type !== "VALIDATION_FAILED");
@@ -371,13 +525,14 @@ function renderDashboard(): void {
         renderEventList(errorContainer, errorEvents.slice(-10), "No errors reported recently.");
       }
     })();
+    }
   }
 }
 
 function renderDashboardAgentHealth(container: HTMLElement): void {
   if (state.pairs.length === 0) {
-    const empty = el("div", "empty-state");
-    empty.textContent = "No agent pairs configured yet. Click '+ Add Session' in the sidebar to create one.";
+    const empty = el("div", "empty-state agent-empty");
+    empty.innerHTML = `<svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true"><circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="2" stroke-opacity="0.4"/><path d="M24 8 L36 24 L24 40 L12 24 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2"/><circle cx="24" cy="24" r="4" fill="currentColor"/></svg><span><strong>No agent pairs yet.</strong><br/>Click <em>+ Add Session</em> to create your first Planner ↔ Worker relay.</span>`;
     container.replaceChildren(empty);
     return;
   }
@@ -824,6 +979,9 @@ function renderProjectPairDetails(pair: ProjectPairDto): HTMLElement {
 }
 
 async function refreshProjectPairs(): Promise<void> {
+  if (!window.desktop || typeof window.desktop.listProjectPairs !== "function") {
+    return;
+  }
   const pairs = await runAction(() => window.desktop.listProjectPairs());
   if (!pairs) {
     return;
@@ -1026,6 +1184,9 @@ async function confirmProjectPairCreation(): Promise<void> {
 }
 
 async function refresh(): Promise<void> {
+  if (!window.desktop || typeof window.desktop.listPairs !== "function") {
+    return;
+  }
   try {
     const [pairs, status, automation, projectPairs] = await Promise.all([
       window.desktop.listPairs(),
@@ -1034,6 +1195,10 @@ async function refresh(): Promise<void> {
       window.desktop.listProjectPairs().catch(() => [])
     ]);
     state.pairs = pairs;
+    const navPairs = document.getElementById("nav-pairs-count");
+    if (navPairs) {
+      navPairs.textContent = String(pairs.length);
+    }
     state.projectPairs = projectPairs ?? [];
     state.automation = automation;
     const statusMap = new Map<string, PeerHealthDto>();
@@ -1044,6 +1209,9 @@ async function refresh(): Promise<void> {
 
     refreshProjectAssignments();
     renderProjectPairs();
+    if (currentView === "pairs") {
+      renderPairsPanel();
+    }
     if (currentView === "home") {
       renderDashboard();
     }
@@ -1078,14 +1246,18 @@ async function stopAll(): Promise<void> {
   const status = await runAction(() => window.desktop.stopAll());
   if (status) {
     setStatuses(status);
+    toast("Stop All issued — relay transport blocked and Auto Resume disabled for all pairs. Termination is unverified (v1.1 §5.4).", "ok");
   }
   renderProjectPairs();
 }
 
 function wireEvents(): void {
+  if (!window.desktop || typeof window.desktop.onEvent !== "function") {
+    return;
+  }
   window.desktop.onEvent((event) => {
     noteActivityEvent(event);
-    if (event.type.startsWith("RECOVERY_") || event.type === "STATE_CHANGED" || event.type === "PAIR_RUNTIME_RECOVERED") {
+    if (event.type.startsWith("RECOVERY_") || event.type === "ESCALATED_TO_AGENT" || event.type === "STATE_CHANGED" || event.type === "PAIR_RUNTIME_RECOVERED") {
       void refresh();
     }
     if (event.type === "PAIR_REMOVED" || event.type === "PAIR_ADDED" || event.type === "PROJECT_PAIR_ADDED" || event.type === "PROJECT_PAIR_REMOVED") {
@@ -1148,8 +1320,148 @@ function closeTimelineModal(): void {
   document.getElementById("timeline-modal")?.classList.add("hidden");
 }
 
+function repoBasename(repoPath: string): string {
+  const parts = repoPath.replace(/\\/g, "/").split("/").filter(Boolean);
+  return parts[parts.length - 1] ?? "";
+}
+
+function slugify(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+function initPairCreateForm(): void {
+  const idEl = document.getElementById("pair-create-id") as HTMLInputElement | null;
+  const nameEl = document.getElementById("pair-create-name") as HTMLInputElement | null;
+  const urlEl = document.getElementById("pair-create-url") as HTMLInputElement | null;
+  const sessionEl = document.getElementById("pair-create-session") as HTMLInputElement | null;
+  const repoEl = document.getElementById("pair-create-repo") as HTMLInputElement | null;
+  const pick = document.getElementById("pair-create-folder");
+  const save = document.getElementById("pair-create-save");
+
+  nameEl?.addEventListener("input", () => {
+    if (idEl) {
+      idEl.value = slugify(nameEl.value);
+    }
+  });
+
+  pick?.addEventListener("click", async () => {
+    const result = await runAction(() => window.desktop.pickFolder());
+    if (result && result.folderPath && repoEl) {
+      repoEl.value = result.folderPath;
+      if (nameEl && !nameEl.value.trim()) {
+        nameEl.value = repoBasename(result.folderPath);
+        if (idEl) idEl.value = slugify(nameEl.value);
+      }
+      toast(`Project folder: ${result.folderPath}`, "ok");
+    }
+  });
+
+  save?.addEventListener("click", async () => {
+    const url = urlEl?.value.trim() ?? "";
+    const sessionId = sessionEl?.value.trim() ?? "";
+    const repoPath = repoEl?.value.trim() ?? "";
+    let pairId = idEl?.value.trim() ?? "";
+    if (!pairId) {
+      const name = nameEl?.value.trim() ?? "";
+      if (name) pairId = slugify(name);
+    }
+    if (!pairId || !url || !sessionId) {
+      toast("Pair name, ChatGPT URL, and OpenCode Session ID are required.", "error");
+      return;
+    }
+    const parsed = await runAction(() => window.desktop.parsePlannerUrl({ url }));
+    if (!parsed) return;
+    const candidate = {
+      pairId,
+      worker: { sessionId, repoPath: repoPath || "" },
+      planner: { conversationId: parsed.conversationId, conversationUrl: parsed.conversationUrl ?? url }
+    } as import("../../src/contracts/desktop.js").CandidatePairDto;
+    const saved = await runAction(() => window.desktop.createPair(candidate));
+    if (saved) {
+      toast("Session pair created.", "ok");
+      idEl && (idEl.value = "");
+      nameEl && (nameEl.value = "");
+      urlEl && (urlEl.value = "");
+      sessionEl && (sessionEl.value = "");
+      repoEl && (repoEl.value = "");
+      await refreshProjectPairs();
+      void refresh();
+    }
+  });
+}
+
+async function wireConfigForm(): Promise<void> {
+  const opencodeUrl = document.getElementById("config-opencode-url") as HTMLInputElement | null;
+  const chatgptUrl = document.getElementById("config-chatgpt-url") as HTMLInputElement | null;
+  const status = document.getElementById("config-status");
+  const save = document.getElementById("config-save-settings");
+  const reset = document.getElementById("config-reset-settings");
+  if (!save || !opencodeUrl || !chatgptUrl || !status) return;
+  save.addEventListener("click", async () => {
+    const settings = { opencodeServer: opencodeUrl.value, chatgptUrl: chatgptUrl.value };
+    try {
+      if (typeof window.desktop?.adapterSettings === "function") {
+        await window.desktop.adapterSettings(settings);
+        status.textContent = "Saved — adapter reload queued.";
+        status.classList.toggle("ok", true);
+      } else {
+        status.textContent = "Desktop API not exposed.";
+        status.classList.toggle("fail", true);
+      }
+    } catch (error) {
+      status.textContent = "Error: " + (error instanceof Error ? error.message : String(error));
+      status.classList.toggle("fail", true);
+    }
+  });
+  reset?.addEventListener("click", () => { status.textContent = ""; status.classList.remove("ok", "fail"); });
+}
+
+async function wireSettingsSection(): Promise<void> {
+  const input = document.getElementById("history-retention-days") as HTMLInputElement | null;
+  const save = document.getElementById("history-retention-save");
+  const status = document.getElementById("history-retention-status");
+  if (!input || !save || !status) return;
+  try {
+    if (typeof window.desktop?.getSettings === "function") {
+      const settings = await window.desktop.getSettings();
+      input.value = settings.historyRetentionDays ? String(settings.historyRetentionDays) : "";
+    }
+  } catch {
+    // Leave the field empty (= keep forever) rather than fabricate a setting.
+  }
+  save.addEventListener("click", async () => {
+    if (typeof window.desktop?.updateSettings !== "function") {
+      status.textContent = "Desktop API not exposed.";
+      status.classList.toggle("fail", true);
+      return;
+    }
+    const raw = input.value.trim();
+    const days = raw === "" ? 0 : Number.parseInt(raw, 10);
+    if (Number.isNaN(days) || days < 0) {
+      status.textContent = "Enter a whole number of days (0 = keep forever).";
+      status.classList.toggle("fail", true);
+      return;
+    }
+    try {
+      const saved = await window.desktop.updateSettings(days > 0 ? { historyRetentionDays: days } : {});
+      status.textContent = saved.historyRetentionDays
+        ? `Saved — history kept for ${saved.historyRetentionDays} days. Older rows were archived/deleted now.`
+        : "Saved — history kept forever.";
+      status.classList.toggle("ok", true);
+      status.classList.remove("fail");
+    } catch (error) {
+      status.textContent = "Error: " + (error instanceof Error ? error.message : String(error));
+      status.classList.toggle("fail", true);
+      status.classList.remove("ok");
+    }
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   initTheme();
+  initPairCreateForm();
+  void wireConfigForm();
+  void wireSettingsSection();
   const showWorkerOnStart = document.getElementById("show-worker-on-start") as HTMLInputElement | null;
   if (showWorkerOnStart) {
     showWorkerOnStart.checked = showWorkerOnStartPref();
@@ -1291,17 +1603,44 @@ document.addEventListener("DOMContentLoaded", () => {
     setView("sessions");
   });
 
+  document.getElementById("nav-pairs")?.addEventListener("click", () => {
+    setView("pairs");
+  });
+
   document.getElementById("nav-activity")?.addEventListener("click", () => {
     document.getElementById("sidebar-projects-list")
       ?.querySelectorAll(".sidebar-project-item")
       .forEach((el) => el.classList.remove("active-project"));
     setView("activity");
   });
+  document.getElementById("nav-recovery")?.addEventListener("click", () => setView("recovery"));
+  ["models", "modules", "logs", "config", "devices", "health", "developer", "setup"].forEach((v) => {
+    document.getElementById(`nav-${v}`)?.addEventListener("click", () => setView(v as ViewMode));
+  });
+  document.getElementById("nav-source")?.addEventListener("click", () => setView("source"));
 
   const sidebarToggle = document.getElementById("sidebar-toggle");
   const sidebarBackdrop = document.getElementById("sidebar-backdrop");
   sidebarToggle?.addEventListener("click", toggleMobileSidebar);
   sidebarBackdrop?.addEventListener("click", closeMobileSidebar);
+
+  const sidebarFold = document.getElementById("sidebar-fold");
+  sidebarFold?.addEventListener("click", () => {
+    const workspace = document.querySelector(".app-workspace");
+    if (!workspace) return;
+    workspace.classList.toggle("sidebar-collapsed");
+    const collapsed = workspace.classList.contains("sidebar-collapsed");
+    sidebarFold.textContent = collapsed ? "»" : "«";
+    try { localStorage.setItem("agent.sidebarCollapsed", collapsed ? "1" : "0"); } catch { /* ignore */ }
+  });
+  // Restore collapsed state.
+  try {
+    if (localStorage.getItem("agent.sidebarCollapsed") === "1") {
+      document.querySelector(".app-workspace")?.classList.add("sidebar-collapsed");
+      const btn = document.getElementById("sidebar-fold");
+      if (btn) btn.textContent = "»";
+    }
+  } catch { /* ignore */ }
 
   const addPairBtn = document.getElementById("add-pair");
   const addProjectPairBtn = document.getElementById("add-project-pair");
@@ -1311,6 +1650,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setView("home");
 
   wireActivityView();
+  initRecoveryPanel();
   wireEvents();
   initGlobalFocusTrap();
   void refresh();
@@ -1343,7 +1683,12 @@ setWorkerSessionDispatch({
 
 // Boot: wire the pair-card view hooks into renderer-owned entry points.
 setPairCardHooks({
-  rerender: () => renderProjectPairs(),
+  rerender: () => {
+    renderProjectPairs();
+    if (currentView === "pairs") {
+      renderPairsPanel();
+    }
+  },
   refreshAll: () => refresh(),
   openWizard: (kind, pairId) => openWizard(kind, pairId),
   removePair: (pairId) => removePair(pairId),
@@ -1355,6 +1700,9 @@ setWizardHooks({
 });
 
 async function updateBackendHealthStatus(): Promise<void> {
+  if (!window.desktop || typeof window.desktop.getOpenCodeEndpoint !== "function") {
+    return;
+  }
   const opencodeStatusEl = document.getElementById("backend-opencode-status");
   const opencodeDetailEl = document.getElementById("backend-opencode-detail");
   const chatgptStatusEl = document.getElementById("backend-chatgpt-status");
@@ -1419,3 +1767,360 @@ document.addEventListener("DOMContentLoaded", () => {
     void updateBackendHealthStatus();
   });
 });
+
+interface DuplicationOccurrence { path: string; start: number; end: number }
+interface DuplicationGroup { id: string; lines: number; occurrenceCount: number; occurrences: DuplicationOccurrence[]; duplicatedLines: number; cloneCount: number }
+interface DuplicationReport {
+  status: "ok" | "failed";
+  generatedAt?: string;
+  minLines?: number;
+  scannedSources?: number;
+  totalScannedLines?: number;
+  reportedDuplicatedLines?: number;
+  duplicatedLines?: number;
+  duplicatedLinePercentage?: number;
+  totalOccurrences?: number;
+  groupCount?: number;
+  groups?: DuplicationGroup[];
+  error?: string;
+}
+
+interface CodeIndexSymbol { name: string; kind: string; line?: number; signature?: string }
+interface CodeIndexModule { path: string; dir: string; category: string; purpose?: string; hasHeader?: boolean; symbolCount?: number; symbols?: CodeIndexSymbol[] }
+
+interface CodeIndex {
+  totals?: { modules?: number; symbols?: number; modulesMissingHeader?: number };
+  categories?: Array<{ category: string; modules: number }>;
+  modules?: CodeIndexModule[];
+}
+let cachedCodeIndex: CodeIndex | null = null;
+
+type SourceView = "modules" | "symbols" | "missing-headers" | "duplicates";
+let sourceView: SourceView = "modules";
+const SOURCE_VIEW_TITLES: Record<SourceView, string> = {
+  modules: "Module browser",
+  symbols: "Symbol index",
+  "missing-headers": "Missing headers",
+  duplicates: "Duplicate code blocks"
+};
+
+function setSourceView(view: SourceView): void {
+  sourceView = view;
+  document.getElementById("source-modules")?.classList.toggle("hidden", view !== "modules");
+  document.getElementById("source-symbols")?.classList.toggle("hidden", view !== "symbols");
+  document.getElementById("source-missing-headers")?.classList.toggle("hidden", view !== "missing-headers");
+  document.getElementById("duplicate-section")?.classList.toggle("hidden", view !== "duplicates");
+  document.querySelectorAll<HTMLElement>(".source-kpi").forEach((el) => {
+    const active = el.dataset.view === view;
+    el.classList.toggle("active", active);
+    el.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+  const title = document.getElementById("source-view-title");
+  if (title) title.textContent = SOURCE_VIEW_TITLES[view];
+  document.getElementById("source-back-to-modules")?.classList.toggle("hidden", view === "modules");
+  document.querySelector(".source-search-wrap")?.classList.toggle("hidden", view === "duplicates");
+}
+
+async function loadAndRenderSourceIndex(): Promise<void> {
+  const list = document.getElementById("source-list");
+  const totals = document.getElementById("source-totals");
+  const search = document.getElementById("source-search") as HTMLInputElement | null;
+  const duplicateSection = document.getElementById("duplicate-section");
+  const duplicateStatus = document.getElementById("duplicate-status");
+  const duplicateGroups = document.getElementById("duplicate-groups");
+  const duplicateHint = document.getElementById("duplicate-hint");
+  const duplicateRescan = document.getElementById("duplicate-rescan");
+  if (!list || !totals) return;
+  setSourceView(sourceView);
+  const backBtn = document.getElementById("source-back-to-modules");
+  if (backBtn && !backBtn.dataset.wired) {
+    backBtn.addEventListener("click", () => setSourceView("modules"));
+    backBtn.dataset.wired = "1";
+  }
+
+  const renderDuplicationState = async (state: { status: "ok" | "not-scanned" | "failed"; report?: DuplicationReport; error?: string; generatedAt?: string | null }): Promise<void> => {
+    if (!duplicateStatus || !duplicateGroups || !duplicateHint) return;
+    duplicateSection?.classList.remove("scanning", "failed", "ok", "not-scanned");
+    duplicateSection?.classList.add(state.status);
+    if (state.status === "failed") {
+      duplicateStatus.textContent = `Duplicate analysis failed: ${state.error ?? "unknown error"} — rescan to retry.`;
+      duplicateStatus.className = "duplicate-status failed";
+      duplicateGroups.innerHTML = "";
+      return;
+    }
+    if (state.status === "not-scanned") {
+      duplicateStatus.textContent = "Not scanned yet — run `npm run index:code` or click Rescan.";
+      duplicateStatus.className = "duplicate-status not-scanned";
+      duplicateGroups.innerHTML = "";
+      return;
+    }
+    const report = state.report;
+    if (!report) {
+      duplicateStatus.textContent = "Duplicate report unavailable.";
+      duplicateStatus.className = "duplicate-status failed";
+      duplicateGroups.innerHTML = "";
+      return;
+    }
+    const groupCount = report.groupCount ?? 0;
+    const percentage = report.duplicatedLinePercentage ?? 0;
+    const totalLines = report.totalScannedLines ?? 0;
+    const minLines = report.minLines ?? 10;
+    duplicateStatus.textContent = `${groupCount} distinct duplicate group${groupCount === 1 ? "" : "s"} — ${report.duplicatedLines ?? 0} duplicated lines of ${totalLines} (${percentage}%) — min block ${minLines} lines, scanned ${report.scannedSources ?? "?"} files.`;
+    duplicateStatus.className = "duplicate-status ok";
+    duplicateHint.textContent = `Cached ${report.generatedAt ? new Date(report.generatedAt).toLocaleString() : "recently"}. Click a group to see file paths and line ranges.`;
+    const groups = report.groups ?? [];
+    duplicateGroups.innerHTML = groups
+      .map((g, index) => `<div class="duplicate-group" data-index="${index}">
+        <div class="duplicate-group-header">
+          <span class="duplicate-group-title">Group ${index + 1} · ${escapeHtmlC(g.id)}</span>
+          <span class="duplicate-group-meta"><span>${g.lines} lines × ${g.occurrenceCount} occurrences</span><span><span class="duplicate-arrow">▶</span></span><span>${g.duplicatedLines} dup. lines</span></span>
+        </div>
+        <div class="duplicate-group-body">
+          <div class="duplicate-occurrences">${g.occurrenceCount} occurrences of one ${g.lines}-line block</div>
+          ${g.occurrences.map((o) => `<div class="duplicate-file"><span>${escapeHtmlC(o.path)}</span><span>L${o.start}–L${o.end}</span></div>`).join("")}
+        </div>
+      </div>`)
+      .join("");
+  };
+
+  const renderDuplicationFromCache = async (): Promise<void> => {
+    if (!window.desktop || typeof window.desktop.getDuplicateReport !== "function") {
+      if (duplicateStatus) {
+        duplicateStatus.textContent = "Duplicate analysis unavailable in this build.";
+        duplicateStatus.className = "duplicate-status not-scanned";
+      }
+      return;
+    }
+    const state = await window.desktop.getDuplicateReport();
+    await renderDuplicationState(state as Parameters<typeof renderDuplicationState>[0]);
+  };
+
+  const pollDuplicationRefresh = async (previousGeneratedAt: string | null): Promise<void> => {
+    if (!window.desktop || typeof window.desktop.getDuplicateReport !== "function") return;
+    const deadline = Date.now() + 60_000;
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const state = await window.desktop.getDuplicateReport();
+      const generatedAt = (state.report as DuplicationReport | undefined)?.generatedAt ?? null;
+      if (generatedAt !== previousGeneratedAt && state.status === "ok") {
+        await renderDuplicationState(state as Parameters<typeof renderDuplicationState>[0]);
+        return;
+      }
+      if (state.status === "failed") {
+        await renderDuplicationState(state as Parameters<typeof renderDuplicationState>[0]);
+        return;
+      }
+    }
+    if (duplicateStatus) {
+      duplicateStatus.textContent = "Scan is taking longer than expected — refresh the page to see results.";
+      duplicateStatus.className = "duplicate-status not-scanned";
+    }
+  };
+
+  if (duplicateRescan) {
+    duplicateRescan.addEventListener("click", async () => {
+      if (!window.desktop || typeof window.desktop.scanDuplicates !== "function") {
+        if (duplicateStatus) {
+          duplicateStatus.textContent = "Duplicate analysis unavailable in this build.";
+          duplicateStatus.className = "duplicate-status not-scanned";
+        }
+        return;
+      }
+      let previousGeneratedAt: string | null = null;
+      try {
+        const current = await window.desktop.getDuplicateReport();
+        previousGeneratedAt = (current.report as DuplicationReport | undefined)?.generatedAt ?? null;
+      } catch {
+        previousGeneratedAt = null;
+      }
+      if (duplicateStatus) {
+        duplicateStatus.textContent = "Scanning for duplicate blocks…";
+        duplicateStatus.className = "duplicate-status scanning";
+      }
+      const started = await window.desktop.scanDuplicates(10);
+      if (!started.started) {
+        if (duplicateStatus) {
+          duplicateStatus.textContent = `Failed to start duplicate scan: ${started.error ?? "unknown error"}`;
+          duplicateStatus.className = "duplicate-status failed";
+        }
+        return;
+      }
+      const previous = previousGeneratedAt;
+      void pollDuplicationRefresh(previous);
+    });
+  }
+
+  if (!duplicateGroups?.dataset.wired) {
+    duplicateGroups?.addEventListener("click", (event) => {
+      const header = (event.target as HTMLElement).closest(".duplicate-group-header");
+      if (!header) return;
+      header.parentElement?.classList.toggle("open");
+    });
+    if (duplicateGroups) duplicateGroups.dataset.wired = "1";
+  }
+
+  try {
+    if (!cachedCodeIndex) {
+      if (!window.desktop || typeof window.desktop.getCodeIndex !== "function") {
+        list.innerHTML = "<div class='empty-state'>Source index unavailable — run <code>npm run index:code</code> and restart.</div>";
+        return;
+      }
+      cachedCodeIndex = (await window.desktop.getCodeIndex()) as CodeIndex;
+    }
+    const modules = cachedCodeIndex?.modules ?? [];
+    const totalsValue = cachedCodeIndex?.totals ?? {};
+    const dupState = !window.desktop || typeof window.desktop.getDuplicateReport !== "function"
+      ? { status: "not-scanned" as const }
+      : await window.desktop.getDuplicateReport();
+    const duplicateValue = dupState.status === "ok" && dupState.report
+      ? String((dupState.report as DuplicationReport).groupCount ?? 0)
+      : "—";
+    const duplicateLabel = "Duplicate Blocks";
+    const duplicateOk = dupState.status === "ok" && (dupState.report as DuplicationReport | undefined)?.groupCount === 0;
+    const tiles: Array<{ label: string; value: string; ok?: boolean; view: SourceView }> = [
+      { label: "Modules", value: String(totalsValue.modules ?? modules.length), view: "modules" },
+      { label: "Symbols", value: String(totalsValue.symbols ?? modules.reduce((sum, m) => sum + (m.symbolCount ?? 0), 0)), view: "symbols" },
+      { label: "Missing headers", value: String(totalsValue.modulesMissingHeader ?? 0), view: "missing-headers" },
+      { label: duplicateLabel, value: duplicateValue, ok: duplicateOk, view: "duplicates" }
+    ];
+    totals.innerHTML = tiles
+      .map(({ label, value, ok, view }) => `<button type="button" class="source-stat source-kpi${ok ? " duplicate-kpi-tile ok" : ""}${view === sourceView ? " active" : ""}" data-view="${view}" aria-pressed="${view === sourceView ? "true" : "false"}"><div class="source-stat-value">${value}</div><div class="source-stat-label">${escapeHtmlC(label)}</div></button>`)
+      .join("");
+    if (!totals.dataset.wired) {
+      totals.addEventListener("click", (event) => {
+        const tile = (event.target as HTMLElement).closest(".source-kpi") as HTMLElement | null;
+        if (!tile) return;
+        const view = tile.dataset.view as SourceView | undefined;
+        if (view) setSourceView(view);
+      });
+      totals.dataset.wired = "1";
+    }
+
+    await renderDuplicationState(dupState as Parameters<typeof renderDuplicationState>[0]);
+
+    const categories = new Map<string, CodeIndexModule[]>();
+    for (const mod of modules) {
+      const list2 = categories.get(mod.category) ?? [];
+      list2.push(mod);
+      categories.set(mod.category, list2);
+    }
+    const sortedCategories = [...categories.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+
+    const renderModule = (mod: CodeIndexModule): string => {
+      const symbols = (mod.symbols ?? [])
+        .map((s) => `<span class="source-symbol" data-kind="${escapeHtmlC(s.kind)}" title="${escapeHtmlC(s.signature ?? s.name)}"><b>${escapeHtmlC(s.name)}</b></span>`)
+        .join("");
+      return `<div class="source-module"><div class="source-module-path">${escapeHtmlC(mod.path)}</div><div class="source-module-purpose">${escapeHtmlC(mod.purpose ?? "")}</div><div class="source-symbols">${symbols}</div></div>`;
+    };
+
+    const renderList = (query: string): void => {
+      const q = query.trim().toLowerCase();
+      const filtered = q
+        ? sortedCategories
+            .map(([category, listForCategory]) => {
+              const matching = listForCategory.filter((mod) => {
+                if (mod.path.toLowerCase().includes(q)) return true;
+                if ((mod.purpose ?? "").toLowerCase().includes(q)) return true;
+                return (mod.symbols ?? []).some((s) => s.name.toLowerCase().includes(q));
+              });
+              return [category, matching] as [string, CodeIndexModule[]];
+            })
+            .filter(([, listForCategory]) => listForCategory.length > 0)
+        : sortedCategories;
+
+      const openClass = q ? " open" : "";
+      list.innerHTML = filtered
+        .map(
+          ([category, listForCategory]) => `<div class="source-category${openClass}" data-category="${escapeHtmlC(category)}">
+            <div class="source-category-header">
+              <span class="source-category-title">${escapeHtmlC(category)}</span>
+              <span><span class="source-count">${listForCategory.length} modules</span> <span class="source-arrow">▶</span></span>
+            </div>
+            <div class="source-modules">${listForCategory.map(renderModule).join("")}</div>
+          </div>`
+        )
+        .join("");
+    };
+
+    const symbolsList = document.getElementById("symbols-list");
+    const allSymbols: Array<{ name: string; kind: string; line?: number; signature?: string; path: string }> = [];
+    for (const mod of modules) {
+      for (const s of mod.symbols ?? []) {
+        allSymbols.push({ name: s.name, kind: s.kind, line: s.line, signature: s.signature, path: mod.path });
+      }
+    }
+    allSymbols.sort((a, b) => a.name.localeCompare(b.name) || a.path.localeCompare(b.path));
+    const SYMBOLS_RENDER_LIMIT = 800;
+    const renderSymbols = (query: string): void => {
+      if (!symbolsList) return;
+      const q = query.trim().toLowerCase();
+      const filtered = q
+        ? allSymbols.filter((s) =>
+            s.name.toLowerCase().includes(q) ||
+            (s.signature ?? "").toLowerCase().includes(q) ||
+            s.path.toLowerCase().includes(q) ||
+            s.kind.toLowerCase().includes(q)
+          )
+        : allSymbols;
+      if (filtered.length === 0) {
+        symbolsList.innerHTML = `<div class="empty-state">${q ? "No symbols match your search." : "No symbols indexed."}</div>`;
+        return;
+      }
+      const shown = filtered.slice(0, SYMBOLS_RENDER_LIMIT);
+      const rows = shown
+        .map((s) => `<div class="symbol-row" title="${escapeHtmlC(s.signature ?? s.name)}"><span class="symbol-row-name"><b>${escapeHtmlC(s.name)}</b></span><span class="symbol-row-kind">${escapeHtmlC(s.kind)}</span><span class="symbol-row-path">${escapeHtmlC(s.path)}${s.line ? `:${s.line}` : ""}</span></div>`)
+        .join("");
+      const more = filtered.length > shown.length
+        ? `<div class="symbols-more">Showing first ${shown.length} of ${filtered.length} symbols — refine your search to narrow results.</div>`
+        : "";
+      symbolsList.innerHTML = rows + more;
+    };
+
+    const missingList = document.getElementById("missing-headers-list");
+    const missingModules = modules.filter((m) => m.hasHeader === false);
+    const renderMissingHeaders = (query: string): void => {
+      if (!missingList) return;
+      const q = query.trim().toLowerCase();
+      const filtered = q
+        ? missingModules.filter((m) =>
+            m.path.toLowerCase().includes(q) ||
+            (m.purpose ?? "").toLowerCase().includes(q) ||
+            (m.category ?? "").toLowerCase().includes(q)
+          )
+        : missingModules;
+      if (filtered.length === 0) {
+        missingList.innerHTML = `<div class="empty-state">${q ? "No missing-header modules match your search." : "All modules have header comments. 🎉"}</div>`;
+        return;
+      }
+      missingList.innerHTML = `<div class="missing-headers-summary">${filtered.length} module${filtered.length === 1 ? "" : "s"} missing a header comment</div>` +
+        filtered
+          .map((m) => `<div class="missing-header-row"><div class="missing-header-path">${escapeHtmlC(m.path)}</div><div class="missing-header-meta"><span class="missing-header-category">${escapeHtmlC(m.category)}</span>${m.purpose ? `<span class="missing-header-purpose">${escapeHtmlC(m.purpose)}</span>` : ""}</div></div>`)
+          .join("");
+    };
+
+    const applySearch = (query: string): void => {
+      renderList(query);
+      renderSymbols(query);
+      renderMissingHeaders(query);
+    };
+    applySearch(search?.value ?? "");
+    search?.addEventListener("input", () => applySearch(search.value));
+    setSourceView(sourceView);
+
+    if (!list.dataset.wired) {
+      list.addEventListener("click", (event) => {
+        const header = (event.target as HTMLElement).closest(".source-category-header");
+        if (!header) return;
+        header.parentElement?.classList.toggle("open");
+      });
+      list.dataset.wired = "1";
+    }
+    if (!search) { /* no search */ }
+  } catch (error) {
+    list.innerHTML = `<div class="empty-state">Failed to load source index: ${error instanceof Error ? escapeHtmlC(error.message) : String(error)}</div>`;
+  }
+}
+
+function escapeHtmlC(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}

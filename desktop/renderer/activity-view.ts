@@ -86,7 +86,7 @@ function severityOf(event: ActivityEvent): ActivitySeverity {
   }
   if (
     WARN_TYPES.has(event.type) ||
-    event.type.startsWith("RECOVERY_") ||
+    event.type.startsWith("RECOVERY_") || event.type === "ESCALATED_TO_AGENT" ||
     event.type.startsWith("PROJECT_LIFECYCLE_")
   ) {
     return "warn";

@@ -213,6 +213,15 @@ export function renderWorkerStep(body: HTMLElement): void {
     )
   );
 
+  body.appendChild(
+    textField(
+      "master-worker-session",
+      "Recovery Agent session ID (optional)",
+      draft.masterWorkerSessionId,
+      "Dedicated OpenCode session that receives verbatim Planner replies lacking a Worker prompt. Leave empty to keep Recovery Agent escalation unset."
+    )
+  );
+
   body.appendChild(rowNote("1. Select the active Worker Agent Desktop session."));
   const actions = el("div", "field-actions");
   const scanDesktop = el("button", "btn btn-sm");
@@ -485,6 +494,9 @@ export function textField(key: string, label: string, value: string, hint: strin
         case "worker-endpoint":
           draft.workerEndpoint = input.value;
           draft.workerEndpointOk = undefined;
+          break;
+        case "master-worker-session":
+          draft.masterWorkerSessionId = input.value;
           break;
         case "planner-url":
           draft.parsed = undefined;
@@ -794,7 +806,8 @@ export function toUpdatePair(candidate: CandidatePairDto): UpdatePairDto {
       conversationUrl: candidate.planner.conversationUrl,
       browser: candidate.planner.browser
     },
-    ...(candidate.projectPairId ? { projectPairId: candidate.projectPairId } : {})
+    ...(candidate.projectPairId ? { projectPairId: candidate.projectPairId } : {}),
+    ...(candidate.masterWorkerSessionId ? { masterWorkerSessionId: candidate.masterWorkerSessionId } : {})
   };
 }
 

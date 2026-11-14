@@ -22,13 +22,14 @@ import type {
   PlannerSeedResultDto,
   LocalAgentFeedResultDto,
   ProjectPairDto,
-  RecentEventsFilterDto,
   StartOpenCodeServerDto,
   StatusSummaryDto,
   WorkerSessionOpenResultDto,
   ToolLaunchResultDto,
   ToolActionResultDto,
   UpdatePairDto,
+  SettingsDto,
+  AutoResumeStateDto,
   ValidationResultDto,
   WorkerModelDto,
   WorkerModelSwitchResultDto,
@@ -66,17 +67,19 @@ export interface DesktopApi {
   listPairs(): Promise<PairIdentityDto[]>;
   getStatus(): Promise<StatusSummaryDto>;
   getTimeline(pairId?: string, limit?: number): Promise<Array<{ time: string; pairId?: string; projectPairId?: string; type: string; state?: string; previousState?: string; reason?: string; details?: Record<string, unknown> }>>;
-  getPairStatus(pairId: string): Promise<unknown>;
-  getPairDetail(pairId: string): Promise<PairIdentityDto | undefined>;
   pausePair(pairId: string): Promise<StatusSummaryDto>;
   resumePair(pairId: string): Promise<StatusSummaryDto>;
   startPair(pairId: string, priming?: PairStartPriming): Promise<StatusSummaryDto>;
   stopPair(pairId: string): Promise<StatusSummaryDto>;
   startAll(): Promise<StatusSummaryDto>;
   stopAll(): Promise<StatusSummaryDto>;
+  getAutoResumeState(): Promise<AutoResumeStateDto[]>;
+  setAutoResumeAfterRestart(pairId: string, enabled: boolean): Promise<AutoResumeStateDto[]>;
+  getSettings(): Promise<SettingsDto>;
+  updateSettings(input: SettingsDto): Promise<SettingsDto>;
+  releaseRecoverySuspension(pairId: string): Promise<StatusSummaryDto>;
   validatePair(pairId: string): Promise<ValidationResultDto>;
   getValidation(pairId: string): Promise<ValidationResultDto | undefined>;
-  getRecentEvents(filter?: RecentEventsFilterDto): Promise<EventRecordDto[]>;
   getAutomationInfo(): Promise<AutomationInfoDto>;
   seedPlanner(pairId: string): Promise<PlannerSeedResultDto>;
   feedLocalAgent(pairId: string): Promise<LocalAgentFeedResultDto>;
@@ -112,10 +115,14 @@ export interface DesktopApi {
   openWorkerSession(pairId: string): Promise<WorkerSessionOpenResultDto>;
   listWorkerModels(pairId: string): Promise<WorkerModelDto[]>;
   switchWorkerModel(pairId: string, input: SwitchWorkerModelDto): Promise<WorkerModelSwitchResultDto>;
+  adapterSettings(settings: unknown): Promise<{ ok: boolean }>;
+  pickFolder(): Promise<{ folderPath?: string }>;
+  getCodeIndex(): Promise<unknown>;
+  getDuplicateReport(): Promise<{ status: 'ok' | 'not-scanned' | 'failed'; report?: unknown; error?: string; generatedAt?: string | null }>;
+  scanDuplicates(minLines?: number): Promise<{ started: boolean; minLines?: number; pid?: number; error?: string }>;
   resumeWithFallbackModel(pairId: string, input: Pick<SwitchWorkerModelDto, "providerId" | "modelId">): Promise<StatusSummaryDto>;
   getWorkerProgress(pairId: string, forceRefresh?: boolean): Promise<WorkerProgressDto>;
   startProject(projectPairId: string): Promise<StatusSummaryDto>;
-  resumeProject(projectPairId: string): Promise<StatusSummaryDto>;
   pauseProject(projectPairId: string): Promise<StatusSummaryDto>;
   listProjectPairs(): Promise<ProjectPairDto[]>;
   createProjectPair(input: CreateProjectPairDto): Promise<ProjectPairDto>;
@@ -124,27 +131,33 @@ export interface DesktopApi {
   discoverChatGptProjects(input?: ChatGptProjectsDiscoveryInput): Promise<ChatGptProjectDto[]>;
   listArchive(): Promise<ArchivedPairSummaryDto[]>;
   deleteArchive(ref: string): Promise<{ ref: string }>;
-  copyText(text: string): Promise<{ copied: boolean }>;
   onEvent(listener: (event: EventRecordDto) => void): () => void;
   onStatusRefresh(listener: (payload: { reason?: string }) => void): () => void;
   onWorkerProgressUpdate(listener: (pairId: string) => void): () => void;
 }
 
 const api: DesktopApi = {
-  configPath: process.env.AGENT_RELAY_CONFIG ?? "",
+  configPath: process.env.AGENT_CONFIG ?? "",
+  adapterSettings: (settings) => invoke(IPC_CHANNELS.adapterSettings, settings),
+  pickFolder: () => invoke(IPC_CHANNELS.pickFolder),
+  getCodeIndex: () => invoke(IPC_CHANNELS.codeIndex),
+  getDuplicateReport: () => invoke(IPC_CHANNELS.duplicateReport),
+  scanDuplicates: (minLines?: number) => invoke(IPC_CHANNELS.scanDuplicates, minLines),
   listPairs: () => invoke(IPC_CHANNELS.listPairs),
   getStatus: () => invoke(IPC_CHANNELS.status),
-  getPairStatus: (pairId) => invoke(IPC_CHANNELS.pairStatus, pairId),
-  getPairDetail: (pairId) => invoke(IPC_CHANNELS.pairDetail, pairId),
   pausePair: (pairId) => invoke(IPC_CHANNELS.pausePair, pairId),
   resumePair: (pairId) => invoke(IPC_CHANNELS.resumePair, pairId),
   startPair: (pairId, priming) => invoke(IPC_CHANNELS.startPair, pairId, priming),
   stopPair: (pairId) => invoke(IPC_CHANNELS.stopPair, pairId),
   startAll: () => invoke(IPC_CHANNELS.startAll),
   stopAll: () => invoke(IPC_CHANNELS.stopAll),
+  getAutoResumeState: () => invoke(IPC_CHANNELS.getAutoResumeState),
+  setAutoResumeAfterRestart: (pairId, enabled) => invoke(IPC_CHANNELS.setAutoResumeAfterRestart, pairId, enabled),
+  getSettings: () => invoke(IPC_CHANNELS.getSettings),
+  releaseRecoverySuspension: (pairId) => invoke(IPC_CHANNELS.releaseRecoverySuspension, pairId),
+  updateSettings: (input) => invoke(IPC_CHANNELS.updateSettings, input),
   validatePair: (pairId) => invoke(IPC_CHANNELS.validatePair, pairId),
   getValidation: (pairId) => invoke(IPC_CHANNELS.getValidation, pairId),
-  getRecentEvents: (filter) => invoke(IPC_CHANNELS.getRecentEvents, filter),
   getAutomationInfo: () => invoke(IPC_CHANNELS.getAutomationInfo),
   seedPlanner: (pairId) => invoke(IPC_CHANNELS.seedPlanner, pairId),
   feedLocalAgent: (pairId) => invoke(IPC_CHANNELS.feedLocalAgent, pairId),
@@ -179,7 +192,6 @@ const api: DesktopApi = {
   getWorkerProgress: (pairId, forceRefresh) => invoke(IPC_CHANNELS.getWorkerProgress, pairId, forceRefresh),
   getTimeline: (pairId?: string, limit?: number) => invoke(IPC_CHANNELS.getTimeline, { pairId, limit }),
   startProject: (projectPairId: string) => invoke(IPC_CHANNELS.startProject, projectPairId),
-  resumeProject: (projectPairId: string) => invoke(IPC_CHANNELS.resumeProject, projectPairId),
   pauseProject: (projectPairId: string) => invoke(IPC_CHANNELS.pauseProject, projectPairId),
   listProjectPairs: () => invoke(IPC_CHANNELS.listProjectPairs),
   createProjectPair: (input) => invoke(IPC_CHANNELS.createProjectPair, input),
@@ -188,7 +200,6 @@ const api: DesktopApi = {
   discoverChatGptProjects: (input) => invoke(IPC_CHANNELS.discoverChatGptProjects, input),
   listArchive: () => invoke(IPC_CHANNELS.listArchive),
   deleteArchive: (ref) => invoke(IPC_CHANNELS.deleteArchive, ref),
-  copyText: (text) => invoke(IPC_CHANNELS.copyText, text),
   onEvent: (listener) => {
     const handler = (_event: unknown, payload: EventRecordDto) => listener(payload);
     ipcRenderer.on(EVENT_CHANNEL, handler);

@@ -19,13 +19,14 @@ import type {
   PlannerEndpointDto,
   PlannerSeedResultDto,
   ProjectPairDto,
-  RecentEventsFilterDto,
   StartOpenCodeServerDto,
   StatusSummaryDto,
   SwitchWorkerModelDto,
   ToolActionResultDto,
   ToolLaunchResultDto,
   UpdatePairDto,
+  SettingsDto,
+  AutoResumeStateDto,
   ValidationResultDto,
   WorkerModelDto,
   WorkerModelSwitchResultDto,
@@ -85,7 +86,7 @@ const initialPairs: PairIdentityDto[] = [
     }
   },
   {
-    pairId: "agent-relay-worker-sync",
+    pairId: "agent-worker-sync",
     enabled: true,
     localAgentMode: false,
     projectPairId: "local-dev",
@@ -116,7 +117,7 @@ const initialProjectPairs: ProjectPairDto[] = [
       projectId: "proj-odare-hub"
     },
     planner: {
-      projectSlug: "g-p-6aa7e7897618-agent-relay",
+      projectSlug: "g-p-6aa7e7897618-agent",
       projectName: "OdareHub Planner"
     }
   }
@@ -144,9 +145,9 @@ const initialStatuses = new Map<string, PeerHealthDto>([
     }
   ],
   [
-    "agent-relay-worker-sync",
+    "agent-worker-sync",
     {
-      pairId: "agent-relay-worker-sync",
+      pairId: "agent-worker-sync",
       runtimeState: "HEALTHY",
       hasRelayHistory: true,
       supervisorState: "SUPERVISING",
@@ -197,9 +198,9 @@ const initialValidations = new Map<string, ValidationResultDto>([
     }
   ],
   [
-    "agent-relay-worker-sync",
+    "agent-worker-sync",
     {
-      pairId: "agent-relay-worker-sync",
+      pairId: "agent-worker-sync",
       status: "READY",
       validatedAt: new Date(Date.now() - 15000).toISOString(),
       checks: [
@@ -368,6 +369,144 @@ function createInitialWorkerProgress(pairId: string, sessionId: string, repoPath
   };
 }
 
+const sourceIndexFixture = {
+  totals: { modules: 6, symbols: 9, modulesMissingHeader: 2 },
+  categories: [
+    { category: "application", modules: 3 },
+    { category: "relay", modules: 2 },
+    { category: "util", modules: 1 }
+  ],
+  modules: [
+    {
+      path: "src/application/desktop-service.ts",
+      dir: "src/application",
+      category: "application",
+      purpose: "Desktop application service orchestrating pair lifecycle, relay and recovery.",
+      hasHeader: true,
+      symbolCount: 3,
+      symbols: [
+        { name: "DesktopApplicationService", kind: "class", line: 80, signature: "class DesktopApplicationService" },
+        { name: "toDesktopApplicationError", kind: "function", line: 12, signature: "function toDesktopApplicationError(error: unknown): DesktopApplicationError" },
+        { name: "DesktopApplicationError", kind: "class", line: 40, signature: "class DesktopApplicationError extends Error" }
+      ]
+    },
+    {
+      path: "src/application/worker-session-service.ts",
+      dir: "src/application",
+      category: "application",
+      purpose: "Worker session management service.",
+      hasHeader: false,
+      symbolCount: 1,
+      symbols: [
+        { name: "WorkerSessionService", kind: "class", line: 30, signature: "class WorkerSessionService" }
+      ]
+    },
+    {
+      path: "src/application/approved-models.ts",
+      dir: "src/application",
+      category: "application",
+      purpose: "Operator-approved worker model allow list.",
+      hasHeader: true,
+      symbolCount: 2,
+      symbols: [
+        { name: "loadApprovedModels", kind: "function", line: 20, signature: "function loadApprovedModels(): ApprovedModelEntry[]" },
+        { name: "isModelApproved", kind: "function", line: 35, signature: "function isModelApproved(providerId: string, modelId: string): boolean" }
+      ]
+    },
+    {
+      path: "src/relay/index.ts",
+      dir: "src/relay",
+      category: "relay",
+      purpose: "Relay engine: message capture, classification, delivery and receipts.",
+      hasHeader: false,
+      symbolCount: 1,
+      symbols: [
+        { name: "relayMessage", kind: "function", line: 100, signature: "async function relayMessage(pair, message, options): Promise<RelayOutcome>" }
+      ]
+    },
+    {
+      path: "src/relay/receipt-verification.ts",
+      dir: "src/relay",
+      category: "relay",
+      purpose: "Deterministic receipt verification helpers.",
+      hasHeader: true,
+      symbolCount: 2,
+      symbols: [
+        { name: "normalizeReceiptText", kind: "function", line: 12, signature: "function normalizeReceiptText(text: string): string" },
+        { name: "matchPlannerReceipt", kind: "function", line: 34, signature: "function matchPlannerReceipt(candidates, expected, baselineIds): ReceiptMatchResult" }
+      ]
+    },
+    {
+      path: "src/util/watermark.ts",
+      dir: "src/util",
+      category: "util",
+      purpose: "Appends a visible Relay ID + UTC timestamp watermark to every relay message.",
+      hasHeader: true,
+      symbolCount: 2,
+      symbols: [
+        { name: "makeWatermark", kind: "function", line: 12, signature: "function makeWatermark(): RelayWatermark" },
+        { name: "withWatermark", kind: "function", line: 28, signature: "function withWatermark(text: string): string" }
+      ]
+    }
+  ]
+};
+
+let duplicateReportState: { status: "ok" | "not-scanned" | "failed"; report?: {
+  status: "ok";
+  generatedAt: string;
+  minLines: number;
+  scannedSources: number;
+  totalScannedLines: number;
+  reportedDuplicatedLines: number;
+  duplicatedLines: number;
+  duplicatedLinePercentage: number;
+  totalOccurrences: number;
+  groupCount: number;
+  groups: Array<{ id: string; lines: number; occurrenceCount: number; occurrences: Array<{ path: string; start: number; end: number }>; duplicatedLines: number; cloneCount: number }>;
+}; error?: string; generatedAt?: string | null } = {
+  status: "ok",
+  report: {
+    status: "ok",
+    generatedAt: new Date(Date.now() - 3600_000).toISOString(),
+    minLines: 10,
+    scannedSources: 118,
+    totalScannedLines: 18342,
+    reportedDuplicatedLines: 214,
+    duplicatedLines: 214,
+    duplicatedLinePercentage: 1.17,
+    totalOccurrences: 6,
+    groupCount: 2,
+    groups: [
+      {
+        id: "dup-9f3a2c",
+        lines: 14,
+        occurrenceCount: 3,
+        occurrences: [
+          { path: "src/relay/index.ts", start: 120, end: 134 },
+          { path: "src/supervisor/supervisor.ts", start: 480, end: 494 },
+          { path: "src/runtime/pair-runtime.ts", start: 150, end: 164 }
+        ],
+        duplicatedLines: 28,
+        cloneCount: 2
+      },
+      {
+        id: "dup-41bd77",
+        lines: 11,
+        occurrenceCount: 2,
+        occurrences: [
+          { path: "src/application/desktop-service.ts", start: 655, end: 666 },
+          { path: "src/application/desktop-service.ts", start: 700, end: 711 }
+        ],
+        duplicatedLines: 11,
+        cloneCount: 1
+      }
+    ]
+  }
+};
+
+const autoResumeState = new Map<string, boolean>();
+let previewSettings: SettingsDto = {};
+
 const store: PreviewStore = {
   configPath: "config/pairs.local.json",
   pairs: [...initialPairs],
@@ -487,28 +626,6 @@ export function createPreviewDesktopApi(): Window["desktop"] {
         }));
     },
 
-    async getPairStatus(pairId: string): Promise<PeerHealthDto> {
-      const found = store.statuses.get(pairId);
-      if (found) return { ...found };
-      return {
-        pairId,
-        runtimeState: "STOPPED",
-        hasRelayHistory: false,
-        worker: "unknown",
-        planner: "unknown",
-        recovering: false,
-        workerObserved: false,
-        plannerObserved: false,
-        paused: false,
-        enabled: true
-      };
-    },
-
-    async getPairDetail(pairId: string): Promise<PairIdentityDto | undefined> {
-      const pair = store.pairs.find((p) => p.pairId === pairId);
-      return pair ? JSON.parse(JSON.stringify(pair)) : undefined;
-    },
-
     async pausePair(pairId: string): Promise<StatusSummaryDto> {
       const status = store.statuses.get(pairId);
       if (status) {
@@ -559,6 +676,7 @@ export function createPreviewDesktopApi(): Window["desktop"] {
     },
 
     async stopPair(pairId: string): Promise<StatusSummaryDto> {
+      autoResumeState.set(pairId, false);
       const status = store.statuses.get(pairId);
       if (status) {
         status.runtimeState = "STOPPED";
@@ -590,16 +708,49 @@ export function createPreviewDesktopApi(): Window["desktop"] {
       return computeStatusSummary();
     },
 
+    async getAutoResumeState(): Promise<AutoResumeStateDto[]> {
+      return store.pairs.map((pair) => ({
+        pairId: pair.pairId,
+        autoResumeAfterRestart: autoResumeState.get(pair.pairId) ?? false
+      }));
+    },
+
+    async setAutoResumeAfterRestart(pairId: string, enabled: boolean): Promise<AutoResumeStateDto[]> {
+      autoResumeState.set(pairId, Boolean(enabled));
+      return this.getAutoResumeState();
+    },
+
+    async getSettings(): Promise<SettingsDto> {
+      return previewSettings;
+    },
+
+    async updateSettings(input: SettingsDto): Promise<SettingsDto> {
+      previewSettings = { historyRetentionDays: input?.historyRetentionDays };
+      return previewSettings;
+    },
+
+    async releaseRecoverySuspension(pairId: string): Promise<StatusSummaryDto> {
+      emitEvent({
+        time: new Date().toISOString(),
+        type: "RECOVERY_SUSPENSION_RELEASED",
+        pairId,
+        reason: "Operator released the recovery suspension (preview)."
+      });
+      emitStatusRefresh("recovery_suspension_released");
+      return computeStatusSummary();
+    },
+
     async stopAll(): Promise<StatusSummaryDto> {
+      autoResumeState.clear();
       for (const [pairId, status] of store.statuses.entries()) {
         status.runtimeState = "STOPPED";
         status.workerActivity = "idle";
         status.plannerActivity = "idle";
         emitEvent({
           time: new Date().toISOString(),
-          type: "STATE_CHANGED",
+          type: "STOP_ALL_REQUESTED",
           pairId,
-          details: { state: "STOPPED" }
+          details: { state: "STOPPED", status: "termination-unverified" }
         });
       }
       emitStatusRefresh("stop_all");
@@ -640,15 +791,6 @@ export function createPreviewDesktopApi(): Window["desktop"] {
 
     async getValidation(pairId: string): Promise<ValidationResultDto | undefined> {
       return store.validations.get(pairId);
-    },
-
-    async getRecentEvents(filter?: RecentEventsFilterDto): Promise<EventRecordDto[]> {
-      const limit = filter?.limit ?? 100;
-      let events = [...store.events];
-      if (filter?.pairId) {
-        events = events.filter((e) => e.pairId === filter.pairId);
-      }
-      return events.slice(0, limit);
     },
 
     async getAutomationInfo(): Promise<AutomationInfoDto> {
@@ -735,8 +877,8 @@ export function createPreviewDesktopApi(): Window["desktop"] {
         },
         {
           sessionId: "ses_dev_session_relay",
-          title: "agent-relay development",
-          repoPath: "/Users/lazydeepak/dev/agent-relay",
+          title: "agent development",
+          repoPath: "/Users/lazydeepak/dev/Agent",
           updatedAt: Date.now() - 86400000
         }
       ];
@@ -986,6 +1128,45 @@ export function createPreviewDesktopApi(): Window["desktop"] {
       };
     },
 
+    async adapterSettings(_settings: unknown): Promise<{ ok: boolean }> {
+      return { ok: true };
+    },
+
+    async pickFolder(): Promise<{ folderPath?: string }> {
+      return { folderPath: "/Users/preview/project" };
+    },
+
+    async getDuplicateReport(): Promise<{ status: 'not-scanned' | 'ok' | 'failed'; report?: { status: 'ok' | 'failed'; generatedAt?: string; minLines?: number; scannedSources?: number; totalScannedLines?: number; reportedDuplicatedLines?: number; duplicatedLines?: number; duplicatedLinePercentage?: number; totalOccurrences?: number; groupCount?: number; groups?: Array<{ id: string; lines: number; occurrenceCount: number; occurrences: Array<{ path: string; start: number; end: number }>; duplicatedLines: number; cloneCount: number }> }; error?: string; generatedAt?: string | null }> {
+      if (duplicateReportState.status === "ok" && duplicateReportState.report) {
+        return { ...duplicateReportState, generatedAt: duplicateReportState.report.generatedAt, report: duplicateReportState.report } as never;
+      }
+      return duplicateReportState as never;
+    },
+
+    async scanDuplicates(_minLines?: number): Promise<{ started: boolean; minLines?: number; pid?: number; error?: string }> {
+      if (duplicateReportState.status === "ok" && duplicateReportState.report) {
+        duplicateReportState = { ...duplicateReportState, report: { ...duplicateReportState.report, generatedAt: new Date().toISOString() } };
+        return { started: true, minLines: 10, pid: 12345 };
+      }
+      return { started: true, minLines: 10, pid: 12345 };
+    },
+
+    async getCodeIndex(): Promise<{
+      totals?: { modules?: number; symbols?: number; modulesMissingHeader?: number };
+      categories?: Array<{ category: string; modules: number }>;
+      modules?: Array<{
+        path: string;
+        dir: string;
+        category: string;
+        purpose?: string;
+        hasHeader?: boolean;
+        symbolCount?: number;
+        symbols?: Array<{ name: string; kind: string; line?: number; signature?: string }>;
+      }>;
+    }> {
+      return sourceIndexFixture;
+    },
+
     async resumeWithFallbackModel(pairId: string, _input: Pick<SwitchWorkerModelDto, "providerId" | "modelId">): Promise<StatusSummaryDto> {
       return computeStatusSummary();
     },
@@ -1010,19 +1191,6 @@ export function createPreviewDesktopApi(): Window["desktop"] {
         }
       }
       emitStatusRefresh("project_started");
-      return computeStatusSummary();
-    },
-
-    async resumeProject(projectPairId: string): Promise<StatusSummaryDto> {
-      const pairs = store.pairs.filter((p) => p.projectPairId === projectPairId);
-      for (const pair of pairs) {
-        const status = store.statuses.get(pair.pairId);
-        if (status) {
-          status.paused = false;
-          status.runtimeState = "HEALTHY";
-        }
-      }
-      emitStatusRefresh("project_resumed");
       return computeStatusSummary();
     },
 
@@ -1074,14 +1242,14 @@ export function createPreviewDesktopApi(): Window["desktop"] {
     async discoverOpenCodeProjects(): Promise<OpenCodeProjectDto[]> {
       return [
         { repoPath: "/Users/lazydeepak/dev/OdareHub", name: "OdareHub", sessionCount: 2 },
-        { repoPath: "/Users/lazydeepak/dev/agent-relay", name: "agent-relay", sessionCount: 1 }
+        { repoPath: "/Users/lazydeepak/dev/Agent", name: "agent", sessionCount: 1 }
       ];
     },
 
     async discoverChatGptProjects(): Promise<ChatGptProjectDto[]> {
       return [
         {
-          projectSlug: "g-p-6aa7e7897618-agent-relay",
+          projectSlug: "g-p-6aa7e7897618-agent",
           projectName: "OdareHub Planner",
           conversationIds: ["6aa7e789-7618-83ee-a8fc-99df3d0d7147"],
           conversationTitles: {
@@ -1102,26 +1270,6 @@ export function createPreviewDesktopApi(): Window["desktop"] {
         store.archivedPairs.splice(index, 1);
       }
       return { ref };
-    },
-
-    async copyText(text: string): Promise<{ copied: boolean }> {
-      try {
-        if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(text);
-          return { copied: true };
-        }
-      } catch {
-        // Fallback below
-      }
-      const el = document.createElement("textarea");
-      el.value = text;
-      el.style.position = "fixed";
-      el.style.opacity = "0";
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand("copy");
-      document.body.removeChild(el);
-      return { copied: true };
     },
 
     onEvent(listener: (event: EventRecordDto) => void): () => void {

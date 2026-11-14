@@ -1,7 +1,7 @@
 export type ThemePreference = "system" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";
 
-export const THEME_STORAGE_KEY = "agent-relay.theme";
+export const THEME_STORAGE_KEY = "agent.theme";
 
 export function normalizeThemePreference(value: unknown): ThemePreference {
   if (value === "light" || value === "dark" || value === "system") {

@@ -17,6 +17,31 @@ import {
   type PairControls
 } from "./state.js";
 import { setStatuses, state } from "./view-state.js";
+
+let autoResumeSnapshot: Map<string, boolean> | null = null;
+let autoResumeSyncPending: Promise<void> | null = null;
+
+/** Fetch the per-pair auto-resume preference (Rule 15) and reflect it on every toggle in the DOM. */
+async function syncAutoResumeToggles(): Promise<void> {
+  if (!window.desktop || typeof window.desktop.getAutoResumeState !== "function") return;
+  try {
+    const rows = await window.desktop.getAutoResumeState();
+    autoResumeSnapshot = new Map(rows.map((row) => [row.pairId, row.autoResumeAfterRestart]));
+    for (const input of document.querySelectorAll<HTMLInputElement>(".auto-resume-toggle-input[data-pair-id]")) {
+      const pairId = input.dataset.pairId;
+      if (pairId) input.checked = autoResumeSnapshot.get(pairId) ?? false;
+    }
+  } catch {
+    // Leave toggles unchecked rather than fabricate operator intent.
+  }
+}
+
+function scheduleSync(): void {
+  if (autoResumeSyncPending) return;
+  autoResumeSyncPending = syncAutoResumeToggles().finally(() => {
+    autoResumeSyncPending = null;
+  });
+}
 import { createWorkerSessionForPair, openWorkerSession, alignWorkerSessionWithOpenCodeDesktop, renderWorkerModelControl } from "./worker-session.js";
 import { runAction } from "./actions.js";
 import { launchPlannerForPair } from "./planner.js";
@@ -124,14 +149,44 @@ function renderPairCard(card: PairCardModel, pair: PairIdentityDto): HTMLElement
     actions.appendChild(actionButton("Start Relay", "btn-sm btn-primary", true, () => resumePair(card.pairId)));
   }
   if (controls.canPause) {
-    actions.appendChild(actionButton("Stop Relay", "btn-sm", true, () => pausePair(card.pairId)));
+    const graceful = actionButton("Graceful Pause", "btn-sm", true, () => pausePair(card.pairId));
+    graceful.title = "Let the current worker operation finish, then pause before another dispatch.";
+    actions.appendChild(graceful);
   }
   if (controls.canStop) {
     actions.appendChild(actionButton("Stop Relay", "btn-sm btn-danger", true, () => stopPair(card.pairId)));
   }
   actions.appendChild(actionButton("Open Worker Agent", "btn-sm", true, () => openWorkerSession(card.pairId)));
   compact.appendChild(actions);
+  const autoResumeLabel = el("label", "auto-resume-toggle");
+  autoResumeLabel.title = "Resume this pair automatically after an engine/computer restart (Rule 15). Default: off. An Emergency Stop always takes precedence.";
+  const autoResumeInput = el("input", "auto-resume-toggle-input") as HTMLInputElement;
+  autoResumeInput.type = "checkbox";
+  autoResumeInput.dataset.pairId = card.pairId;
+  autoResumeInput.checked = autoResumeSnapshot?.get(card.pairId) ?? false;
+  autoResumeInput.addEventListener("change", () => {
+    const enabled = autoResumeInput.checked;
+    void (async () => {
+      if (typeof window.desktop?.setAutoResumeAfterRestart !== "function") return;
+      try {
+        await window.desktop.setAutoResumeAfterRestart(card.pairId, enabled);
+        autoResumeSnapshot?.set(card.pairId, enabled);
+        for (const input of document.querySelectorAll<HTMLInputElement>(`.auto-resume-toggle-input[data-pair-id="${CSS.escape(card.pairId)}"]`)) {
+          input.checked = enabled;
+        }
+        toast(enabled ? "Auto-resume after restart enabled for this pair." : "Auto-resume after restart disabled for this pair.", "ok");
+      } catch (error) {
+        autoResumeInput.checked = !enabled;
+        toast(error instanceof Error ? error.message : String(error), "error");
+      }
+    })();
+  });
+  const autoResumeText = el("span", "auto-resume-toggle-text");
+  autoResumeText.textContent = "Auto-resume after restart";
+  autoResumeLabel.append(autoResumeInput, autoResumeText);
+  compact.appendChild(autoResumeLabel);
   body.push(compact);
+  scheduleSync();
 
   if (expanded) {
     body.push(renderPairDetails(card, pair, controls, card.runtimeState !== "STOPPED" && card.runtimeState !== "ERROR"));

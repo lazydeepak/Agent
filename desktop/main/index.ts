@@ -9,6 +9,7 @@ import { DesktopLifecycle, type DesktopLifecycleState } from "../../src/applicat
 import { WorkerProgressService } from "../../src/application/worker-progress.js";
 import { SqliteRelayStore, ensureDbParent, resolveDbPath } from "../../src/persistence/index.js";
 import { discoverOpenCodeServerUrl } from "../../src/adapters/opencode/desktop-state.js";
+import { disposeManagedBrowsers } from "../../src/adapters/chatgpt/index.js";
 import { PairConfigRepository } from "../../src/application/pair-config-repository.js";
 import { RuntimeOrchestrator } from "../../src/runtime/index.js";
 import { RelayEngine } from "../../src/application/relay-engine.js";
@@ -233,6 +234,7 @@ async function shutdown(): Promise<void> {
     try {
       eventUnsubscribe?.();
       eventUnsubscribe = undefined;
+      void disposeManagedBrowsers();
       unregisterIpcHandlers();
       if (activateListener) {
         app.removeListener("activate", activateListener);
@@ -342,7 +344,7 @@ app.whenReady().then(async () => {
     return;
   }
   lifecycleState = "initializing";
-  process.env.AGENT_RELAY_CONFIG = cli.configPath;
+  process.env.AGENT_CONFIG = cli.configPath;
   const dbPath = resolveDbPath(cli.dbPath);
   await ensureDbParent(dbPath);
   const store = new SqliteRelayStore(dbPath);

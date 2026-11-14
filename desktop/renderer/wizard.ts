@@ -26,7 +26,7 @@ export interface WizardDraft {
   workerRepoPath: string;
   workerEndpoint: string;
   workerEndpointOk?: boolean;
-  /** "auto" lets agent-relay detect the compatible protocol; pin to "legacy" for OpenCode Desktop parity. */
+  /** "auto" lets agent detect the compatible protocol; pin to "legacy" for OpenCode Desktop parity. */
   workerApiProtocol: "auto" | "legacy" | "v2";
   parsed: ParsedPlannerUrl | undefined;
   plannerEndpoint: string;
@@ -35,6 +35,8 @@ export interface WizardDraft {
   targetPairId?: string;
   /** UI-only project selection; never persisted — repo equality assigns the session. */
   projectPairId?: string;
+  /** OpenCode session that receives verbatim Planner replies lacking a Worker prompt after one regeneration request. */
+  masterWorkerSessionId: string;
 }
 
 export const pairIdPattern = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -68,7 +70,8 @@ export function createWizardDraft(kind: WizardKind, existing?: PairIdentityDto):
       parsed: undefined,
       plannerEndpoint: "",
       enabled: existing?.enabled ?? true,
-      targetPairId: existing?.pairId
+      targetPairId: existing?.pairId,
+      masterWorkerSessionId: existing?.masterWorkerSessionId ?? ""
     };
   }
   return {
@@ -85,7 +88,8 @@ export function createWizardDraft(kind: WizardKind, existing?: PairIdentityDto):
       : undefined,
     plannerEndpoint: existing?.planner.browser?.cdpUrl ?? "",
     enabled: existing?.enabled ?? true,
-    targetPairId: existing?.pairId
+    targetPairId: existing?.pairId,
+    masterWorkerSessionId: existing?.masterWorkerSessionId ?? ""
   };
 }
 
@@ -178,7 +182,8 @@ export function candidateFromWizard(kind: WizardKind, draft: WizardDraft): Candi
       conversationUrl: draft.parsed.conversationUrl,
       ...(draft.plannerEndpoint.trim() ? { browser: { cdpUrl: draft.plannerEndpoint.trim() } } : {})
     },
-    ...(draft.projectPairId ? { projectPairId: draft.projectPairId.trim() } : {})
+    ...(draft.projectPairId ? { projectPairId: draft.projectPairId.trim() } : {}),
+    ...(draft.masterWorkerSessionId.trim() ? { masterWorkerSessionId: draft.masterWorkerSessionId.trim() } : {})
   };
   return result;
 }
