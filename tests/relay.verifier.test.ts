@@ -26,6 +26,7 @@ function record(overrides: Partial<{
     status: "DELIVERING" as const,
     firstSeenAt: new Date().toISOString(),
     attemptCount: 1,
+    generation: 1,
     verifyAttemptCount: 1,
     ...(overrides.targetId !== undefined ? { targetId: overrides.targetId } : {})
   };

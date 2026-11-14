@@ -25,8 +25,23 @@ import type {
   StartupOperationStatus
 } from "../types.js";
 
+export interface StoreDiagnosticsSnapshot {
+  schemaVersion: number;
+  relayRecords: { total: number; delivered: number; delivering: number; failed: number; ambiguousDelivering: Array<{ pairId: string; direction: string; sourceMessageId: string; firstSeenAt: string; verifyAttemptCount: number }> };
+  relayCycles: { total: number; byStatus: Record<string, number> };
+  startupOperations: { pending: number; hold: number; stabilized: number };
+  supervisorState: { paused: number; suspended: number; suspendedPairs: Array<{ pairId: string; suspendedAt?: string; attemptCount: number }> };
+  openAttentions: number;
+  openProposals: number;
+  journalMode: string;
+}
+
 export interface RelayStore {
+  /** Public for read-only diagnostics (db path for stat reporting). */
+  readonly dbPath: string;
   init(): Promise<void>;
+  /** v1.1-style read-only evidence snapshot for the Source view. SELECTs only. */
+  diagnosticsSnapshot(): StoreDiagnosticsSnapshot;
   close(): void;
   findRecord(identity: CanonicalRelayIdentity): RelayRecord | undefined;
   latestRecord(pairId: string, direction: RelayDirection): RelayRecord | undefined;
@@ -34,7 +49,8 @@ export interface RelayStore {
   createRecord(
     identity: CanonicalRelayIdentity,
     sourceTimestamp?: number,
-    classification?: WorkerMessageClassification
+    classification?: WorkerMessageClassification,
+    authorization?: string
   ): RelayRecord;
   updateStatus(
     identity: CanonicalRelayIdentity,
@@ -46,6 +62,8 @@ export interface RelayStore {
   recordVerificationAttempt(identity: CanonicalRelayIdentity): RelayRecord | undefined;
   recordDelivered(identity: CanonicalRelayIdentity, targetId: string): RelayRecord | undefined;
   touchPairState(state: Partial<PairRelayState> & { pairId: string }): void;
+  /** v1.1 §7.3–7.4 — set or clear (null) the operator-selected starting side. */
+  setStartingSide(pairId: string, side: "planner" | "worker" | null): void;
   getPairState(pairId: string): PairRelayState | undefined;
   touchSupervisorState(state: Partial<Omit<SupervisorContinuity, "pairId">> & { pairId: string }): void;
   clearSupervisorRecoveryError(pairId: string): void;
@@ -241,7 +259,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_proposal_identity
 CREATE INDEX IF NOT EXISTS idx_proposal_pair ON ai_proposals (pair_id, status);
 `;
 
-const SCHEMA_VERSION = 14;  // v13: supervisor_state.recovery_suspended*; v14: startup_operations  // v11: runtime_state.auto_resume_after_restart; v12: relay_records.verify_*; v13: supervisor_state.recovery_suspended*
+export const EXPECTED_SCHEMA_VERSION = 16;
+const SCHEMA_VERSION = EXPECTED_SCHEMA_VERSION;  // v16: supervisor_state.{last_failure_signature,identical_failure_count,identical_failure_first_at,incident_disposition}; pair_state.{starting_side,last_capture_boundary_at}
 
 const RECOVERY_SUPERVISOR_COLUMNS = [
   "candidate_worker_message_id TEXT",
@@ -252,7 +271,11 @@ const RECOVERY_SUPERVISOR_COLUMNS = [
   "last_recovery_attempt_at TEXT",
   "last_recovery_success_at TEXT",
   "last_recovery_error_code TEXT",
-  "last_recovery_error TEXT"
+  "last_recovery_error TEXT",
+  "last_failure_signature TEXT",
+  "identical_failure_count INTEGER NOT NULL DEFAULT 0",
+  "identical_failure_first_at TEXT",
+  "incident_disposition TEXT"
 ] as const;
 
 const BASE_SCHEMA = `
@@ -269,6 +292,8 @@ CREATE TABLE IF NOT EXISTS relay_records (
   delivered_at TEXT,
   last_attempt_at TEXT,
   attempt_count INTEGER NOT NULL DEFAULT 0,
+  generation INTEGER NOT NULL DEFAULT 0,
+  authorization TEXT,
   error TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_relay_identity
@@ -299,7 +324,11 @@ CREATE TABLE IF NOT EXISTS supervisor_state (
   current_cycle_planner_message_id TEXT,
   last_planner_side_synced_message_id TEXT,
   last_error TEXT,
-  paused INTEGER NOT NULL DEFAULT 0
+  paused INTEGER NOT NULL DEFAULT 0,
+  last_failure_signature TEXT,
+  identical_failure_count INTEGER NOT NULL DEFAULT 0,
+  identical_failure_first_at TEXT,
+  incident_disposition TEXT
 );
 `;
 
@@ -346,7 +375,7 @@ export class SqliteRelayStore implements RelayStore {
   private readonly db: DatabaseSync;
   private disposed = false;
 
-  constructor(private readonly dbPath: string) {
+  constructor(readonly dbPath: string) {
     try {
       this.db = new DatabaseSync(dbPath);
     } catch (error) {
@@ -448,6 +477,34 @@ export class SqliteRelayStore implements RelayStore {
       if (current < 14) {
         this.db.exec(STARTUP_SCHEMA);
       }
+      if (current < 16) {
+        if (!this.columnExists("supervisor_state", "last_failure_signature")) {
+          this.db.exec("ALTER TABLE supervisor_state ADD COLUMN last_failure_signature TEXT");
+        }
+        if (!this.columnExists("supervisor_state", "identical_failure_count")) {
+          this.db.exec("ALTER TABLE supervisor_state ADD COLUMN identical_failure_count INTEGER NOT NULL DEFAULT 0");
+        }
+        if (!this.columnExists("supervisor_state", "identical_failure_first_at")) {
+          this.db.exec("ALTER TABLE supervisor_state ADD COLUMN identical_failure_first_at TEXT");
+        }
+        if (!this.columnExists("supervisor_state", "incident_disposition")) {
+          this.db.exec("ALTER TABLE supervisor_state ADD COLUMN incident_disposition TEXT");
+        }
+        if (!this.columnExists("pair_state", "starting_side")) {
+          this.db.exec("ALTER TABLE pair_state ADD COLUMN starting_side TEXT");
+        }
+        if (!this.columnExists("pair_state", "last_capture_boundary_at")) {
+          this.db.exec("ALTER TABLE pair_state ADD COLUMN last_capture_boundary_at TEXT");
+        }
+      }
+      if (current < 15) {
+        if (!this.columnExists("relay_records", "generation")) {
+          this.db.exec("ALTER TABLE relay_records ADD COLUMN generation INTEGER NOT NULL DEFAULT 0");
+        }
+        if (!this.columnExists("relay_records", "authorization")) {
+          this.db.exec("ALTER TABLE relay_records ADD COLUMN authorization TEXT");
+        }
+      }
       if (row === undefined) {
         this.db.prepare("INSERT INTO schema_version (version) VALUES (?)").run(SCHEMA_VERSION);
       } else if (current < SCHEMA_VERSION) {
@@ -525,14 +582,15 @@ export class SqliteRelayStore implements RelayStore {
   createRecord(
     identity: CanonicalRelayIdentity,
     sourceTimestamp?: number,
-    classification?: WorkerMessageClassification
+    classification?: WorkerMessageClassification,
+    authorization?: string
   ): RelayRecord {
     const now = new Date().toISOString();
     this.db
       .prepare(
         `INSERT INTO relay_records
-           (pair_id, direction, source_message_id, source_hash, source_timestamp, status, first_seen_at, classification)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+           (pair_id, direction, source_message_id, source_hash, source_timestamp, status, first_seen_at, classification, generation, authorization)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`
       )
       .run(
         identity.pairId,
@@ -542,7 +600,8 @@ export class SqliteRelayStore implements RelayStore {
         sourceTimestamp ?? null,
         "DISCOVERED",
         now,
-        classification ?? null
+        classification ?? null,
+        authorization ?? "automation"
       );
     const record = this.findRecord(identity);
     if (!record) {
@@ -568,6 +627,7 @@ export class SqliteRelayStore implements RelayStore {
          SET
            status = ?,
            attempt_count = attempt_count + 1,
+           generation = generation + 1,
            last_attempt_at = ?,
            delivered_at = CASE WHEN ? = 'DELIVERED' THEN ? ELSE delivered_at END,
            target_id = COALESCE(?, target_id),
@@ -617,15 +677,16 @@ export class SqliteRelayStore implements RelayStore {
     this.db
       .prepare(
         `INSERT INTO pair_state
-           (pair_id, last_worker_message_id, last_planner_message_id, last_successful_relay_at, last_direction, last_error, project_pair_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+           (pair_id, last_worker_message_id, last_planner_message_id, last_successful_relay_at, last_direction, last_error, project_pair_id, last_capture_boundary_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(pair_id) DO UPDATE SET
            last_worker_message_id = COALESCE(excluded.last_worker_message_id, pair_state.last_worker_message_id),
            last_planner_message_id = COALESCE(excluded.last_planner_message_id, pair_state.last_planner_message_id),
            last_successful_relay_at = COALESCE(excluded.last_successful_relay_at, pair_state.last_successful_relay_at),
            last_direction = COALESCE(excluded.last_direction, pair_state.last_direction),
            last_error = COALESCE(excluded.last_error, pair_state.last_error),
-           project_pair_id = COALESCE(excluded.project_pair_id, pair_state.project_pair_id)`
+           project_pair_id = COALESCE(excluded.project_pair_id, pair_state.project_pair_id),
+           last_capture_boundary_at = COALESCE(excluded.last_capture_boundary_at, pair_state.last_capture_boundary_at)`
       )
       .run(
         state.pairId,
@@ -634,8 +695,19 @@ export class SqliteRelayStore implements RelayStore {
         state.lastSuccessfulRelayAt ?? null,
         state.lastDirection ?? null,
         state.lastError ?? null,
-        state.projectPairId ?? null
+        state.projectPairId ?? null,
+        state.lastCaptureBoundaryAt ?? null
       );
+  }
+
+  setStartingSide(pairId: string, side: "planner" | "worker" | null): void {
+    this.db
+      .prepare(
+        `INSERT INTO pair_state (pair_id, starting_side)
+         VALUES (?, ?)
+         ON CONFLICT(pair_id) DO UPDATE SET starting_side = excluded.starting_side`
+      )
+      .run(pairId, side);
   }
 
   getPairState(pairId: string): PairRelayState | undefined {
@@ -652,7 +724,9 @@ export class SqliteRelayStore implements RelayStore {
       lastPlannerMessageId: nullableString(row.last_planner_message_id),
       lastSuccessfulRelayAt: nullableString(row.last_successful_relay_at),
       lastDirection: nullableDirection(row.last_direction),
-      lastError: nullableString(row.last_error)
+      lastError: nullableString(row.last_error),
+      startingSide: nullableStartingSide(row.starting_side),
+      lastCaptureBoundaryAt: nullableString(row.last_capture_boundary_at)
     };
   }
 
@@ -912,10 +986,13 @@ export class SqliteRelayStore implements RelayStore {
 
   touchSupervisorState(state: Partial<Omit<SupervisorContinuity, "pairId">> & { pairId: string }): void {
     const existingRow = this.db
-      .prepare("SELECT recovery_attempt_count AS count, recovery_suspended AS suspended FROM supervisor_state WHERE pair_id = ?")
-      .get(state.pairId) as { count: number; suspended: number } | undefined;
+      // v1.1 §11.4 — preserve the identical-failure counter across touches unless explicitly set.
+      .prepare("SELECT recovery_attempt_count AS count, recovery_suspended AS suspended, identical_failure_count AS identical, paused AS paused FROM supervisor_state WHERE pair_id = ?")
+      .get(state.pairId) as { count: number; suspended: number; identical: number; paused: number } | undefined;
     const recoveryAttemptCount = state.recoveryAttemptCount ?? existingRow?.count ?? 0;
     const recoverySuspendedValue = state.recoverySuspended === undefined ? existingRow?.suspended ?? 0 : state.recoverySuspended ? 1 : 0;
+    const identicalFailureCountValue = state.identicalFailureCount ?? Number(existingRow?.identical ?? 0);
+    const pausedValue = state.paused === undefined ? Number(existingRow?.paused ?? 0) : state.paused ? 1 : 0;
 
     this.db
       .prepare(
@@ -928,8 +1005,9 @@ export class SqliteRelayStore implements RelayStore {
            baseline_worker_message_id, baseline_worker_message_created_at,
            recovery_policy, recovery_attempt_count, last_recovery_attempt_at,
            last_recovery_success_at, last_recovery_error_code, last_recovery_error,
-           project_pair_id, recovery_suspended, recovery_suspended_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           project_pair_id, recovery_suspended, recovery_suspended_at,
+           last_failure_signature, identical_failure_count, identical_failure_first_at, incident_disposition
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(pair_id) DO UPDATE SET
            last_supervisor_state = COALESCE(excluded.last_supervisor_state, supervisor_state.last_supervisor_state),
            state_changed_at = COALESCE(excluded.state_changed_at, supervisor_state.state_changed_at),
@@ -993,7 +1071,11 @@ export class SqliteRelayStore implements RelayStore {
             last_recovery_error = COALESCE(excluded.last_recovery_error, supervisor_state.last_recovery_error),
             project_pair_id = COALESCE(excluded.project_pair_id, supervisor_state.project_pair_id),
             recovery_suspended = COALESCE(excluded.recovery_suspended, supervisor_state.recovery_suspended),
-            recovery_suspended_at = COALESCE(excluded.recovery_suspended_at, supervisor_state.recovery_suspended_at)`
+            recovery_suspended_at = COALESCE(excluded.recovery_suspended_at, supervisor_state.recovery_suspended_at),
+            last_failure_signature = COALESCE(excluded.last_failure_signature, supervisor_state.last_failure_signature),
+            identical_failure_count = COALESCE(excluded.identical_failure_count, supervisor_state.identical_failure_count),
+            identical_failure_first_at = COALESCE(excluded.identical_failure_first_at, supervisor_state.identical_failure_first_at),
+            incident_disposition = COALESCE(excluded.incident_disposition, supervisor_state.incident_disposition)`
       )
       .run(
         state.pairId,
@@ -1006,7 +1088,7 @@ export class SqliteRelayStore implements RelayStore {
         state.currentCyclePlannerMessageId ?? null,
         state.lastPlannerSideSyncedMessageId ?? null,
         state.lastError ?? null,
-        state.paused === undefined ? 0 : state.paused ? 1 : 0,
+        pausedValue,
         state.candidateWorkerMessageId ?? null,
         state.candidateWorkerMessageHash ?? null,
         state.candidateWorkerFirstSeenAt ?? null,
@@ -1020,7 +1102,11 @@ export class SqliteRelayStore implements RelayStore {
         state.lastRecoveryError ?? null,
         (state as { projectPairId?: string }).projectPairId ?? null,
         recoverySuspendedValue,
-        state.recoverySuspendedAt ?? null
+        state.recoverySuspendedAt ?? null,
+        state.lastFailureSignature ?? null,
+        identicalFailureCountValue,
+        state.identicalFailureFirstAt ?? null,
+        state.incidentDisposition ?? null
       );
   }
 
@@ -1064,7 +1150,11 @@ export class SqliteRelayStore implements RelayStore {
       lastRecoveryError: nullableString(row.last_recovery_error),
       projectPairId: nullableString(row.project_pair_id) || undefined,
       recoverySuspended: Number(row.recovery_suspended ?? 0) === 1 || undefined,
-      recoverySuspendedAt: nullableString(row.recovery_suspended_at)
+      recoverySuspendedAt: nullableString(row.recovery_suspended_at),
+      lastFailureSignature: nullableString(row.last_failure_signature),
+      identicalFailureCount: Number(row.identical_failure_count ?? 0) || undefined,
+      identicalFailureFirstAt: nullableString(row.identical_failure_first_at),
+      incidentDisposition: nullableString(row.incident_disposition) as SupervisorContinuity["incidentDisposition"]
     };
   }
 
@@ -1415,6 +1505,77 @@ export class SqliteRelayStore implements RelayStore {
       .all(pairId);
     return rows.map((row) => rowToRelayCycle(row) as RelayCycle).filter(isDefined);
   }
+
+  /** v1.1-style read-only evidence snapshot for the Source view diagnostics panel. SELECTs only. */
+  diagnosticsSnapshot(): StoreDiagnosticsSnapshot {
+    const records = this.db.prepare(
+      `SELECT pair_id, direction, source_message_id, first_seen_at, verify_attempt_count
+       FROM relay_records WHERE status = 'DELIVERING'
+       ORDER BY first_seen_at ASC LIMIT 20`
+    ).all() as Array<{ pair_id: string; direction: string; source_message_id: string; first_seen_at: string; verify_attempt_count: number }>;
+    const totals = this.db.prepare(
+      `SELECT COUNT(*) AS total,
+              SUM(CASE WHEN status = 'DELIVERED' THEN 1 ELSE 0 END) AS delivered,
+              SUM(CASE WHEN status = 'DELIVERING' THEN 1 ELSE 0 END) AS delivering,
+              SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) AS failed
+       FROM relay_records`
+    ).get() as { total: number; delivered: number | null; delivering: number | null; failed: number | null };
+    const cyclesByStatus = this.db.prepare(
+      `SELECT cycle_status AS status, COUNT(*) AS count FROM relay_cycles GROUP BY cycle_status`
+    ).all() as Array<{ status: string; count: number }>;
+    const cyclesTotal = this.db.prepare(`SELECT COUNT(*) AS count FROM relay_cycles`).get() as { count: number };
+    const ops = this.db.prepare(
+      `SELECT
+         SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
+         SUM(CASE WHEN status = 'hold' THEN 1 ELSE 0 END) AS hold,
+         SUM(CASE WHEN status = 'stabilized' THEN 1 ELSE 0 END) AS stabilized
+       FROM startup_operations`
+    ).get() as { pending: number | null; hold: number | null; stabilized: number | null };
+    const suspendedRows = this.db.prepare(
+      `SELECT pair_id, recovery_suspended_at, recovery_attempt_count FROM supervisor_state WHERE recovery_suspended = 1`
+    ).all() as Array<{ pair_id: string; recovery_suspended_at: string | null; recovery_attempt_count: number }>;
+    const pausedCount = this.db.prepare(`SELECT COUNT(*) AS count FROM supervisor_state WHERE paused = 1`).get() as { count: number };
+    const attention = this.db.prepare(`SELECT COUNT(*) AS count FROM attention_items WHERE status = 'open'`).get() as { count: number };
+    const proposals = this.db.prepare(`SELECT COUNT(*) AS count FROM ai_proposals WHERE status = 'PENDING'`).get() as { count: number };
+    const journalMode = (this.db.prepare(`PRAGMA journal_mode`).get() as { journal_mode?: string } | undefined)?.journal_mode ?? "unknown";
+    const schemaVersion = Number((this.db.prepare(`SELECT version FROM schema_version`).get() as { version?: number } | undefined)?.version ?? 0);
+    const byStatus: Record<string, number> = {};
+    for (const row of cyclesByStatus) byStatus[row.status] = row.count;
+    return {
+      schemaVersion,
+      relayRecords: {
+        total: Number(totals.total ?? 0),
+        delivered: Number(totals.delivered ?? 0),
+        delivering: Number(totals.delivering ?? 0),
+        failed: Number(totals.failed ?? 0),
+        ambiguousDelivering: records.map((row) => ({
+          pairId: row.pair_id,
+          direction: row.direction,
+          sourceMessageId: row.source_message_id,
+          firstSeenAt: row.first_seen_at,
+          verifyAttemptCount: Number(row.verify_attempt_count ?? 0)
+        }))
+      },
+      relayCycles: { total: Number(cyclesTotal.count ?? 0), byStatus },
+      startupOperations: {
+        pending: Number(ops.pending ?? 0),
+        hold: Number(ops.hold ?? 0),
+        stabilized: Number(ops.stabilized ?? 0)
+      },
+      supervisorState: {
+        paused: Number(pausedCount.count ?? 0),
+        suspended: suspendedRows.length,
+        suspendedPairs: suspendedRows.map((row) => ({
+          pairId: row.pair_id,
+          suspendedAt: row.recovery_suspended_at ?? undefined,
+          attemptCount: Number(row.recovery_attempt_count ?? 0)
+        }))
+      },
+      openAttentions: Number(attention.count ?? 0),
+      openProposals: Number(proposals.count ?? 0),
+      journalMode
+    };
+  }
 }
 
 export function resolveDbPath(configuredPath?: string): string {
@@ -1449,6 +1610,8 @@ function rowToRelayRecord(row: unknown): RelayRecord | undefined {
     deliveredAt: nullableString(record.delivered_at),
     lastAttemptAt: nullableString(record.last_attempt_at),
     attemptCount: Number(record.attempt_count ?? 0),
+    generation: Number(record.generation ?? 0),
+    authorization: nullableString(record.authorization),
     verifyAttemptCount: Number(record.verify_attempt_count ?? 0),
     verifyLastAttemptAt: nullableString(record.verify_last_attempt_at),
     error: nullableString(record.error),
@@ -1465,6 +1628,11 @@ function nullableWorkerMessageClassification(
 
 function nullableString(value: unknown): string | undefined {
   return value === null || value === undefined ? undefined : String(value);
+}
+
+function nullableStartingSide(value: unknown): "planner" | "worker" | undefined {
+  const stringValue = nullableString(value);
+  return stringValue === "planner" || stringValue === "worker" ? stringValue : undefined;
 }
 
 function nullableDirection(value: unknown): RelayDirection | undefined {

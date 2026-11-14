@@ -13,6 +13,8 @@ import { isBusyState } from "./state.js";
 export const DEFAULT_STUCK_AFTER_MS = 60 * 60_000;
 
 export interface CycleContext {
+  /** v1.1 §7.3 — operator-selected starting side for this turn, if any. */
+  startingSide?: "planner" | "worker" | null;
   ambiguousDelivery?: boolean;
   currentCyclePlannerMessageId?: string;
   workerResponseMessageId?: string;
@@ -127,6 +129,20 @@ export function classify(input: ClassifyInput): Classification {
         reason: `No activity for ${Math.round(idleSinceMs / 1000)}s.`
       };
     }
+  }
+
+  // v1.1 §7.3–7.4 — both peers have pending work and no starting side selected:
+  // hold both relays until the operator selects which side establishes the first turn.
+  if (cycle.workerReportPending && cycle.plannerInstructionPending) {
+    if (!cycle.startingSide) {
+      return {
+        state: "WORKING",
+        reason: "Awaiting Starting-Side Selection: both sides have pending work; the operator must select which side establishes the first turn (v1.1 §7.3)."
+      };
+    }
+    return cycle.startingSide === "planner"
+      ? { state: "WORKING", reason: "Ready to relay planner instruction (operator-selected starting side)." }
+      : { state: "WORKING", reason: "Ready to relay worker report (operator-selected starting side)." };
   }
 
   if (worker.gathering) {

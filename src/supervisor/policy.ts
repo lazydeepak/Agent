@@ -35,18 +35,20 @@ export function decideRelays(input: PolicyInput): RelayDecisions {
     !input.snapshot.planner.generating &&
     !input.snapshot.worker.gathering;
 
-  // When both sides have pending work, prefer the absolute latest message globally
-  // to maintain a deterministic "ping-pong" sequence.
+  // v1.1 §7.3–7.4 — when both sides have pending work, the operator selects the
+  // starting side; with no selection both relays hold (never choose automatically).
   let relayWorker = workerReportPending;
   let relayPlanner = plannerInstructionPending;
 
   if (workerReportPending && plannerInstructionPending) {
-    const workerTime = input.cycle.pendingWorkerMessageCreatedAt ?? 0;
-    const plannerTime = input.cycle.pendingPlannerMessageCreatedAt ?? 0;
-    if (workerTime > plannerTime) {
-      relayPlanner = false;
-    } else {
+    const side = input.cycle.startingSide ?? null;
+    if (!side) {
       relayWorker = false;
+      relayPlanner = false;
+    } else if (side === "planner") {
+      relayWorker = false;
+    } else {
+      relayPlanner = false;
     }
   }
 

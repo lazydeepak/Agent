@@ -51,6 +51,13 @@ export interface PeerHealthDto {
   pairId: string;
   runtimeState: string;
   hasRelayHistory?: boolean;
+  /** Latest relay record evidence for DELIVERY tiles. Absent until the pair has records. */
+  latestDeliveryStatus?: "DISCOVERED" | "DELIVERING" | "DELIVERED" | "FAILED";
+  latestDeliveryVerifyAttempts?: number;
+  /** v1.1 §7.3 — operator-selected starting side for this turn while both peers are busy. */
+  startingSide?: "planner" | "worker" | null;
+  /** v1.1 §7.3–7.4 — both peers busy with pending work and no starting side selected yet. */
+  awaitingStartingSideSelection?: boolean;
   supervisorState?: string;
   worker: string;
   planner: string;
@@ -327,3 +334,23 @@ export type LocalAgentFeedResult = LocalAgentFeedResultDto;
 export type CandidatePairInput = CandidatePairDto;
 export type UpdatePairInput = UpdatePairDto;
 export type ValidatedPair = ValidationResultDto;
+
+/** v1.1-style read-only ground-truth diagnostics for the Source view. All fields are evidence, never predictions. */
+export interface DiagnosticsSnapshotDto {
+  generatedAt: string;
+  /** true when the relay store was unavailable — every store-derived field is null. */
+  available: boolean;
+  reason?: string;
+  /** true ONLY from the browser preview bridge (mock data); never set by the real desktop service. */
+  simulated?: boolean;
+  environment: { node: string; platform: string; arch: string };
+  database: { path: string; schemaVersion: number | null; expectedSchemaVersion: number; journalMode: string; dbSizeBytes?: number; walSizeBytes?: number } | null;
+  config: { configPath: string | null; pairsCount: number | null; projectPairsCount: number | null };
+  relayLedger: { total: number; delivered: number; delivering: number; failed: number; ambiguousDelivering: Array<{ pairId: string; direction: string; sourceMessageId: string; firstSeenAt: string; verifyAttemptCount: number }> } | null;
+  relayCycles: { total: number; byStatus: Record<string, number> } | null;
+  startupOperations: { pending: number; hold: number; stabilized: number } | null;
+  supervisorState: { paused: number; suspended: number; suspendedPairs: Array<{ pairId: string; suspendedAt?: string; attemptCount: number }> } | null;
+  openAttentions: number | null;
+  openProposals: number | null;
+  settings: { historyRetentionDays: number };
+}

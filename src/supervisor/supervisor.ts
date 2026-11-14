@@ -846,6 +846,7 @@ export function buildCycle(
   const lastPlannerDelivered = lastPlannerRelay?.status === "DELIVERED" ? lastPlannerRelay : undefined;
   const relayCycles = store.listCycles(pairId);
   const durableCycle = relayCycles.at(-1);
+  const pairState = store.getPairState(pairId);
 
   const workerReportPending = durableCycle
     ? durableCycle.cycleStatus === "WORKER_RESPONDED"
@@ -858,6 +859,7 @@ export function buildCycle(
   );
 
   return {
+    startingSide: pairState?.startingSide ?? null,
     ambiguousDelivery: store.listRecords(pairId).some((record) => record.status === "DELIVERING"),
     currentCyclePlannerMessageId: durableCycle?.plannerSourceMessageId ?? lastPlannerDelivered?.sourceMessageId,
     workerResponseMessageId: durableCycle?.workerResponseMessageId,

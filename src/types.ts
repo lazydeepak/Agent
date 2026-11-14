@@ -176,6 +176,10 @@ export interface RelayRecord {
   deliveredAt?: string;
   lastAttemptAt?: string;
   attemptCount: number;
+  /** v1.1 §3.1 — first-class attempt generation; increments on every delivery attempt (mirrors attempt_count until a re-admission flow exists). */
+  generation: number;
+  /** v1.1 §3.2 — what authorized this admission (e.g. "automation", "startup-exception", "operator"). */
+  authorization?: string;
   /** Rule 12/13 — separate accounting for delivery *verification* attempts (distinct from delivery attempts). */
   verifyAttemptCount?: number;
   verifyLastAttemptAt?: string;
@@ -210,6 +214,10 @@ export interface PairRelayState {
   lastSuccessfulRelayAt?: string;
   lastDirection?: RelayDirection;
   lastError?: string;
+  /** v1.1 §7.3–7.4 — operator-selected starting side when both peers are busy. Cleared on first admission of the selected side. */
+  startingSide?: "planner" | "worker";
+  /** v1.1 §7.2 — when capture/observation boundary was last established at start. */
+  lastCaptureBoundaryAt?: string;
 }
 
 export type SupervisorState =
@@ -289,7 +297,25 @@ export interface SupervisorContinuity {
   lastRecoverySuccessAt?: string;
   lastRecoveryErrorCode?: RecoveryErrorCode;
   lastRecoveryError?: string;
+  /** v1.1 §11.4 — normalized signature of the last matching failure (for repeat detection). */
+  lastFailureSignature?: string;
+  /** v1.1 §11.4 — count of identical matching failures within the window. >= 2 suspends automated recovery. */
+  identicalFailureCount?: number;
+  /** v1.1 §11.4 — when the identical-failure window started. */
+  identicalFailureFirstAt?: string;
+  /** v1.1 §11.7 — terminal disposition of the latest incident, when known. */
+  incidentDisposition?: IncidentDisposition;
 }
+
+/** v1.1 §11.7 — terminal dispositions for recovery incidents. */
+export type IncidentDisposition =
+  | "resolved"
+  | "held"
+  | "awaiting_operator"
+  | "authorized_abandonment"
+  | "terminated_verified"
+  | "terminated_unverified"
+  | "unresolved";
 
 export type RecoveryPolicy = "none" | "safe";
 

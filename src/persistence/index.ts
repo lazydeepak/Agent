@@ -4,6 +4,7 @@
  * Purpose: Persistence / SQLite store exports.
  */
 export {
+  EXPECTED_SCHEMA_VERSION,
   RelayStoreError,
   SqliteRelayStore,
   ensureDbParent,

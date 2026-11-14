@@ -654,6 +654,7 @@ async function makeContext(
   service: DesktopApplicationService;
   configPath: string;
   dbPath: string;
+  store: SqliteRelayStore;
   cleanup: () => Promise<void>;
 }> {
   const directory = await mkdtemp(join(tmpdir(), "agent-desktop-"));
@@ -671,7 +672,8 @@ async function makeContext(
     ...(options.launcher ? { desktopToolLauncher: options.launcher } : {}),
     ...(options.opencodeFetch ? { opencodeFetch: options.opencodeFetch } : {})
   });
-  return { service, configPath, dbPath, cleanup: () => rm(directory, { force: true, recursive: true }) };
+  const serviceStore = new SqliteRelayStore(dbPath);
+  return { service, configPath, dbPath, store: serviceStore, cleanup: () => rm(directory, { force: true, recursive: true }) };
 }
 
 function mockLauncher(startOpenCode: DesktopToolLauncher["startOpenCode"]): DesktopToolLauncher {
@@ -790,6 +792,123 @@ describe("Stop All semantics (v1.1 §5)", () => {
       await ctx.service.startPair("kisab-main");
       expect(ctx.service.getPairStatus("kisab-main")?.runtimeState).toBe("RUNNING");
       await ctx.service.shutdown();
+    } finally {
+      await ctx.cleanup();
+    }
+  });
+});
+
+describe("v1.1 §7.3/§12.2 desktop service actions", () => {
+  it("records the starting-side selection, emits STARTING_SIDE_SELECTED, and clears it only via the one-shot fence", async () => {
+    const ctx = await makeContext([makePairDto("kisab-main")], { pollIntervalMs: 10 });
+    try {
+      await ctx.service.init();
+      const events: string[] = [];
+      ctx.service.subscribeEvents((event) => events.push(event.type));
+
+      ctx.service.selectStartingSide("kisab-main", "planner");
+
+      await ctx.store.init();
+      expect(ctx.store.getPairState("kisab-main")?.startingSide).toBe("planner");
+      expect(events).toContain("STARTING_SIDE_SELECTED");
+
+      // Overriding is allowed (operator changes their mind before the first dispatch).
+      ctx.service.selectStartingSide("kisab-main", "worker");
+      expect(ctx.store.getPairState("kisab-main")?.startingSide).toBe("worker");
+
+      // Explicit cancel clears the selection (operator abandons the turn).
+      ctx.service.cancelIncident("kisab-main");
+      expect(ctx.store.getPairState("kisab-main")?.startingSide).toBe("worker"); // cancelIncident pauses; selection untouched
+      ctx.store.setStartingSide("kisab-main", null);
+      expect(ctx.store.getPairState("kisab-main")?.startingSide).toBeUndefined();
+      await ctx.service.shutdown();
+    } finally {
+      await ctx.cleanup();
+    }
+  });
+
+  it("cancelIncident pauses the pair, records disposition held, and emits RECOVERY_CANCELLED", async () => {
+    const ctx = await makeContext([makePairDto("kisab-main")], { pollIntervalMs: 10 });
+    try {
+      await ctx.service.init();
+      const events: string[] = [];
+      ctx.service.subscribeEvents((event) => events.push(event.type));
+
+      ctx.service.cancelIncident("kisab-main");
+
+      expect(events).toContain("RECOVERY_CANCELLED");
+      await ctx.store.init();
+      expect(ctx.store.getSupervisorState("kisab-main")?.paused).toBe(true);
+      expect(ctx.store.getSupervisorState("kisab-main")?.incidentDisposition).toBe("held");
+      expect(ctx.service.getPairStatus("kisab-main")?.paused).toBe(true);
+      await ctx.service.shutdown();
+    } finally {
+      await ctx.cleanup();
+    }
+  });
+
+  it("stopAll marks every running pair terminated_unverified (v1.1 §5.5/§11.7)", async () => {
+    const ctx = await makeContext([makePairDto("kisab-main"), makePairDto("b-main")], { pollIntervalMs: 10 });
+    try {
+      await ctx.service.init();
+      await ctx.service.stopAll();
+      await ctx.store.init();
+      expect(ctx.store.getSupervisorState("kisab-main")?.incidentDisposition).toBe("terminated_unverified");
+      expect(ctx.store.getSupervisorState("b-main")?.incidentDisposition).toBe("terminated_unverified");
+      await ctx.service.shutdown();
+    } finally {
+      await ctx.cleanup();
+    }
+  });
+});
+
+describe("getDiagnosticsSnapshot — v1.1-style read-only ground truth", () => {
+  it("returns real evidence from the store, never invented values", async () => {
+    const ctx = await makeContext([makePairDto("kisab-main")], { pollIntervalMs: 10 });
+    try {
+      await ctx.service.init();
+      await ctx.store.init();
+      ctx.store.createRecord({ pairId: "kisab-main", direction: "worker-to-planner", sourceMessageId: "m-1", sourceHash: "h-1" });
+      ctx.store.updateStatus(
+        { pairId: "kisab-main", direction: "worker-to-planner", sourceMessageId: "m-1", sourceHash: "h-1" },
+        "DELIVERING",
+        {}
+      );
+
+      const snapshot = ctx.service.getDiagnosticsSnapshot();
+
+      expect(snapshot.available).toBe(true);
+      expect(snapshot.database?.schemaVersion).toBe(snapshot.database?.expectedSchemaVersion);
+      expect(snapshot.database?.journalMode).toBe("wal");
+      expect(snapshot.database?.path).toContain("agent.sqlite");
+      expect(snapshot.config.pairsCount).toBe(1);
+      expect(snapshot.config.projectPairsCount).toBeNull(); // merged by the IPC handler, not the service
+      expect(snapshot.relayLedger?.delivering).toBe(1);
+      expect(snapshot.relayLedger?.total).toBe(1);
+      expect(snapshot.relayLedger?.ambiguousDelivering).toHaveLength(1);
+      expect(snapshot.relayLedger?.ambiguousDelivering?.[0]?.pairId).toBe("kisab-main");
+      expect(snapshot.relayLedger?.ambiguousDelivering?.[0]?.verifyAttemptCount).toBe(0);
+      expect(snapshot.supervisorState?.paused).toBe(0);
+      expect(snapshot.supervisorState?.suspended).toBe(0);
+      expect(snapshot.settings.historyRetentionDays).toBe(0);
+
+      await ctx.service.shutdown();
+    } finally {
+      await ctx.cleanup();
+    }
+  });
+
+  it("returns available:false with every store field null when the store is missing", async () => {
+    const ctx = await makeContext([makePairDto("kisab-main")], { pollIntervalMs: 10 });
+    try {
+      await ctx.service.init();
+      await ctx.service.shutdown();
+      const snapshot = ctx.service.getDiagnosticsSnapshot();
+      expect(snapshot.available).toBe(false);
+      expect(snapshot.database).toBeNull();
+      expect(snapshot.relayLedger).toBeNull();
+      expect(snapshot.supervisorState).toBeNull();
+      expect(snapshot.reason).toBeTruthy();
     } finally {
       await ctx.cleanup();
     }

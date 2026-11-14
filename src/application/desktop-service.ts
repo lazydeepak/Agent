@@ -4,7 +4,7 @@
  * Purpose: Electron desktop service integration.
  */
 import { dirname, join, resolve } from "node:path";
-import { closeSync, existsSync, fstatSync, openSync, readSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, fstatSync, openSync, readSync, statSync, writeFileSync } from "node:fs";
 import type { EventRecord } from "../contracts/events.js";
 import { EventLog } from "./event-log.js";
 import { PlannerSeedingService } from "./planner-seeding-service.js";
@@ -13,13 +13,15 @@ import { WorkerQuestionService } from "./worker-question-service.js";
 import { readWorkerTranscript } from "./worker-transcript-service.js";
 import { LiveChatGPTBrowserAdapter, type ChatGPTReadinessProbe } from "../adapters/chatgpt/index.js";
 import { LiveOpenCodeAdapter, type OpenCodeSessionManager, type OpenCodeSessionSummary } from "../adapters/opencode/index.js";
-import { SqliteRelayStore, ensureDbParent, resolveDbPath, PairArchive, type ArchiveStore, type ArchivedPairPayload, type ArchivedPairSummary, type RelayStore } from "../persistence/index.js";
+import { SqliteRelayStore, ensureDbParent, resolveDbPath, EXPECTED_SCHEMA_VERSION, PairArchive, type ArchiveStore, type ArchivedPairPayload, type ArchivedPairSummary, type RelayStore } from "../persistence/index.js";
 import { ExternalBrowserManager, type BrowserManager } from "../recovery/index.js";
 import { LockRegistry, createPairAdapters, isFailedRuntime, type RuntimeAdapterOptions, type RuntimeStatusSummary } from "../runtime/index.js";
 import type { OpenCodeModelInfo, OpenCodeModelRef } from "../types.js";
+import type { DiagnosticsSnapshotDto } from "../contracts/desktop.js";
 import { ConfigError } from "../sessions/pairs.js";
 import { ChatGptUrlError, parseChatGptConversationUrl } from "../util/chatgpt-url.js";
 import { validatePair } from "../validator/readiness.js";
+import { hashText } from "../util/canonical.js";
 import { PairConfigError, PairConfigRepository, type PairEdits } from "./pair-config-repository.js";
 import {
   LocalDesktopToolLauncher,
@@ -417,10 +419,15 @@ export class DesktopApplicationService {
     const rawStatus = this.relayEngine.getStatus();
     return {
       ...rawStatus,
-      pairs: rawStatus.pairs.map((pair) => ({
-        ...pair,
-        hasRelayHistory: this.hasRelayHistory(pair.pairId)
-      }))
+      pairs: rawStatus.pairs.map((pair) => {
+        const side = this.sideState(pair.pairId);
+        return {
+          ...pair,
+          ...this.deliveryEvidence(pair.pairId),
+          ...side,
+          awaitingStartingSideSelection: (pair.workerActivity === "working" && pair.plannerActivity === "working") && !side.startingSide
+        };
+      })
     };
   }
 
@@ -430,7 +437,13 @@ export class DesktopApplicationService {
     if (!status) {
       throw new DesktopApplicationError("UNKNOWN_PAIR", `Unknown pairId "${pairId}".`);
     }
-    return { ...status, hasRelayHistory: this.hasRelayHistory(pairId) };
+    const side = this.sideState(pairId);
+    return {
+      ...status,
+      ...this.deliveryEvidence(pairId),
+      ...side,
+      awaitingStartingSideSelection: (status.workerActivity === "working" && status.plannerActivity === "working") && !side.startingSide
+    };
   }
 
   getPairDetail(pairId: string): SessionPair | undefined {
@@ -620,6 +633,42 @@ export class DesktopApplicationService {
     } catch (error) {
       throw toDesktopApplicationError(error);
     }
+    // v1.1 §7.1–7.2 — establish and record the capture boundary for this start.
+    // Both peers are probed as evidence; an unhealthy side never blocks Start,
+    // but the relay dispatch path holds on NOT_READY until evidence arrives.
+    try {
+      const boundaryPair = this.getPairDetail(pairId);
+      const adapters = boundaryPair ? createPairAdapters(boundaryPair as SessionPair, this.adapterOptions()) : undefined;
+      const report = adapters ? await validatePair(boundaryPair as SessionPair, adapters, new Date()) : undefined;
+      this.ensureStore().touchPairState({ pairId, lastCaptureBoundaryAt: new Date().toISOString() });
+      const failedChecks = report?.checks.filter((check) => check.status === "FAIL").map((check) => check.name) ?? [];
+      this.recordEvent("START_CAPTURE_BOUNDARY", pairId, {
+        reason: report?.status === "READY"
+          ? "Both peers reachable at start; capture boundary recorded."
+          : "Start completed but peer capture is not verified; dispatch will hold until evidence arrives.",
+        details: { status: report?.status ?? "unknown", failedChecks }
+      });
+      if (report && report.status !== "READY") {
+        try {
+          this.ensureStore().touchSupervisorState({
+            pairId,
+            lastError: `START_CAPTURE_NOT_READY:${failedChecks.join(",") || "unknown"}`
+          });
+        } catch {
+          // Advisory marker; never fail Start on it.
+        }
+      }
+    } catch (error) {
+      this.recordEvent("START_CAPTURE_BOUNDARY", pairId, {
+        reason: `Capture boundary could not be verified: ${error instanceof Error ? error.message : String(error)}`,
+        details: { status: "unknown" }
+      });
+      try {
+        this.ensureStore().touchPairState({ pairId, lastCaptureBoundaryAt: new Date().toISOString() });
+      } catch {
+        // Advisory; never fail Start on it.
+      }
+    }
     this.storeResume(pairId, true);
     return this.relayEngine.getStatus();
   }
@@ -651,9 +700,30 @@ export class DesktopApplicationService {
         text: "continue",
         createdAt: Date.now()
       };
+      const continueIdentity = {
+        pairId,
+        direction: "planner-to-worker" as const,
+        sourceMessageId: continueMessage.id,
+        sourceHash: hashText(continueMessage.text)
+      };
+      try {
+        // v1.1 §3.2 — durable admission precedes the external send.
+        this.ensureStore().createRecord(continueIdentity, continueMessage.createdAt, undefined, "operator");
+        this.ensureStore().updateStatus(continueIdentity, "DELIVERING", {});
+      } catch {
+        throw new DesktopApplicationError(
+          "ADMISSION_FAILED",
+          "Could not durably admit the operator continue request; refusing to send it.",
+          { sessionId: pair.worker.sessionId }
+        );
+      }
       try {
         const receipt = await worker.sendPlannerMessage(pair.worker, continueMessage);
-        if (!receipt.delivered || receipt.workerStartBlocked) throw new Error("Continue was submitted but worker start was not confirmed.");
+        if (!receipt.delivered || receipt.workerStartBlocked) {
+          try { this.ensureStore().updateStatus(continueIdentity, "DELIVERING", { error: "Continue submitted; delivery unverified." }); } catch { /* ledger retained */ }
+          throw new Error("Continue was submitted but worker start was not confirmed.");
+        }
+        try { this.ensureStore().updateStatus(continueIdentity, "DELIVERED", { targetId: receipt.targetId }); } catch { /* ledger retained */ }
       } catch (error) {
         throw new DesktopApplicationError(
           "CONTINUE_FAILED",
@@ -688,6 +758,39 @@ export class DesktopApplicationService {
     });
   }
 
+  /** v1.1 §7.3 — operator selects which side establishes the first turn while both peers are busy. */
+  selectStartingSide(pairId: string, side: "planner" | "worker"): RuntimeStatusSummary {
+    this.assertKnownPair(pairId);
+    const store = this.ensureStore();
+    store.setStartingSide(pairId, side);
+    this.recordEvent("STARTING_SIDE_SELECTED", pairId, {
+      reason: `Operator selected the ${side} side to establish the first turn (v1.1 §7.3).`,
+      details: { side }
+    });
+    return this.relayEngine.getStatus();
+  }
+
+  /** v1.1 §12.2 — cancel an incident: pause the pair (the affected pair stays paused/held). Operator resumes explicitly. */
+  cancelIncident(pairId: string): RuntimeStatusSummary {
+    this.assertKnownPair(pairId);
+    try {
+      this.relayEngine.pausePair(pairId);
+    } catch (error) {
+      throw toDesktopApplicationError(error);
+    }
+    try {
+      this.ensureStore().touchSupervisorState({ pairId, incidentDisposition: "held" });
+    } catch (error) {
+      // Disposition is advisory; never fail cancel on it.
+      void error;
+    }
+    this.recordEvent("RECOVERY_CANCELLED", pairId, {
+      reason: "Operator cancelled the incident. The pair is paused/held; nothing auto-retries (v1.1 §12.2).",
+      details: { disposition: "held" }
+    });
+    return this.relayEngine.getStatus();
+  }
+
   pausePair(pairId: string): RuntimeStatusSummary {
     this.assertKnownPair(pairId);
     try {
@@ -704,6 +807,16 @@ export class DesktopApplicationService {
       this.relayEngine.resumePair(pairId);
     } catch (error) {
       throw toDesktopApplicationError(error);
+    }
+    // v1.1 §7.1 — resume establishes a new capture boundary; dispatch still requires reconciliation evidence.
+    try {
+      this.ensureStore().touchPairState({ pairId, lastCaptureBoundaryAt: new Date().toISOString() });
+      this.recordEvent("RESUME_CAPTURE_BOUNDARY", pairId, {
+        reason: "Resume establishes a fresh capture boundary before any dispatch.",
+        details: { status: "boundary-recorded" }
+      });
+    } catch {
+      // Advisory boundary record; never fail resume on it.
     }
     return this.relayEngine.getStatus();
   }
@@ -749,6 +862,13 @@ export class DesktopApplicationService {
       // v1.1 §5.4: Stop All is a one-time command, not a persistent lock. It blocks relay transport,
       // disables Auto Resume for every pair, and requests Bot-owned Worker terminations. This engine
       // cannot distinguish Bot-owned processes from unrelated ones — termination is UNVERIFIED.
+      for (const pair of this.pairs) {
+        try {
+          this.ensureStore()?.touchSupervisorState({ pairId: pair.pairId, incidentDisposition: "terminated_unverified" });
+        } catch {
+          // Disposition is advisory; never block Stop All on it.
+        }
+      }
       this.recordEvent("STOP_ALL_REQUESTED", undefined, {
         reason: "Stop All issued: relay transport blocked for all pairs, Auto Resume disabled for all pairs, Bot-owned Worker terminations requested. Termination is UNVERIFIED — do not report the command as proof that every Worker stopped.",
         details: { status: "termination-unverified" }
@@ -1107,11 +1227,33 @@ export class DesktopApplicationService {
     return this.plannerSeeding.requiresInitialPlannerHandoff(pairId);
   }
 
-  private hasRelayHistory(pairId: string): boolean {
+  private sideState(pairId: string): { startingSide: "planner" | "worker" | null } {
     if (!this.store) {
-      return false;
+      return { startingSide: null };
     }
-    return this.store.listCycles(pairId).length > 0 || this.store.listRecords(pairId).length > 0;
+    try {
+      return { startingSide: this.store.getPairState(pairId)?.startingSide ?? null };
+    } catch {
+      return { startingSide: null };
+    }
+  }
+
+  private deliveryEvidence(pairId: string): { hasRelayHistory: boolean; latestDeliveryStatus?: "DISCOVERED" | "DELIVERING" | "DELIVERED" | "FAILED"; latestDeliveryVerifyAttempts?: number } {
+    if (!this.store) {
+      return { hasRelayHistory: false };
+    }
+    const records = this.store.listRecords(pairId);
+    const cycles = this.store.listCycles(pairId);
+    const latest = records[records.length - 1];
+    return {
+      hasRelayHistory: records.length > 0 || cycles.length > 0,
+      ...(latest
+        ? {
+            latestDeliveryStatus: latest.status,
+            latestDeliveryVerifyAttempts: latest.verifyAttemptCount ?? 0
+          }
+        : {})
+    };
   }
 
   private workerModelAdapter(pair: SessionPair): LiveOpenCodeAdapter {
@@ -1266,7 +1408,9 @@ export class DesktopApplicationService {
       pairId,
       recoverySuspended: false,
       recoverySuspendedAt: undefined,
-      recoveryAttemptCount: 0
+      recoveryAttemptCount: 0,
+      identicalFailureCount: 0,
+      identicalFailureFirstAt: undefined
     });
     this.recordEvent("RECOVERY_SUSPENSION_RELEASED", pairId, {
       reason: existing?.recoverySuspended
@@ -1294,6 +1438,63 @@ export class DesktopApplicationService {
   }
 
   /** Rule 24 — operator-configured history retention settings. */
+  /** Read-only ground-truth evidence for the Source view. Never mutates; never gates dispatch. */
+  getDiagnosticsSnapshot(): DiagnosticsSnapshotDto {
+    const settings = readSettings();
+    const environment = { node: process.version, platform: process.platform, arch: process.arch };
+    const base = {
+      generatedAt: new Date().toISOString(),
+      environment,
+      config: { configPath: this.options.configPath ?? null, pairsCount: this.pairs.length, projectPairsCount: null as number | null },
+      settings: { historyRetentionDays: settings.historyRetentionDays ?? 0 }
+    };
+    const store = this.store;
+    if (!store) {
+      return {
+        ...base,
+        available: false,
+        reason: "Relay store is not available.",
+        database: null,
+        relayLedger: null,
+        relayCycles: null,
+        startupOperations: null,
+        supervisorState: null,
+        openAttentions: null,
+        openProposals: null
+      };
+    }
+    const diag = store.diagnosticsSnapshot();
+    let dbSizeBytes: number | undefined;
+    let walSizeBytes: number | undefined;
+    try {
+      dbSizeBytes = statSync(store.dbPath).size;
+      try {
+        walSizeBytes = statSync(`${store.dbPath}-wal`).size;
+      } catch {
+        walSizeBytes = 0;
+      }
+    } catch {
+      // Sizes are advisory; the read-only queries below are the evidence.
+    }
+    return {
+      ...base,
+      available: true,
+      database: { path: store.dbPath, schemaVersion: diag.schemaVersion, expectedSchemaVersion: EXPECTED_SCHEMA_VERSION, journalMode: diag.journalMode, dbSizeBytes, walSizeBytes },
+      relayLedger: {
+        total: diag.relayRecords.total,
+        delivered: diag.relayRecords.delivered,
+        delivering: diag.relayRecords.delivering,
+        failed: diag.relayRecords.failed,
+        ambiguousDelivering: diag.relayRecords.ambiguousDelivering
+      },
+      relayCycles: diag.relayCycles,
+      startupOperations: diag.startupOperations,
+      supervisorState: diag.supervisorState,
+      openAttentions: diag.openAttentions,
+      openProposals: diag.openProposals
+    };
+  }
+
   getSettings(): SettingsDto {
     return readSettings();
   }

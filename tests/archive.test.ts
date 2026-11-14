@@ -20,7 +20,8 @@ function payload(pairId: string, archivedAt: string, overrides?: Partial<Archive
     sourceHash: `hash-${pairId}`,
     status: "DELIVERED",
     firstSeenAt: archivedAt,
-    attemptCount: 1
+    attemptCount: 1,
+    generation: 1,
   };
   return {
     pairId,

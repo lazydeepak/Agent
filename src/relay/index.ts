@@ -260,9 +260,20 @@ async function relayMessage(
 
   const record =
     existing ??
-    store.createRecord(identity, sourceMessage.createdAt, classification);
+    store.createRecord(identity, sourceMessage.createdAt, classification, "automation");
 
   store.updateStatus(identity, "DELIVERING", {});
+
+  // v1.1 §7.3 — the selected starting side is a one-shot. Once its side is durably admitted, clear it.
+  try {
+    const selected = store.getPairState(pair.pairId)?.startingSide;
+    const admittedSide = identity.direction === "planner-to-worker" ? "planner" : "worker";
+    if (selected && selected === admittedSide) {
+      store.setStartingSide(pair.pairId, null);
+    }
+  } catch {
+    // Starting-side clearing is best-effort; the admission itself has already been persisted.
+  }
 
   let receipt: RelayReceipt;
   try {

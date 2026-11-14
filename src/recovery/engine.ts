@@ -66,6 +66,8 @@ interface AttemptInput {
 export const RECOVERY_CORRECTIVE_BUDGET = 3;
 /** v1.1 §11.3 — maximum active recovery duration per incident. */
 export const RECOVERY_DURATION_LIMIT_MS = 10 * 60_000;
+/** v1.1 §11.4 — window for reaching the identical-failure limit. */
+export const RECOVERY_SIGNATURE_WINDOW_MS = RECOVERY_DURATION_LIMIT_MS;
 
 export class RecoveryEngine {
   private readonly now: () => Date;
@@ -501,6 +503,22 @@ export class RecoveryEngine {
     return undefined;
   }
 
+  /**
+   * v1.1 §11.4 — stable, low-cardinality signature of a failure. Digits collapse to '#'
+   * and the pair id is stripped so identical root causes match across runs.
+   */
+  private signatureFor(result: RecoveryRunResult, pairId: string): string {
+    const code = result.code ?? (result.cancelled ? "CANCELLED" : "RECOVERY_FAILED");
+    const reason = (result.reason ?? "")
+      .toLowerCase()
+      .replace(new RegExp(pairId.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), "<pair>")
+      .replace(/\d{4,}/g, "#")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 120);
+    return `${code}|${reason}`;
+  }
+
   private writeMetadata(input: AttemptInput, result: RecoveryRunResult): RecoveryRunResult {
     const attemptCount = result.performed ? (input.continuity.recoveryAttemptCount ?? 0) + 1 : input.continuity.recoveryAttemptCount ?? 0;
     const nowIso = this.now().toISOString();
@@ -511,23 +529,53 @@ export class RecoveryEngine {
       : false;
     const budgetExhausted = result.performed && (attemptCount >= RECOVERY_CORRECTIVE_BUDGET || durationExceeded);
 
+    // v1.1 §11.4 — repeated matching failures within the window suspend automated recovery.
+    const failed = result.performed && !result.recovered;
+    const signature = failed ? this.signatureFor(result, this.deps.pair.pairId) : undefined;
+    const priorFirstAt = input.continuity.identicalFailureFirstAt ? Date.parse(input.continuity.identicalFailureFirstAt) : undefined;
+    const signatureWindowValid = priorFirstAt !== undefined && Number.isFinite(priorFirstAt)
+      ? this.now().getTime() - priorFirstAt <= RECOVERY_SIGNATURE_WINDOW_MS
+      : false;
+    const identicalCount = failed
+      ? (signature !== undefined && input.continuity.lastFailureSignature === signature && signatureWindowValid
+          ? (input.continuity.identicalFailureCount ?? 1) + 1
+          : 1)
+      : 0;
+    const signatureExceeded = failed && identicalCount >= 2;
+    const suspended = budgetExhausted || signatureExceeded;
+
     this.deps.store.touchSupervisorState({
       pairId: this.deps.pair.pairId,
       recoveryAttemptCount: attemptCount,
       lastRecoveryAttemptAt: result.performed ? nowIso : undefined,
-      ...(budgetExhausted ? {
+      ...(failed ? {
+        lastFailureSignature: signature,
+        identicalFailureCount: identicalCount,
+        identicalFailureFirstAt: identicalCount === 1 ? nowIso : (signatureWindowValid ? input.continuity.identicalFailureFirstAt : nowIso)
+      } : { identicalFailureCount: 0 }),
+      ...(suspended ? {
         recoverySuspended: true,
         recoverySuspendedAt: nowIso,
         lastRecoveryErrorCode: "RECOVERY_SUSPENDED" as RecoveryErrorCode,
-        lastRecoveryError: `Corrective budget exhausted (${attemptCount}/${RECOVERY_CORRECTIVE_BUDGET}${durationExceeded ? ", duration limit reached" : ""}); operator release required.`
-      } : {})
+        lastRecoveryError: signatureExceeded
+          ? `Repeated matching failures (${identicalCount}x within ${Math.round(RECOVERY_SIGNATURE_WINDOW_MS / 60_000)} minutes); operator release required.`
+          : `Corrective budget exhausted (${attemptCount}/${RECOVERY_CORRECTIVE_BUDGET}${durationExceeded ? ", duration limit reached" : ""}); operator release required.`,
+        incidentDisposition: "awaiting_operator" as const
+      } : result.recovered ? {
+        incidentDisposition: "resolved" as const
+      } : signature === undefined && result.performed ? {} : {})
     });
 
-    if (budgetExhausted) {
-      this.emit("RECOVERY_SUSPENDED", {
-        reason: `Recovery suspended for pair ${this.deps.pair.pairId} after ${attemptCount} corrective attempt(s)${durationExceeded ? " and the 10-minute recovery window" : ""}. Automated recovery will not run again until the operator releases the suspension.`,
-        details: { action: "recovery-suspended", attemptCount, budget: RECOVERY_CORRECTIVE_BUDGET }
-      });
+    if (suspended) {
+      this.emit("RECOVERY_SUSPENDED", signatureExceeded
+        ? {
+            reason: `Recovery suspended for pair ${this.deps.pair.pairId} after ${identicalCount} identical matching failure(s) within ${Math.round(RECOVERY_SIGNATURE_WINDOW_MS / 60_000)} minutes. Only the operator may release the suspension.`,
+            details: { action: "identical-failure-signature", signature, count: identicalCount, windowMs: RECOVERY_SIGNATURE_WINDOW_MS }
+          }
+        : {
+            reason: `Recovery suspended for pair ${this.deps.pair.pairId} after ${attemptCount} corrective attempt(s)${durationExceeded ? " and the 10-minute recovery window" : ""}. Automated recovery will not run again until the operator releases the suspension.`,
+            details: { action: "recovery-suspended", attemptCount, budget: RECOVERY_CORRECTIVE_BUDGET }
+          });
     }
 
     if (result.recovered) {
