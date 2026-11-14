@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const bundlePath = join(root, "dist", "service", "service.bundle.cjs");
-const binaryName = "agent-relay-service";
+const binaryName = "agent-service";
 const binaryScriptPath = join(root, "scripts", binaryName);
 const targetDir = join(root, "tauri-client", "src-tauri", "bin");
 

@@ -47,6 +47,13 @@ async function bundleRenderer() {
 function copyStatic() {
   cpSync(join(root, "desktop", "renderer", "index.html"), join(rendererDir, "index.html"));
   cpSync(join(root, "desktop", "renderer", "styles.css"), join(rendererDir, "styles.css"));
+  const fontsSrc = join(root, "desktop", "renderer", "fonts");
+  const fontsDst = join(rendererDir, "fonts");
+  try {
+    cpSync(fontsSrc, fontsDst, { recursive: true });
+  } catch {
+    // Fonts optional; skip if missing.
+  }
 }
 
 async function main() {

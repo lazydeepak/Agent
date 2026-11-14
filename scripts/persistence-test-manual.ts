@@ -7,7 +7,7 @@ import { ProjectPairService } from "./src/application/project-pair-service.js";
 import { ControlPlaneAdapter } from "./src/application/control-plane-adapter.js";
 
 async function main() {
-  const directory = await mkdtemp(join(tmpdir(), "agent-relay-persist-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "agent-persist-test-"));
   const configPath = join(directory, "pairs.json");
   const dbPath = join(directory, "test.sqlite");
   const projectPairsPath = join(directory, "projects.local.json");

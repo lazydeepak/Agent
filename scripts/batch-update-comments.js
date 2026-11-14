@@ -1,5 +1,5 @@
 /**
- * Batch comment/index updater for agent-relay codebase.
+ * Batch comment/index updater for agent codebase.
  * Adds module-level explanation headers to all src/*.ts files
  * and notes that next phase is building a code index.
  * Run with: node scripts/batch-update-comments.js

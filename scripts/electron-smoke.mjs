@@ -8,7 +8,7 @@ import { app, BrowserWindow } from 'electron';
 
 // Run after desktop:build. Uses disposable state and loopback fixtures only.
 async function main() {
-const directory = await mkdtemp(join(tmpdir(), 'agent-relay-electron-'));
+const directory = await mkdtemp(join(tmpdir(), 'agent-electron-'));
 app.setPath('userData', directory);
 app.on('window-all-closed', () => {});
 const servers = [];
@@ -38,7 +38,7 @@ try {
 
   const config = join(directory, 'pairs.json');
   await writeFile(config, '{"pairs":[]}');
-  process.argv = [process.argv[0], 'agent-relay', '--config', config, '--db', join(directory, 'relay.sqlite')];
+  process.argv = [process.argv[0], 'agent', '--config', config, '--db', join(directory, 'relay.sqlite')];
   await import('../desktop-dist/desktop/main/index.js');
   const deadline = Date.now() + 15000;
   let dashboard;

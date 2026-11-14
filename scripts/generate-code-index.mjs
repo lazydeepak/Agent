@@ -64,7 +64,7 @@ function extractPurpose(content) {
 }
 
 function hasModuleHeader(content) {
-  return content.includes("Agent-relay codebase — module explanation");
+  return content.includes("Agent-relay codebase — module explanation") || content.includes("Agent codebase — module explanation");
 }
 
 const EXPORT_KINDS = [
@@ -274,7 +274,7 @@ function main() {
   const generated = new Date().toISOString();
 
   const json = {
-    schema: "agent-relay-code-index-v1",
+    schema: "agent-code-index-v1",
     generated,
     scope: "file/module + symbol index",
     source: `src/**/*.ts (${modules.length} modules)`,

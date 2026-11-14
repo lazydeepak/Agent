@@ -5,7 +5,7 @@ if exist ".env" (
     for /f "usebackq tokens=1,* delims==" %%A in (".env") do set "%%A=%%B"
 )
 rem Kill any previous Electron instances, Agent Relay desktop/service processes
-powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { ($_.Name -like '*Electron*') -or ($_.CommandLine -like '*agent-relay*') -or ($_.CommandLine -like '*Agent Relay*') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }" >nul 2>&1
+powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { ($_.Name -like '*Electron*') -or ($_.CommandLine -like '*agent*') -or ($_.CommandLine -like '*Agent Relay*') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }" >nul 2>&1
 timeout /t 1 /nobreak >nul
 
 rem Prevent sleep/lock only while Agent Relay runs; capture previous settings to restore on exit

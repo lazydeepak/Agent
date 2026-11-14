@@ -3,13 +3,13 @@ set -e
 cd "$(dirname "$0")" || exit 1
 if [ -f .env ]; then set -a; source .env; set +a; fi
 SCRIPT_DIR="$(pwd)"
-# Kill any previous start scripts, Electron apps, agent-relay desktop/service processes
+# Kill any previous start scripts, Electron apps, agent desktop/service processes
 for pid in $(pgrep -f "$SCRIPT_DIR/start.command" 2>/dev/null); do [ "$pid" != "$$" ] && kill -9 "$pid" 2>/dev/null || true; done
 for pid in $(pgrep -f "$SCRIPT_DIR/start.sh" 2>/dev/null); do [ "$pid" != "$$" ] && kill -9 "$pid" 2>/dev/null || true; done
 # Kill any Electron instance (not just this checkout)
 pkill -9 -x "Electron" 2>/dev/null || true
 pkill -9 -f "Agent Relay" 2>/dev/null || true
-pkill -9 -f "agent-relay" 2>/dev/null || true
+pkill -9 -f "agent" 2>/dev/null || true
 # Kill build/compile terminals and node/npm processes from this checkout
 for pid in $(pgrep -f "node.*$SCRIPT_DIR" 2>/dev/null); do [ "$pid" != "$$" ] && [ "$pid" != "$PPID" ] && kill -9 "$pid" 2>/dev/null || true; done
 for pid in $(pgrep -f "npm.*$SCRIPT_DIR" 2>/dev/null); do [ "$pid" != "$$" ] && [ "$pid" != "$PPID" ] && kill -9 "$pid" 2>/dev/null || true; done

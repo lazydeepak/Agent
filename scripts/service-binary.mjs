@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const bundlePath = join(root, "dist", "service", "service.bundle.cjs");
-const outBinaryName = "agent-relay-service";
+const outBinaryName = "agent-service";
 const outBinaryPath = join(root, outBinaryName);
 
 if (!existsSync(bundlePath)) {
