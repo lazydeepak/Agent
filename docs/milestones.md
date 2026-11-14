@@ -147,8 +147,8 @@ Make a relay action safe to retry using persistent local state.
 
 Functional slice now covered:
 
-- Local SQLite runtime database at `data/agent-relay.sqlite` using the Node built-in `node:sqlite` driver
-- Configurable DB path via `--db` or `AGENT_RELAY_DB`
+- Local SQLite runtime database at `data/agent.sqlite` using the Node built-in `node:sqlite` driver
+- Configurable DB path via `--db` or `AGENT_DB`
 - Automatic idempotent schema initialization with a schema version guard and actionable errors for a corrupted/invalid DB
 - Persisted relay message identity: `pairId`, `direction`, `sourceMessageId`, `sourceHash`, `sourceTimestamp`, `targetId`, `status`, timestamps, `attemptCount`, and `error`
 - Durable relay cycle ledger states: `DISCOVERED`, `DELIVERING`, `DELIVERED`, `FAILED`

@@ -1,8 +1,8 @@
-# agent-relay
+# agent
 
 High-reliability bidirectional message transport between autonomous agents.
 
-`agent-relay` is a professional transport layer that pairs **Worker Agents** with **Planner Agents**. It ensures reliable, at-least-once message delivery with deterministic supervision and strong duplicate suppression.
+`agent` is a professional transport layer that pairs **Worker Agents** with **Planner Agents**. It ensures reliable, at-least-once message delivery with deterministic supervision and strong duplicate suppression.
 
 ## 🚀 Quick Start
 
@@ -75,9 +75,9 @@ The `worker.server` object is optional. If omitted, live OpenCode commands can u
 - `--opencode-username`
 - `--opencode-password`
 - `--opencode-password-env`
-- `AGENT_RELAY_OPENCODE_BASE_URL`
-- `AGENT_RELAY_OPENCODE_USERNAME`
-- `AGENT_RELAY_OPENCODE_PASSWORD`
+- `AGENT_OPENCODE_BASE_URL`
+- `AGENT_OPENCODE_USERNAME`
+- `AGENT_OPENCODE_PASSWORD`
 
 The `planner.browser` object is optional. Live ChatGPT readiness can use:
 
@@ -93,10 +93,20 @@ The `planner.browser` object is optional. Live ChatGPT readiness can use:
 - `--chatgpt-headless`
 - `--chatgpt-timeout`
 
+### Planner prompts and Recovery Agent escalation
+
+The relay follows the exact ask-then-deliver semantics:
+
+1. A completed Planner reply that contains a structured `writing_block` Worker prompt is delivered to the Worker immediately. There is no authorization gate, semantic interpretation, or approval step.
+2. If the Planner reply contains no prompt, Agent sends a single regeneration request ("Worker prompt not found. Please generate the next Worker prompt.").
+3. If the Planner still produces no prompt, the exact Planner reply is escalated verbatim to the pair's Recovery Agent session — a dedicated OpenCode session configured with `masterWorkerSessionId`. Only the Recovery Agent has authority to stop automation; the relay must not hold, pause, or terminate based on Planner prose.
+
+`masterWorkerSessionId` is optional. When unset and the Planner has missed a prompt, the relay reports the missing prompt without stopping automation.
+
 ## Project layout
 
 ```text
-agent-relay/
+agent/
 ├── src/
 │   ├── sessions/        # pairing + lifecycle
 │   ├── validator/       # readiness checks
@@ -172,7 +182,7 @@ M5b makes ChatGPT live behind the same planner adapter when `--live-chatgpt` or 
 
 ## Persistence and duplicate-send protection (M6)
 
-Relay attempts persist to a local SQLite database so a relay action is safe to retry. The default path is `data/agent-relay.sqlite`, overridable with `--db <path>` or `AGENT_RELAY_DB`. The database is local-only and must never be committed; `data/` is already gitignored. It uses the Node built-in `node:sqlite` driver (requires Node >= 22.5).
+Relay attempts persist to a local SQLite database so a relay action is safe to retry. The default path is `data/agent.sqlite`, overridable with `--db <path>` or `AGENT_DB`. The database is local-only and must never be committed; `data/` is already gitignored. It uses the Node built-in `node:sqlite` driver (requires Node >= 22.5).
 
 The storage layer sits behind a UI-independent abstraction under `src/persistence`. Schema is created automatically and idempotently; a corrupted/invalid DB file produces an explicit, actionable error.
 
@@ -230,12 +240,12 @@ Relays only run with `--watch --relay` and only when a message identity has not 
 npm run relay -- supervise local-dev --config config/pairs.local.json --opencode-url http://127.0.0.1:4096
 
 # continuous watch with safe relays
-npm run relay -- supervise local-dev --watch --relay --config config/pairs.local.json --opencode-url http://127.0.0.1:4096 --db data/agent-relay.sqlite
+npm run relay -- supervise local-dev --watch --relay --config config/pairs.local.json --opencode-url http://127.0.0.1:4096 --db data/agent.sqlite
 
 # pause / resume / status (persists across restarts)
-npm run relay -- supervisor status local-dev --db data/agent-relay.sqlite
-npm run relay -- supervisor pause local-dev --db data/agent-relay.sqlite
-npm run relay -- supervisor resume local-dev --db data/agent-relay.sqlite
+npm run relay -- supervisor status local-dev --db data/agent.sqlite
+npm run relay -- supervisor pause local-dev --db data/agent.sqlite
+npm run relay -- supervisor resume local-dev --db data/agent.sqlite
 ```
 
 Watch defaults to a 5-second poll (`--poll-interval`), and `STUCK` requires 10 minutes without progress (`--stuck-after`). Events append as JSON lines to `logs/supervisor.ndjson`.
@@ -257,13 +267,13 @@ Recovery is bounded, deterministic, and opt-in. It never uses AI/model judgment,
 ```sh
 # continuous watch with safe recovery enabled (relay piping through the M6 ledger)
 npm run relay -- supervise local-dev --watch --relay --recovery safe --recovery-max-attempts 4 \
-  --config config/pairs.local.json --opencode-url http://127.0.0.1:4096 --db data/agent-relay.sqlite
+  --config config/pairs.local.json --opencode-url http://127.0.0.1:4096 --db data/agent.sqlite
 
 # one-shot recovery pass against a pair (read-only observation, no watcher)
 npm run relay -- recovery retry local-dev --config config/pairs.local.json --opencode-url http://127.0.0.1:4096
 
 # inspect the recovery history persisted for a pair
-npm run relay -- recovery status local-dev --json --db data/agent-relay.sqlite
+npm run relay -- recovery status local-dev --json --db data/agent.sqlite
 
 # browser ownership and manual lifecycle inspection (managed browsers only)
 npm run relay -- browser status local-dev --config config/pairs.local.json
@@ -292,17 +302,17 @@ M9 supervises multiple OpenCode ↔ ChatGPT pairs concurrently inside one runtim
 ```sh
 # start every enabled pair and block until SIGINT/SIGTERM
 npm run relay -- runtime start --all --relay --config config/pairs.local.json \
-  --opencode-url http://127.0.0.1:4096 --db data/agent-relay.sqlite
+  --opencode-url http://127.0.0.1:4096 --db data/agent.sqlite
 
 # start specific pairs only
 npm run relay -- runtime start kisab-main susankhya-main --config config/pairs.local.json
 
 # render runtime status (persistence-derived when nothing is running)
-npm run relay -- runtime status --all --config config/pairs.local.json --db data/agent-relay.sqlite
-npm run relay -- runtime status --json --config config/pairs.local.json --db data/agent-relay.sqlite
+npm run relay -- runtime status --all --config config/pairs.local.json --db data/agent.sqlite
+npm run relay -- runtime status --json --config config/pairs.local.json --db data/agent.sqlite
 
 # record a stop (runtimeEnabled=false) and exit; restarting requires an explicit runtime start
-npm run relay -- runtime stop --all --config config/pairs.local.json --db data/agent-relay.sqlite
+npm run relay -- runtime stop --all --config config/pairs.local.json --db data/agent.sqlite
 ```
 
 What the runtime does:
@@ -328,10 +338,10 @@ npm run desktop:build
 npm run desktop:dev     # = desktop:build + launch Electron
 
 # point the dashboard at a specific config (defaults to the same path the CLI uses)
-npm run desktop:dev -- --config config/pairs.local.json --db data/agent-relay.sqlite
+npm run desktop:dev -- --config config/pairs.local.json --db data/agent.sqlite
 ```
 
-Cli flags: `--config/-c`, `--db`, `--live-opencode`, `--live-chatgpt`, `--opencode-url`, `--chatgpt-cdp-url`, `--relay` (mirroring the CLI). You can also set `AGENT_RELAY_CONFIG`.
+Cli flags: `--config/-c`, `--db`, `--live-opencode`, `--live-chatgpt`, `--opencode-url`, `--chatgpt-cdp-url`, `--relay` (mirroring the CLI). You can also set `AGENT_CONFIG`.
 
 Security and architecture boundaries:
 
@@ -414,9 +424,9 @@ OpenCode session discovery and creation:
 
 ```sh
 npm run relay -- opencode health --opencode-url http://127.0.0.1:4096
-npm run relay -- opencode list --repo /Users/lazydeepak/dev/agent-relay --opencode-url http://127.0.0.1:4096
+npm run relay -- opencode list --repo /Users/lazydeepak/dev/Agent --opencode-url http://127.0.0.1:4096
 npm run relay -- opencode status --opencode-url http://127.0.0.1:4096
-npm run relay -- opencode create --repo /Users/lazydeepak/dev/agent-relay --title agent-relay-smoke --opencode-url http://127.0.0.1:4096
+npm run relay -- opencode create --repo /Users/lazydeepak/dev/Agent --title agent-smoke --opencode-url http://127.0.0.1:4096
 ```
 
 Bind a configured pair to a selected OpenCode session:
@@ -444,10 +454,10 @@ npm run relay -- relay worker-to-planner local-dev --force --config config/pairs
 npm run relay -- relay worker-to-planner local-dev --db data/local.sqlite --config config/pairs.local.json --opencode-url http://127.0.0.1:4096
 
 # initialize / inspect relay state
-npm run relay -- state init [--db data/agent-relay.sqlite]
-npm run relay -- state inspect [--db data/agent-relay.sqlite]
-npm run relay -- state pair <pairId> [--db data/agent-relay.sqlite]
-npm run relay -- state messages <pairId> [--json] [--db data/agent-relay.sqlite]
+npm run relay -- state init [--db data/agent.sqlite]
+npm run relay -- state inspect [--db data/agent.sqlite]
+npm run relay -- state pair <pairId> [--db data/agent.sqlite]
+npm run relay -- state messages <pairId> [--json] [--db data/agent.sqlite]
 ```
 
 `state pair <pairId>` summarizes the last worker-to-planner and planner-to-worker deliveries plus any pending ambiguous attempts. `state messages <pairId>` lists the ledger, with `--json` for structured output. Duplicate-suppressed runs print `SKIPPED_DUPLICATE` and exit `0`; `AMBIGUOUS` and `FAILED` runs exit non-zero.
@@ -456,13 +466,13 @@ Recovery and browser lifecycle commands:
 
 ```sh
 # supervised watch with safe, bounded recovery
-npm run relay -- supervise local-dev --watch --relay --recovery safe --recovery-max-attempts 4 --config config/pairs.local.json --opencode-url http://127.0.0.1:4096 --db data/agent-relay.sqlite
+npm run relay -- supervise local-dev --watch --relay --recovery safe --recovery-max-attempts 4 --config config/pairs.local.json --opencode-url http://127.0.0.1:4096 --db data/agent.sqlite
 
 # inspect recovery history for a pair
-npm run relay -- recovery status local-dev [--json] --db data/agent-relay.sqlite
+npm run relay -- recovery status local-dev [--json] --db data/agent.sqlite
 
 # run one explicit recovery pass (read-only, no watcher)
-npm run relay -- recovery retry local-dev --config config/pairs.local.json --opencode-url http://127.0.0.1:4096 --db data/agent-relay.sqlite
+npm run relay -- recovery retry local-dev --config config/pairs.local.json --opencode-url http://127.0.0.1:4096 --db data/agent.sqlite
 
 # browser ownership and manual lifecycle (managed browsers only; external browsers report status and refuse start/stop)
 npm run relay -- browser status local-dev --config config/pairs.local.json

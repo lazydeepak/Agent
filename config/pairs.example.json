@@ -6,7 +6,7 @@
       "worker": {
         "type": "opencode",
         "sessionId": "opencode-session-id",
-        "repoPath": "/Users/lazydeepak/dev/agent-relay"
+        "repoPath": "/Users/lazydeepak/dev/Agent"
       },
       "planner": {
         "type": "chatgpt-browser",
@@ -16,7 +16,8 @@
       "fallbackModel": {
         "providerID": "anthropic",
         "id": "claude-3-5-sonnet-20240620"
-      }
+      },
+      "masterWorkerSessionId": "ses_master_worker_optional"
     }
   ]
 }

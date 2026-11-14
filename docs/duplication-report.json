@@ -1,0 +1,624 @@
+{
+  "status": "ok",
+  "generatedAt": "2026-11-14T07:43:11.578Z",
+  "scanId": "/var/folders/_w/4wgfpvdd1_55pjmgt2yt99740000gn/T/jscpd-out-PgTI92",
+  "minLines": 10,
+  "scannedSources": 97,
+  "totalScannedLines": 21379,
+  "reportedDuplicatedLines": 481,
+  "duplicatedLines": 481,
+  "duplicatedLinePercentage": 2.25,
+  "totalOccurrences": 35,
+  "groupCount": 31,
+  "groups": [
+    {
+      "id": "917542e0587d",
+      "lines": 11,
+      "occurrenceCount": 5,
+      "occurrences": [
+        {
+          "path": "src/application/desktop-lifecycle.ts",
+          "start": 230,
+          "end": 240
+        },
+        {
+          "path": "src/application/desktop-lifecycle.ts",
+          "start": 247,
+          "end": 257
+        },
+        {
+          "path": "src/application/desktop-lifecycle.ts",
+          "start": 266,
+          "end": 276
+        },
+        {
+          "path": "src/application/desktop-lifecycle.ts",
+          "start": 286,
+          "end": 296
+        },
+        {
+          "path": "src/application/desktop-lifecycle.ts",
+          "start": 305,
+          "end": 315
+        }
+      ],
+      "duplicatedLines": 44,
+      "cloneCount": 4
+    },
+    {
+      "id": "7aaaf940412a",
+      "lines": 29,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/application/pair-config-repository.ts",
+          "start": 40,
+          "end": 68
+        },
+        {
+          "path": "src/application/project-pair-repository.ts",
+          "start": 28,
+          "end": 56
+        }
+      ],
+      "duplicatedLines": 29,
+      "cloneCount": 1
+    },
+    {
+      "id": "8df6d63fb288",
+      "lines": 12,
+      "occurrenceCount": 3,
+      "occurrences": [
+        {
+          "path": "src/application/desktop-lifecycle.ts",
+          "start": 248,
+          "end": 259
+        },
+        {
+          "path": "src/application/desktop-lifecycle.ts",
+          "start": 287,
+          "end": 298
+        },
+        {
+          "path": "src/application/desktop-lifecycle.ts",
+          "start": 306,
+          "end": 317
+        }
+      ],
+      "duplicatedLines": 24,
+      "cloneCount": 2
+    },
+    {
+      "id": "0398cc237f6b",
+      "lines": 19,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/adapters/opencode/http.ts",
+          "start": 654,
+          "end": 672
+        },
+        {
+          "path": "src/adapters/opencode/http.ts",
+          "start": 659,
+          "end": 677
+        }
+      ],
+      "duplicatedLines": 19,
+      "cloneCount": 1
+    },
+    {
+      "id": "d0e4aafa2bd8",
+      "lines": 18,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/application/pair-config-repository.ts",
+          "start": 203,
+          "end": 220
+        },
+        {
+          "path": "src/application/project-pair-repository.ts",
+          "start": 148,
+          "end": 166
+        }
+      ],
+      "duplicatedLines": 18,
+      "cloneCount": 1
+    },
+    {
+      "id": "fc463a2b77b0",
+      "lines": 17,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/persistence/store.ts",
+          "start": 139,
+          "end": 155
+        },
+        {
+          "path": "src/persistence/store.ts",
+          "start": 700,
+          "end": 716
+        }
+      ],
+      "duplicatedLines": 17,
+      "cloneCount": 1
+    },
+    {
+      "id": "1cc313c89e77",
+      "lines": 17,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/recovery/opencode.ts",
+          "start": 25,
+          "end": 41
+        },
+        {
+          "path": "src/recovery/opencode.ts",
+          "start": 136,
+          "end": 143
+        }
+      ],
+      "duplicatedLines": 17,
+      "cloneCount": 1
+    },
+    {
+      "id": "dd8f26e14b54",
+      "lines": 16,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/contracts/desktop.ts",
+          "start": 313,
+          "end": 328
+        },
+        {
+          "path": "src/contracts/desktop.ts",
+          "start": 314,
+          "end": 329
+        }
+      ],
+      "duplicatedLines": 16,
+      "cloneCount": 1
+    },
+    {
+      "id": "84780695a8e4",
+      "lines": 16,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/persistence/store.ts",
+          "start": 156,
+          "end": 171
+        },
+        {
+          "path": "src/persistence/store.ts",
+          "start": 745,
+          "end": 760
+        }
+      ],
+      "duplicatedLines": 16,
+      "cloneCount": 1
+    },
+    {
+      "id": "3aa1e4fbb9f0",
+      "lines": 16,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/runtime/orchestrator.ts",
+          "start": 302,
+          "end": 317
+        },
+        {
+          "path": "src/runtime/pair-runtime.ts",
+          "start": 561,
+          "end": 576
+        }
+      ],
+      "duplicatedLines": 16,
+      "cloneCount": 1
+    },
+    {
+      "id": "bab589055262",
+      "lines": 15,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/persistence/store.ts",
+          "start": 141,
+          "end": 155
+        },
+        {
+          "path": "src/persistence/store.ts",
+          "start": 157,
+          "end": 171
+        }
+      ],
+      "duplicatedLines": 15,
+      "cloneCount": 1
+    },
+    {
+      "id": "adaa5ed05ea6",
+      "lines": 15,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/persistence/store.ts",
+          "start": 728,
+          "end": 742
+        },
+        {
+          "path": "src/persistence/store.ts",
+          "start": 764,
+          "end": 778
+        }
+      ],
+      "duplicatedLines": 15,
+      "cloneCount": 1
+    },
+    {
+      "id": "b0fb119491c5",
+      "lines": 14,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/application/control-plane-adapter.ts",
+          "start": 341,
+          "end": 354
+        },
+        {
+          "path": "src/application/control-plane-adapter.ts",
+          "start": 355,
+          "end": 368
+        }
+      ],
+      "duplicatedLines": 14,
+      "cloneCount": 1
+    },
+    {
+      "id": "433596289f91",
+      "lines": 14,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/application/desktop-lifecycle.ts",
+          "start": 287,
+          "end": 300
+        },
+        {
+          "path": "src/application/desktop-lifecycle.ts",
+          "start": 306,
+          "end": 319
+        }
+      ],
+      "duplicatedLines": 14,
+      "cloneCount": 1
+    },
+    {
+      "id": "353595471038",
+      "lines": 14,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/application/worker-session-service.ts",
+          "start": 147,
+          "end": 160
+        },
+        {
+          "path": "src/application/worker-session-service.ts",
+          "start": 185,
+          "end": 198
+        }
+      ],
+      "duplicatedLines": 14,
+      "cloneCount": 1
+    },
+    {
+      "id": "bdae04be8212",
+      "lines": 14,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/persistence/store.ts",
+          "start": 112,
+          "end": 125
+        },
+        {
+          "path": "src/persistence/store.ts",
+          "start": 851,
+          "end": 864
+        }
+      ],
+      "duplicatedLines": 14,
+      "cloneCount": 1
+    },
+    {
+      "id": "2e7ac3aa4df6",
+      "lines": 13,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/application/desktop-lifecycle.ts",
+          "start": 248,
+          "end": 260
+        },
+        {
+          "path": "src/application/desktop-lifecycle.ts",
+          "start": 267,
+          "end": 279
+        }
+      ],
+      "duplicatedLines": 13,
+      "cloneCount": 1
+    },
+    {
+      "id": "7492f91e3f5b",
+      "lines": 13,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/application/desktop-tool-manager.ts",
+          "start": 386,
+          "end": 398
+        },
+        {
+          "path": "src/application/desktop-tool-manager.ts",
+          "start": 398,
+          "end": 410
+        }
+      ],
+      "duplicatedLines": 13,
+      "cloneCount": 1
+    },
+    {
+      "id": "5c62b1aceb81",
+      "lines": 13,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/application/pair-config-repository.ts",
+          "start": 68,
+          "end": 80
+        },
+        {
+          "path": "src/application/project-pair-repository.ts",
+          "start": 57,
+          "end": 71
+        }
+      ],
+      "duplicatedLines": 13,
+      "cloneCount": 1
+    },
+    {
+      "id": "23cb8f74226e",
+      "lines": 13,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/recovery/opencode.ts",
+          "start": 64,
+          "end": 76
+        },
+        {
+          "path": "src/recovery/opencode.ts",
+          "start": 65,
+          "end": 77
+        }
+      ],
+      "duplicatedLines": 13,
+      "cloneCount": 1
+    },
+    {
+      "id": "595728106baf",
+      "lines": 13,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/sessions/pairs.ts",
+          "start": 21,
+          "end": 33
+        },
+        {
+          "path": "src/sessions/pairs.ts",
+          "start": 38,
+          "end": 50
+        }
+      ],
+      "duplicatedLines": 13,
+      "cloneCount": 1
+    },
+    {
+      "id": "c0d906d6d319",
+      "lines": 12,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/application/desktop-service.ts",
+          "start": 688,
+          "end": 699
+        },
+        {
+          "path": "src/application/desktop-service.ts",
+          "start": 698,
+          "end": 709
+        }
+      ],
+      "duplicatedLines": 12,
+      "cloneCount": 1
+    },
+    {
+      "id": "1622eaf7fadd",
+      "lines": 12,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/application/pair-config-repository.ts",
+          "start": 259,
+          "end": 270
+        },
+        {
+          "path": "src/application/project-pair-repository.ts",
+          "start": 210,
+          "end": 222
+        }
+      ],
+      "duplicatedLines": 12,
+      "cloneCount": 1
+    },
+    {
+      "id": "cc8480516f1e",
+      "lines": 12,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/recovery/engine.ts",
+          "start": 37,
+          "end": 48
+        },
+        {
+          "path": "src/supervisor/supervisor.ts",
+          "start": 50,
+          "end": 61
+        }
+      ],
+      "duplicatedLines": 12,
+      "cloneCount": 1
+    },
+    {
+      "id": "1ca6b06790f9",
+      "lines": 12,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/sessions/pairs.ts",
+          "start": 168,
+          "end": 179
+        },
+        {
+          "path": "src/sessions/project-pairs.ts",
+          "start": 87,
+          "end": 97
+        }
+      ],
+      "duplicatedLines": 12,
+      "cloneCount": 1
+    },
+    {
+      "id": "4be694196403",
+      "lines": 11,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/application/desktop-lifecycle.ts",
+          "start": 217,
+          "end": 227
+        },
+        {
+          "path": "src/application/desktop-lifecycle.ts",
+          "start": 292,
+          "end": 302
+        }
+      ],
+      "duplicatedLines": 11,
+      "cloneCount": 1
+    },
+    {
+      "id": "0102da48c670",
+      "lines": 11,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/application/desktop-service.ts",
+          "start": 938,
+          "end": 948
+        },
+        {
+          "path": "src/application/desktop-service.ts",
+          "start": 1148,
+          "end": 1158
+        }
+      ],
+      "duplicatedLines": 11,
+      "cloneCount": 1
+    },
+    {
+      "id": "8cf84abd116a",
+      "lines": 11,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/application/pair-config-repository.ts",
+          "start": 193,
+          "end": 203
+        },
+        {
+          "path": "src/application/project-pair-repository.ts",
+          "start": 136,
+          "end": 146
+        }
+      ],
+      "duplicatedLines": 11,
+      "cloneCount": 1
+    },
+    {
+      "id": "adeff6eeaef0",
+      "lines": 11,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/application/pair-config-repository.ts",
+          "start": 233,
+          "end": 243
+        },
+        {
+          "path": "src/application/project-pair-repository.ts",
+          "start": 179,
+          "end": 189
+        }
+      ],
+      "duplicatedLines": 11,
+      "cloneCount": 1
+    },
+    {
+      "id": "e20719ccd5fd",
+      "lines": 11,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/persistence/store.ts",
+          "start": 1432,
+          "end": 1442
+        },
+        {
+          "path": "src/persistence/store.ts",
+          "start": 1505,
+          "end": 1515
+        }
+      ],
+      "duplicatedLines": 11,
+      "cloneCount": 1
+    },
+    {
+      "id": "97e74e0bbce1",
+      "lines": 11,
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "path": "src/runtime/orchestrator.ts",
+          "start": 217,
+          "end": 227
+        },
+        {
+          "path": "src/runtime/orchestrator.ts",
+          "start": 230,
+          "end": 240
+        }
+      ],
+      "duplicatedLines": 11,
+      "cloneCount": 1
+    }
+  ]
+}
