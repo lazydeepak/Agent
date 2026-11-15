@@ -40,6 +40,14 @@ export interface RelayStore {
   /** Public for read-only diagnostics (db path for stat reporting). */
   readonly dbPath: string;
   init(): Promise<void>;
+  /** v1.1-style read-only table counts, one transport sample per table. */
+  tableCounts(): Record<string, number>;
+  /** PRAGMA journal_mode — read-only. */
+  journalMode(): string;
+  /** Atomic point-in-time backup: VACUUM INTO target (consistent across WAL). */
+  rawBackup(target: string): void;
+  /** True iff the required relay tables exist. */
+  requiredTablesExist(): boolean;
   /** v1.1-style read-only evidence snapshot for the Source view. SELECTs only. */
   diagnosticsSnapshot(): StoreDiagnosticsSnapshot;
   close(): void;
@@ -1575,6 +1583,52 @@ export class SqliteRelayStore implements RelayStore {
       openProposals: Number(proposals.count ?? 0),
       journalMode
     };
+  }
+
+  tableCounts(): Record<string, number> {
+    const tableNames = [
+      "ai_proposals", "attention_items", "pair_state", "relay_cycles",
+      "relay_records", "runtime_state", "startup_operations", "supervisor_state"
+    ];
+    const counts: Record<string, number> = {};
+    for (const table of tableNames) {
+      try {
+        const row = this.db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number } | undefined;
+        counts[table] = row ? Number(row.count) : 0;
+      } catch {
+        counts[table] = 0;
+      }
+    }
+    return counts;
+  }
+
+  journalMode(): string {
+    try {
+      const row = this.db.prepare("PRAGMA journal_mode").get() as { journal_mode?: string } | undefined;
+      return row?.journal_mode ?? "unknown";
+    } catch {
+      return "unknown";
+    }
+  }
+
+  requiredTablesExist(): boolean {
+    const required = ["ai_proposals", "attention_items", "pair_state", "relay_cycles", "relay_records", "runtime_state", "startup_operations", "supervisor_state"];
+    try {
+      const rows = this.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Array<{ name: string }>;
+      const names = new Set(rows.map((row) => String(row.name)));
+      return required.every((table) => names.has(table));
+    } catch {
+      return false;
+    }
+  }
+
+  rawBackup(target: string): void {
+    if (!target.endsWith(".sqlite")) {
+      throw new RelayStoreError("backup target must end with .sqlite");
+    }
+    // Filename always comes from the service (timestamp-derived); no caller-controlled interpolation.
+    const safe = target.replace(/'/g, "''");
+    this.db.exec(`VACUUM INTO '${safe}';`);
   }
 }
 

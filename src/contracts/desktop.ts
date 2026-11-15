@@ -354,3 +354,26 @@ export interface DiagnosticsSnapshotDto {
   openProposals: number | null;
   settings: { historyRetentionDays: number };
 }
+
+export interface DatabaseSettingsInfoDto {
+  generatedAt: string;
+  databasePath: string;
+  databaseExists: boolean;
+  dbSizeBytes?: number;
+  walSizeBytes?: number;
+  journalMode: string;
+  schemaVersion: number | null;
+  expectedSchemaVersion: number;
+  tableCounts: Record<string, number> | null;
+}
+
+export interface DatabaseBackupEntryDto {
+  fileName: string;
+  createdAt: string;
+  sizeBytes: number;
+}
+
+export interface DatabaseRestoreResultDto {
+  restoredFrom: string;
+  preRestoreBackup: string;
+}

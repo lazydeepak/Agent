@@ -80,6 +80,12 @@ export interface DesktopApi {
   releaseRecoverySuspension(pairId: string): Promise<StatusSummaryDto>;
   /** v1.1-style read-only ground-truth evidence for the Source view. */
   getDiagnosticsSnapshot(): Promise<import("../../src/contracts/desktop.js").DiagnosticsSnapshotDto>;
+  getDatabaseInfo(): Promise<import("../../src/contracts/desktop.js").DatabaseSettingsInfoDto>;
+  backupDatabase(): Promise<{ path: string }>;
+  listDatabaseBackups(): Promise<import("../../src/contracts/desktop.js").DatabaseBackupEntryDto[]>;
+  revealDatabase(): Promise<void>;
+  /** Swaps data/agent.sqlite with the chosen Agent backup; app restarts afterward. */
+  restoreDatabase(fileName: string): Promise<import("../../src/contracts/desktop.js").DatabaseRestoreResultDto>;
   /** v1.1 §7.3 — operator selects which side establishes the first turn when both peers are busy. */
   selectStartingSide(pairId: string, side: "planner" | "worker"): Promise<StatusSummaryDto>;
   /** v1.1 §12.2 — cancel an incident for the pair; leaves the pair paused/held. */
@@ -162,6 +168,11 @@ const api: DesktopApi = {
   getSettings: () => invoke(IPC_CHANNELS.getSettings),
   releaseRecoverySuspension: (pairId) => invoke(IPC_CHANNELS.releaseRecoverySuspension, pairId),
   getDiagnosticsSnapshot: () => invoke(IPC_CHANNELS.diagnosticsSnapshot),
+  getDatabaseInfo: () => invoke(IPC_CHANNELS.databaseInfo),
+  backupDatabase: () => invoke(IPC_CHANNELS.backupDatabase),
+  listDatabaseBackups: () => invoke(IPC_CHANNELS.listDatabaseBackups),
+  revealDatabase: () => invoke(IPC_CHANNELS.revealDatabase),
+  restoreDatabase: (fileName: string) => invoke(IPC_CHANNELS.restoreDatabase, { fileName }),
   selectStartingSide: (pairId, side) => invoke(IPC_CHANNELS.selectStartingSide, pairId, side),
   cancelIncident: (pairId) => invoke(IPC_CHANNELS.cancelIncident, pairId),
   updateSettings: (input) => invoke(IPC_CHANNELS.updateSettings, input),

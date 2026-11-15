@@ -757,6 +757,36 @@ export function createPreviewDesktopApi(): Window["desktop"] {
       };
     },
 
+    async getDatabaseInfo(): Promise<import("../../src/contracts/desktop.js").DatabaseSettingsInfoDto> {
+      return {
+        generatedAt: new Date().toISOString(),
+        databasePath: "(preview)/agent.sqlite",
+        databaseExists: true,
+        dbSizeBytes: 4096,
+        walSizeBytes: 512,
+        journalMode: "wal",
+        schemaVersion: 16,
+        expectedSchemaVersion: 16,
+        tableCounts: { relay_records: 2, supervisor_state: 2, runtime_state: 2, pair_state: 2, attention_items: 0, ai_proposals: 0, relay_cycles: 1, startup_operations: 0 }
+      };
+    },
+
+    async backupDatabase(): Promise<{ path: string }> {
+      emitStatusRefresh("database-backup");
+      return { path: "(preview)/backups/agent-sample.sqlite" };
+    },
+
+    async listDatabaseBackups(): Promise<import("../../src/contracts/desktop.js").DatabaseBackupEntryDto[]> {
+      return [{ fileName: "agent-2026-11-14-09-00-00.sqlite", createdAt: new Date().toISOString(), sizeBytes: 4096 }];
+    },
+
+    async revealDatabase(): Promise<void> {},
+
+    async restoreDatabase(_fileName: string): Promise<import("../../src/contracts/desktop.js").DatabaseRestoreResultDto> {
+      emitStatusRefresh("database-restore");
+      return { restoredFrom: _fileName, preRestoreBackup: "(preview)/backups/pre-restore-sample.sqlite" };
+    },
+
     async releaseRecoverySuspension(pairId: string): Promise<StatusSummaryDto> {
       emitEvent({
         time: new Date().toISOString(),

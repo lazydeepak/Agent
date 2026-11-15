@@ -4,7 +4,8 @@
  * Purpose: Electron desktop service integration.
  */
 import { dirname, join, resolve } from "node:path";
-import { closeSync, existsSync, fstatSync, openSync, readSync, statSync, writeFileSync } from "node:fs";
+import { closeSync, copyFileSync, existsSync, fstatSync, mkdirSync, openSync, readSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { renameSync } from "node:fs";
 import type { EventRecord } from "../contracts/events.js";
 import { EventLog } from "./event-log.js";
 import { PlannerSeedingService } from "./planner-seeding-service.js";
@@ -17,7 +18,7 @@ import { SqliteRelayStore, ensureDbParent, resolveDbPath, EXPECTED_SCHEMA_VERSIO
 import { ExternalBrowserManager, type BrowserManager } from "../recovery/index.js";
 import { LockRegistry, createPairAdapters, isFailedRuntime, type RuntimeAdapterOptions, type RuntimeStatusSummary } from "../runtime/index.js";
 import type { OpenCodeModelInfo, OpenCodeModelRef } from "../types.js";
-import type { DiagnosticsSnapshotDto } from "../contracts/desktop.js";
+import type { DiagnosticsSnapshotDto, DatabaseSettingsInfoDto, DatabaseBackupEntryDto, DatabaseRestoreResultDto } from "../contracts/desktop.js";
 import { ConfigError } from "../sessions/pairs.js";
 import { ChatGptUrlError, parseChatGptConversationUrl } from "../util/chatgpt-url.js";
 import { validatePair } from "../validator/readiness.js";
@@ -1493,6 +1494,114 @@ export class DesktopApplicationService {
       openAttentions: diag.openAttentions,
       openProposals: diag.openProposals
     };
+  }
+
+  getDatabaseInfo(): DatabaseSettingsInfoDto {
+    const dbPath = resolveDbPath(this.options.dbPath);
+    const walPath = `${dbPath}-wal`;
+    const backupDir = join(dirname(dbPath), "backups");
+    const store = this.store;
+    const exists = existsSync(dbPath);
+    const info: DatabaseSettingsInfoDto = {
+      generatedAt: new Date().toISOString(),
+      databasePath: dbPath,
+      databaseExists: exists,
+      dbSizeBytes: exists ? statSync(dbPath).size : undefined,
+      walSizeBytes: exists && existsSync(walPath) ? statSync(walPath).size : undefined,
+      journalMode: store ? store.journalMode() : "unknown",
+      schemaVersion: store ? (store.diagnosticsSnapshot().schemaVersion) : null,
+      expectedSchemaVersion: EXPECTED_SCHEMA_VERSION,
+      tableCounts: store ? store.tableCounts() : null
+    };
+    return info;
+  }
+
+  listDatabaseBackups(): DatabaseBackupEntryDto[] {
+    const dbPath = resolveDbPath(this.options.dbPath);
+    const backupDir = join(dirname(dbPath), "backups");
+    if (!existsSync(backupDir)) {
+      return [];
+    }
+    const entries: DatabaseBackupEntryDto[] = [];
+    for (const name of readdirSync(backupDir)) {
+      if (!/^agent-.*\.sqlite$/.test(name)) {
+        continue;
+      }
+      const full = join(backupDir, name);
+      try {
+        const stat = statSync(full);
+        entries.push({ fileName: name, createdAt: stat.mtime.toISOString(), sizeBytes: stat.size });
+      } catch {
+        // Ignore unreadable entries.
+      }
+    }
+    // Newest first.
+    return entries.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  backupDatabase(): { path: string } {
+    const dbPath = resolveDbPath(this.options.dbPath);
+    const store = this.requireStore();
+    const backupDir = join(dirname(dbPath), "backups");
+    mkdirSync(backupDir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19).replace("T", "-").replace("Z", "");
+    const target = join(backupDir, `agent-${stamp}.sqlite`);
+    // VACUUM INTO gives an atomic consistent snapshot (WAL included), no user input reaches the statement.
+    store.rawBackup(target);
+    return { path: target };
+  }
+
+  restoreDatabase(fileName: string): DatabaseRestoreResultDto {
+    const dbPath = resolveDbPath(this.options.dbPath);
+    if (!/^agent-[0-9]{8}-[0-9]{6}-backup\.sqlite$|^agent-[0-9]{8}-[0-9]{6}\.sqlite$/.test(fileName)) {
+      throw new DesktopApplicationError("RESTORE_INVALID_NAME", "Backup file name is not a recognised Agent backup.");
+    }
+    const backupDir = join(dirname(dbPath), "backups");
+    const backupPath = join(backupDir, fileName);
+    if (!existsSync(backupPath)) {
+      throw new DesktopApplicationError("RESTORE_NOT_FOUND", "Backup file does not exist.");
+    }
+    // Refuse while anything is running: restore is destructive.
+    try {
+      const status = this.relayEngine.getStatus();
+      if (status.running > 0) {
+        throw new DesktopApplicationError("RESTORE_BLOCKED", `Pair(s) are still running; stop all pairs before restoring.`);
+      }
+    } catch (error) {
+      if (error instanceof DesktopApplicationError) {
+        throw error;
+      }
+      // If status cannot be computed, do not risk a restore under a live runtime.
+      throw new DesktopApplicationError("RESTORE_BLOCKED", "Agent could not verify that no pair is running; restore aborted.");
+    }
+    const validationTarget = join(backupDir, `.restore-verify-${Date.now()}.sqlite`);
+    copyFileSync(backupPath, validationTarget);
+    try {
+      const probe = new SqliteRelayStore(validationTarget);
+      try {
+        if (!probe.requiredTablesExist()) {
+          throw new DesktopApplicationError("RESTORE_INCOMPATIBLE", "Backup is missing required relay tables.");
+        }
+      } finally {
+        probe.close();
+      }
+    } finally {
+      try { rmSync(validationTarget, { force: true }); } catch { /* cleanup best effort */ }
+    }
+    // Pre-restore snapshot of the CURRENT database (atomic copy via VACUUM INTO).
+    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19).replace("T", "-").replace("Z", "");
+    const preRestore = join(backupDir, `pre-restore-${ts}.sqlite`);
+    this.requireStore().rawBackup(preRestore);
+    // Close the live store, then swap files.
+    this.requireStore().close();
+    const quarantine = `${dbPath}.pre-restore-${ts}`;
+    try { renameSync(dbPath, quarantine); } catch { /* may already be absent */ }
+    renameSync(backupPath, dbPath);
+    // Remove stale WAL/SHM so the restored file starts clean.
+    for (const suffix of ["-wal", "-shm"]) {
+      try { rmSync(`${dbPath}${suffix}`, { force: true }); } catch { /* absent is fine */ }
+    }
+    return { restoredFrom: fileName, preRestoreBackup: preRestore };
   }
 
   getSettings(): SettingsDto {

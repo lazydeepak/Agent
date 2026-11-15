@@ -5,6 +5,8 @@ import type {
   ChatGptProjectDto,
   CreateProjectPairDto,
   EndpointTestResultDto,
+  DatabaseBackupEntryDto,
+  DatabaseSettingsInfoDto,
   EventRecordDto,
   OpenCodeProjectDto,
   OpenCodeSessionInfoDto,
@@ -124,6 +126,11 @@ declare global {
       startAll(): Promise<StatusSummaryDto>;
       stopAll(): Promise<StatusSummaryDto>;
       getDiagnosticsSnapshot(): Promise<import("../../src/contracts/desktop.js").DiagnosticsSnapshotDto>;
+      getDatabaseInfo(): Promise<DatabaseSettingsInfoDto>;
+      backupDatabase(): Promise<{ path: string }>;
+      listDatabaseBackups(): Promise<DatabaseBackupEntryDto[]>;
+      revealDatabase(): Promise<void>;
+      restoreDatabase(fileName: string): Promise<{ restoredFrom: string; preRestoreBackup: string }>;
       releaseRecoverySuspension(pairId: string): Promise<StatusSummaryDto>;
       selectStartingSide(pairId: string, side: "planner" | "worker"): Promise<StatusSummaryDto>;
       cancelIncident(pairId: string): Promise<StatusSummaryDto>;
@@ -447,6 +454,180 @@ function formatTimeAgo(iso: string): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
+function initDatabasePanel(): void {
+  const status = document.getElementById("database-status");
+  const setStatus = (text: string, ok = true): void => {
+    if (status) {
+      status.textContent = text;
+      status.classList.toggle("fail", !ok);
+      status.classList.toggle("ok", ok);
+    }
+  };
+
+  document.getElementById("database-refresh")?.addEventListener("click", () => {
+    void refreshDatabaseSection();
+  });
+
+  document.getElementById("database-backup")?.addEventListener("click", async () => {
+    if (typeof window.desktop?.backupDatabase !== "function") {
+      setStatus("Backup is not available in this build.", false);
+      return;
+    }
+    try {
+      const result = await window.desktop.backupDatabase();
+      setStatus(`Backup written: ${result.path}`);
+      void refreshDatabaseSection();
+      void refreshDatabaseBackupList();
+    } catch (error) {
+      setStatus(`Backup failed: ${errorMessage(error)}`, false);
+    }
+  });
+
+  document.getElementById("database-reveal")?.addEventListener("click", () => {
+    void window.desktop?.revealDatabase?.().catch(() => setStatus("Could not reveal the database in your file manager.", false));
+  });
+
+  document.getElementById("database-copy-path")?.addEventListener("click", async () => {
+    const pathEl = document.getElementById("database-path") as HTMLInputElement | null;
+    const text = pathEl?.value ?? "";
+    if (!text) {
+      setStatus("Path not yet known — refresh first.", false);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus("Path copied to clipboard.");
+    } catch {
+      setStatus("Clipboard not available for writes.", false);
+    }
+  });
+
+  // Restore flow
+  const panel = document.getElementById("database-restore-panel");
+  const toggleBtn = document.getElementById("database-restore-toggle") as HTMLButtonElement | null;
+  const cancelBtn = document.getElementById("database-restore-cancel");
+  const restoreBtn = document.getElementById("database-restore-confirm-btn") as HTMLButtonElement | null;
+  const confirmInput = document.getElementById("database-restore-confirm") as HTMLInputElement | null;
+  const restoreStatus = document.getElementById("database-restore-status");
+
+  const showPanel = async (show: boolean): Promise<void> => {
+    panel?.classList.toggle("hidden", !show);
+    toggleBtn?.classList.toggle("hidden", show);
+    if (show) {
+      await refreshDatabaseBackupList();
+    }
+  };
+  toggleBtn?.addEventListener("click", () => { void showPanel(true); });
+  cancelBtn?.addEventListener("click", () => {
+    void showPanel(false);
+    if (confirmInput) confirmInput.value = "";
+    if (restoreStatus) restoreStatus.textContent = "";
+  });
+
+  restoreBtn?.addEventListener("click", async () => {
+    if (!restoreStatus) return;
+    const typed = (confirmInput?.value ?? "").trim();
+    if (typed !== "RESTORE") {
+      restoreStatus.textContent = "Type RESTORE to confirm.";
+      return;
+    }
+    const chosen = document.querySelector<HTMLInputElement>('input[name="database-backup-choice"]:checked')?.value;
+    if (!chosen) {
+      restoreStatus.textContent = "Pick a backup to restore from.";
+      return;
+    }
+    if (typeof window.desktop?.restoreDatabase !== "function") {
+      restoreStatus.textContent = "Restore is not available in this build.";
+      return;
+    }
+    restoreBtn.disabled = true;
+    restoreStatus.textContent = "Restoring and restarting Agent…";
+    try {
+      await window.desktop.restoreDatabase(chosen);
+      // The app exits and relaunches itself; nothing else runs.
+    } catch (error) {
+      restoreStatus.textContent = `Restore failed: ${errorMessage(error)}`;
+      restoreBtn.disabled = false;
+    }
+  });
+}
+
+async function refreshDatabaseSection(): Promise<void> {
+  const status = document.getElementById("database-status");
+  const pathEl = document.getElementById("database-path") as HTMLInputElement | null;
+  const sizeEl = document.getElementById("database-size");
+  const walEl = document.getElementById("database-wal-size");
+  const journalEl = document.getElementById("database-journal-mode");
+  const schemaEl = document.getElementById("database-schema");
+  const countsEl = document.getElementById("database-table-counts");
+  const backupList = document.getElementById("database-backup-list");
+  if (!pathEl || !sizeEl || !walEl || !journalEl || !schemaEl || !countsEl) return;
+
+  if (typeof window.desktop?.getDatabaseInfo !== "function") {
+    if (status) status.textContent = "Database panel unavailable in this build.";
+    return;
+  }
+
+  try {
+    const info = await window.desktop.getDatabaseInfo();
+    pathEl.value = info.databasePath;
+    pathEl.title = info.databasePath;
+    sizeEl.textContent = info.dbSizeBytes !== undefined ? formatBytes(info.dbSizeBytes) : "missing";
+    walEl.textContent = info.walSizeBytes !== undefined ? formatBytes(info.walSizeBytes) : "absent";
+    journalEl.textContent = info.journalMode.toUpperCase();
+    const ok = info.schemaVersion === info.expectedSchemaVersion;
+    schemaEl.textContent = info.schemaVersion == null ? "unavailable" : `v${info.schemaVersion} (expected v${info.expectedSchemaVersion})`;
+    schemaEl.style.color = ok ? "var(--ok)" : "var(--danger)";
+    const parts = Object.entries(info.tableCounts ?? {}).map(([k, v]) => `${k}:${v}`);
+    countsEl.textContent = parts.join(" · ") || "—";
+    if (status) status.textContent = info.databaseExists ? "" : "Database file missing.";
+  } catch (error) {
+    if (status) status.textContent = `Failed to read database info: ${errorMessage(error)}`;
+  }
+}
+
+async function refreshDatabaseBackupList(): Promise<void> {
+  const listEl = document.getElementById("database-backup-list");
+  const status = document.getElementById("database-restore-status");
+  if (!listEl) return;
+  listEl.replaceChildren();
+  try {
+    const backups = await window.desktop?.listDatabaseBackups?.();
+    if (!backups || backups.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "settings-hint";
+      empty.textContent = "No backups yet — press “Back Up Now” to create one.";
+      listEl.appendChild(empty);
+      return;
+    }
+    for (const backup of backups) {
+      const row = document.createElement("label");
+      row.className = "database-backup-row";
+      const radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = "database-backup-choice";
+      radio.value = backup.fileName;
+      const text = document.createElement("span");
+      text.innerHTML = `<strong>${escapeHtmlC(backup.fileName)}</strong> — ${formatBytes(backup.sizeBytes)} · ${new Date(backup.createdAt).toLocaleString()}`;
+      row.append(radio, text);
+      listEl.appendChild(row);
+    }
+  } catch (error) {
+    const fail = document.createElement("p");
+    fail.className = "settings-status settings-status--danger";
+    fail.textContent = `Failed to list backups: ${errorMessage(error)}`;
+    listEl.appendChild(fail);
+    if (status) status.textContent = "";
+  }
+}
+
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function setView(view: ViewMode): void {
   currentView = view;
   closeMobileSidebar();
@@ -566,6 +747,9 @@ export function setView(view: ViewMode): void {
     }
     if (body) body.classList.toggle("hidden", isConfig);
     if (configContent) configContent.classList.toggle("hidden", !isConfig);
+    if (isConfig) {
+      void refreshDatabaseSection();
+    }
     if (mockPageTitle) mockPageTitle.textContent = isConfig ? "Adapter Settings" : mockViews[view].title;
     return;
   }
@@ -573,6 +757,10 @@ export function setView(view: ViewMode): void {
   activityPanel?.classList.add("hidden");
   recoveryPanel?.classList.add("hidden");
   mockPagePanel?.classList.add("hidden");
+
+  if (view === "config") {
+    void refreshDatabaseSection();
+  }
 
   if (view === "home") {
     layout?.classList.remove("view-sessions", "view-activity");
@@ -1883,6 +2071,20 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.getElementById("project-pair-close")?.addEventListener("click", closeProjectPairModal);
   document.getElementById("project-pair-cancel")?.addEventListener("click", closeProjectPairModal);
+  document.getElementById("project-pair-modal")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) {
+      closeProjectPairModal();
+    }
+  });
+  document.getElementById("project-pair-modal")?.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeProjectPairModal();
+    } else if (event.key === "Enter" && (event.target as HTMLElement).tagName === "INPUT") {
+      event.preventDefault();
+      void confirmProjectPairCreation();
+    }
+  });
   document.getElementById("project-pair-create")?.addEventListener("click", () => {
     void confirmProjectPairCreation();
   });
@@ -1890,6 +2092,16 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("timeline-done")?.addEventListener("click", closeTimelineModal);
   document.getElementById("project-pair-repo-detect")?.addEventListener("click", () => {
     void detectOpenCodeProjects();
+  });
+  document.getElementById("project-pair-repo-browse")?.addEventListener("click", () => {
+    void (async () => {
+      const result = await runAction(() => window.desktop.pickFolder());
+      const repo = document.getElementById("project-pair-repo") as HTMLInputElement | null;
+      if (result?.folderPath && repo) {
+        repo.value = result.folderPath;
+        repo.focus();
+      }
+    })();
   });
   document.getElementById("project-pair-repo-start-server")?.addEventListener("click", () => {
     void startOpenCodeServerForPair();
@@ -2030,6 +2242,7 @@ document.addEventListener("DOMContentLoaded", () => {
   installAgentRefreshTimer();
   wireActivityView();
   initRecoveryPanel();
+  initDatabasePanel();
   document.getElementById("ground-truth-refresh")?.addEventListener("click", () => { void refreshGroundTruth(); });
   wireEvents();
   initGlobalFocusTrap();

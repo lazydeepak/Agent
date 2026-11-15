@@ -536,6 +536,59 @@
               </div>
               <p id="history-retention-status" class="settings-status" role="status"></p>
             </div>
+            <div class="settings-card database-card">
+              <h4 class="settings-title settings-card-title">Database</h4>
+              <p class="settings-hint">The Agent relay persists its ledger, supervisor state and history to one SQLite file. Read-only diagnostics and backup/restore actions live here — nothing else edits or deletes the live database from the UI.</p>
+              <div class="prefs-grid">
+                <div class="field">
+                  <label for="database-path">Path</label>
+                  <input id="database-path" type="text" readonly aria-readonly="true" value="Loading…" />
+                </div>
+                <div class="field">
+                  <label>File size</label>
+                  <span class="about-label" id="database-size">—</span>
+                </div>
+                <div class="field">
+                  <label>WAL size</label>
+                  <span class="about-label" id="database-wal-size">—</span>
+                </div>
+                <div class="field">
+                  <label>Journal mode</label>
+                  <span class="about-label" id="database-journal-mode">—</span>
+                </div>
+                <div class="field">
+                  <label>Schema</label>
+                  <span class="about-label" id="database-schema">—</span>
+                </div>
+                <div class="field">
+                  <label>Table counts</label>
+                  <span class="about-label database-counts" id="database-table-counts">—</span>
+                </div>
+              </div>
+              <div class="settings-actions">
+                <button id="database-refresh" type="button" class="btn btn-ghost btn-sm">Refresh</button>
+                <button id="database-backup" type="button" class="btn btn-primary btn-sm">Back Up Now</button>
+                <button id="database-reveal" type="button" class="btn btn-ghost btn-sm" title="Show the database file in your file manager">Reveal in Finder</button>
+                <button id="database-copy-path" type="button" class="btn btn-ghost btn-sm" title="Copy the database file path">Copy Path</button>
+              </div>
+              <p id="database-status" class="settings-status" role="status"></p>
+              <div class="database-restore hidden" id="database-restore-panel">
+                <p class="settings-hint"><strong>Restore a backup.</strong> This stops every pair and swaps the live database with the chosen backup. Agent will restart once the restore completes. The current database is backed up automatically first as <code>pre-restore-&lt;timestamp&gt;.sqlite</code>.</p>
+                <div id="database-backup-list" class="database-backup-list"></div>
+                <div class="field">
+                  <label for="database-restore-confirm">Type <code>RESTORE</code> to confirm</label>
+                  <input id="database-restore-confirm" type="text" autocomplete="off" placeholder="RESTORE" />
+                </div>
+                <div class="settings-actions">
+                  <button id="database-restore-cancel" type="button" class="btn btn-ghost btn-sm">Cancel</button>
+                  <button id="database-restore-confirm-btn" type="button" class="btn btn-danger btn-sm">Restore &amp; Restart</button>
+                </div>
+                <p id="database-restore-status" class="settings-status settings-status--danger" role="alert"></p>
+              </div>
+              <div class="settings-actions">
+                <button id="database-restore-toggle" type="button" class="btn btn-danger btn-sm">Restore from Backup…</button>
+              </div>
+            </div>
                         <div class="dashboard-section dashboard-backend-health-section">
               <div class="section-header">
                 <div>
@@ -631,6 +684,7 @@
             <label for="project-pair-repo">Worker project (repository path)</label>
             <input id="project-pair-repo" type="text" autocomplete="off" placeholder="/path/to/repo" />
             <div class="field-actions">
+              <button id="project-pair-repo-browse" class="btn btn-sm">Browse folder…</button>
               <button id="project-pair-repo-detect" class="btn btn-sm">Detect projects</button>
               <button id="project-pair-repo-start-server" class="btn btn-sm">Start Worker Agent</button>
               <button id="project-pair-repo-active" class="btn btn-sm">Use active desktop session</button>

@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { dialog } from "electron";
+import { app, dialog } from "electron";
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { DesktopApplicationError, type DesktopApplicationService } from "../../src/application/desktop-service.js";
@@ -109,6 +109,29 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   handle(IPC_CHANNELS.getSettings, guarded(async () => ctx.requireService().getSettings()));
   handle(IPC_CHANNELS.releaseRecoverySuspension, guarded(async (_e, pairId: unknown) =>
     ctx.requireService().releaseRecoverySuspension(asPairId(pairId))));
+  handle(IPC_CHANNELS.databaseInfo, guarded(async () => ctx.requireService().getDatabaseInfo()));
+  handle(IPC_CHANNELS.backupDatabase, guarded(async () => ctx.requireService().backupDatabase()));
+  handle(IPC_CHANNELS.listDatabaseBackups, guarded(async () => ctx.requireService().listDatabaseBackups()));
+  handle(IPC_CHANNELS.revealDatabase, guarded(async () => {
+    try {
+      const { shell } = await import("electron");
+      const dbPath = ctx.requireService().getDatabaseInfo().databasePath;
+      shell.showItemInFolder(dbPath);
+    } catch {
+      // best effort; not fatal
+    }
+  }));
+  handle(IPC_CHANNELS.restoreDatabase, guarded(async (_e, input: unknown) => {
+    const fileName = (input as { fileName?: unknown } | undefined)?.fileName;
+    if (typeof fileName !== "string" || fileName.length === 0) {
+      throw new Error("fileName must be a non-empty string.");
+    }
+    const result = ctx.requireService().restoreDatabase(fileName);
+    // Hard restart: the old store object and orchestrator are now detached from the restored file.
+    app.relaunch();
+    app.exit(0);
+    return result;
+  }));
   handle(IPC_CHANNELS.diagnosticsSnapshot, guarded(async () => {
     const snapshot = ctx.requireService().getDiagnosticsSnapshot();
     let projectPairsCount: number | null = null;
@@ -449,6 +472,7 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   handle(IPC_CHANNELS.pickFolder, guarded(async () => {
     const result = await dialog.showOpenDialog({
       title: "Choose project folder",
+      defaultPath: join(app.getPath("home"), "dev"),
       properties: ["openDirectory"]
     });
     return { folderPath: result.canceled ? undefined : result.filePaths[0] };

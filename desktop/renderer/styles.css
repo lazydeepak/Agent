@@ -4361,3 +4361,13 @@ html[data-theme="light"] .browser-pairing-error { background: #fff5f5; color: #b
 }
 .recovery-stale strong { letter-spacing: .05em; }
 .recovery-stale-missing { border-color: var(--line-strong); background: var(--control-subtle); color: var(--muted-text); }
+
+/* Settings — Database card */
+.database-card .about-label.database-counts { font-size: 11px; max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
+.database-backup-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 12px; }
+.database-backup-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-md); background: var(--zebra); border: 1px solid var(--line-soft); cursor: pointer; font-size: 12px; }
+.database-backup-row:hover { background: var(--control-subtle); }
+.database-backup-row input[type="radio"] { accent-color: var(--accent); }
+.database-restore { padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--danger-soft); background: var(--danger-soft); margin-bottom: 12px; }
+.settings-status.fail, .settings-status--danger { color: var(--danger); }
+.settings-status.ok { color: var(--ok); }
