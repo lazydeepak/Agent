@@ -31,6 +31,7 @@ const invokeChannelNames = [
   "listWorkerModels",
   "switchWorkerModel",
   "adapterSettings",
+  "configureOpenCodeCredentials",
   "pickFolder",
   "codeIndex",
   "duplicateReport",

@@ -17,6 +17,7 @@ import {
   scanOpenCodeDesktopActiveSession,
   type OpenCodeDesktopSession
 } from "../adapters/opencode/desktop-state.js";
+import { OpenCodeHttpError } from "../adapters/opencode/http.js";
 import {
   ProjectPairRepository,
   ProjectPairRepositoryError
@@ -180,15 +181,26 @@ export class ProjectPairService {
 
   /** Read-only: groups every OpenCode session by its project directory. */
   async discoverOpenCodeProjects(): Promise<OpenCodeProjectDiscovery[]> {
-    const discoveredUrl = await discoverOpenCodeServerUrl();
+    // An explicitly configured endpoint is the operator's selected server. Only
+    // auto-discover the Desktop server when no endpoint was configured.
+    const configuredUrl =
+      process.env.AGENT_OPENCODE_BASE_URL ??
+      this.options.opencodeBaseUrl;
+    const discoveredUrl = configuredUrl ? undefined : await discoverOpenCodeServerUrl();
     const worker = new LiveOpenCodeAdapter({
-      baseUrl: discoveredUrl ?? this.opencodeBaseUrl(),
+      baseUrl: configuredUrl ?? discoveredUrl ?? this.opencodeBaseUrl(),
       fetch: this.options.opencodeFetch
     });
     let sessions: Array<{ repoPath?: string }>;
     try {
       sessions = await worker.listSessions();
     } catch (error) {
+      if (isAuthenticationError(error)) {
+        throw new DesktopApplicationError(
+          "OPENCODE_AUTH_REQUIRED",
+          "The OpenCode server requires authentication. Set AGENT_OPENCODE_USERNAME and AGENT_OPENCODE_PASSWORD (or OPENCODE_SERVER_PASSWORD) in the environment used to launch Agent, then restart Agent. The default username is \"opencode\"."
+        );
+      }
       throw new DesktopApplicationError(
         "OPENCODE_UNAVAILABLE",
         `Could not list OpenCode sessions: ${messageOf(error)}`
@@ -274,6 +286,11 @@ function toProjectPairError(error: unknown): DesktopApplicationError {
     return new DesktopApplicationError("CHATGPT_PROJECT_DISCOVERY_FAILED", error.message);
   }
   return new DesktopApplicationError("APPLICATION_ERROR", messageOf(error));
+}
+
+function isAuthenticationError(error: unknown): boolean {
+  if (error instanceof OpenCodeHttpError) return error.status === 401;
+  return error instanceof Error && /\b401\b|unauthorized|authentication required/i.test(error.message);
 }
 
 function messageOf(error: unknown): string {

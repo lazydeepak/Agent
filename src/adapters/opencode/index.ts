@@ -113,9 +113,8 @@ export class LiveOpenCodeAdapter implements OpenCodeAdapter, OpenCodeSessionMana
     } catch (error) {
       if (error instanceof OpenCodeHttpError && error.status === 401) {
         throw new Error(
-          `OpenCode server at ${this.client.url} requires authentication (username/password). ` +
-          `Set AGENT_OPENCODE_USERNAME and AGENT_OPENCODE_PASSWORD, or configure ` +
-          `opencode.username and opencode.password in the desktop service options.`
+          `OpenCode server at ${this.client.url} requires authentication. ` +
+          `Use “Connect OpenCode…” in Agent Settings or the Add Project dialog to authenticate securely.`
         );
       }
       throw new Error(`OpenCode server unreachable: ${readableOpenCodeError(error)}`);

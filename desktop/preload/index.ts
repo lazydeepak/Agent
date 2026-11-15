@@ -128,6 +128,7 @@ export interface DesktopApi {
   listWorkerModels(pairId: string): Promise<WorkerModelDto[]>;
   switchWorkerModel(pairId: string, input: SwitchWorkerModelDto): Promise<WorkerModelSwitchResultDto>;
   adapterSettings(settings: unknown): Promise<{ ok: boolean }>;
+  configureOpenCodeCredentials(): Promise<{ saved: boolean; username?: string }>;
   pickFolder(): Promise<{ folderPath?: string }>;
   getCodeIndex(): Promise<unknown>;
   getDuplicateReport(): Promise<{ status: 'ok' | 'not-scanned' | 'failed'; report?: unknown; error?: string; generatedAt?: string | null }>;
@@ -151,6 +152,7 @@ export interface DesktopApi {
 const api: DesktopApi = {
   configPath: process.env.AGENT_CONFIG ?? "",
   adapterSettings: (settings) => invoke(IPC_CHANNELS.adapterSettings, settings),
+  configureOpenCodeCredentials: () => invoke(IPC_CHANNELS.configureOpenCodeCredentials),
   pickFolder: () => invoke(IPC_CHANNELS.pickFolder),
   getCodeIndex: () => invoke(IPC_CHANNELS.codeIndex),
   getDuplicateReport: () => invoke(IPC_CHANNELS.duplicateReport),

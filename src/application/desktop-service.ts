@@ -23,6 +23,7 @@ import { ConfigError } from "../sessions/pairs.js";
 import { ChatGptUrlError, parseChatGptConversationUrl } from "../util/chatgpt-url.js";
 import { validatePair } from "../validator/readiness.js";
 import { hashText } from "../util/canonical.js";
+import { credentialsAllowed, isHttpUrl } from "../util/net.js";
 import { PairConfigError, PairConfigRepository, type PairEdits } from "./pair-config-repository.js";
 import {
   LocalDesktopToolLauncher,
@@ -891,6 +892,35 @@ export class DesktopApplicationService {
   }
   getOpenCodeEndpoint(): string {
     return this.workerSessions.getOpenCodeEndpoint();
+  }
+
+  applyAdapterSettings(input: unknown): { ok: true } {
+    if (!input || typeof input !== "object" || Array.isArray(input)) {
+      throw new DesktopApplicationError("INVALID_INPUT", "Adapter settings must be an object.");
+    }
+    const settings = input as { opencodeServer?: unknown; chatgptUrl?: unknown };
+    if (settings.opencodeServer !== undefined) {
+      if (typeof settings.opencodeServer !== "string" || !isHttpUrl(settings.opencodeServer.trim())) {
+        throw new DesktopApplicationError("INVALID_INPUT", "OpenCode Server URL must be a valid HTTP(S) URL.");
+      }
+      const endpoint = new URL(settings.opencodeServer.trim()).toString();
+      if (!credentialsAllowed(endpoint)) {
+        throw new DesktopApplicationError(
+          "INVALID_INPUT",
+          "OpenCode credentials may only be used with HTTPS or a loopback HTTP endpoint."
+        );
+      }
+      process.env.AGENT_OPENCODE_BASE_URL = endpoint;
+      this.options.opencode = { ...this.options.opencode, baseUrl: endpoint };
+    }
+    if (settings.chatgptUrl !== undefined) {
+      if (typeof settings.chatgptUrl !== "string" || !isHttpUrl(settings.chatgptUrl.trim())) {
+        throw new DesktopApplicationError("INVALID_INPUT", "Planner browser URL must be a valid HTTP(S) URL.");
+      }
+      const endpoint = new URL(settings.chatgptUrl.trim()).toString();
+      this.options.chatgpt = { ...this.options.chatgpt, cdpUrl: endpoint };
+    }
+    return { ok: true };
   }
   getChatGptEndpoint(): string {
     return this.workerSessions.getChatGptEndpoint();

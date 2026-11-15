@@ -79,6 +79,17 @@ The `worker.server` object is optional. If omitted, live OpenCode commands can u
 - `AGENT_OPENCODE_USERNAME`
 - `AGENT_OPENCODE_PASSWORD`
 
+For the desktop app, use **Connect OpenCode…** in Settings or the Add Project dialog to enter credentials through macOS native prompts. Agent stores the password encrypted with Electron `safeStorage` (Keychain-backed on macOS); credentials are decrypted only in the main process and are never sent to the renderer. Alternatively, credentials can be supplied via the environment:
+
+```sh
+AGENT_OPENCODE_BASE_URL=http://127.0.0.1:4096 \
+AGENT_OPENCODE_USERNAME=opencode \
+AGENT_OPENCODE_PASSWORD='your-server-password' \
+npm run desktop:dev
+```
+
+An explicit `AGENT_OPENCODE_BASE_URL` takes precedence over automatic OpenCode Desktop server discovery. Use the username/password configured on that existing server.
+
 The `planner.browser` object is optional. Live ChatGPT readiness can use:
 
 - `cdpUrl`

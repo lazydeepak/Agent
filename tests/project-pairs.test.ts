@@ -365,6 +365,20 @@ describe("ProjectPairService", () => {
     }
   });
 
+  it("explains OpenCode authentication failures during project discovery", async () => {
+    const { path, cleanup } = await tempPath();
+    try {
+      const unauthorized = (async () => jsonResponse({ message: "Authentication required" }, 401)) as typeof fetch;
+      const service = new ProjectPairService({ configPath: path, opencodeFetch: unauthorized });
+      await expect(service.discoverOpenCodeProjects()).rejects.toMatchObject({
+        code: "OPENCODE_AUTH_REQUIRED",
+        message: expect.stringContaining("AGENT_OPENCODE_PASSWORD")
+      });
+    } finally {
+      await cleanup();
+    }
+  });
+
   it("discovers ChatGPT projects through the injected browser fetch", async () => {
     const { path, cleanup } = await tempPath();
     try {

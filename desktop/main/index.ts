@@ -19,6 +19,8 @@ import type { DesktopErrorDto } from "../../src/contracts/desktop.js";
 import { registerIpcHandlers, type IpcContext } from "./ipc-handlers.js";
 import { installNavigationGuards, openWorkerAuthWindowImpl } from "./electron-window.js";
 import { parseCliOptions, type CliOptions } from "./cli-options.js";
+import { restoreOpenCodeCredentials } from "./opencode-credentials.js";
+import { restoreOpenCodeEndpoint } from "./endpoint-settings.js";
 import { ManagedTray, createManagedTray } from "./tray.js";
 import {
   asAbsolutePath,
@@ -345,6 +347,18 @@ app.whenReady().then(async () => {
   }
   lifecycleState = "initializing";
   process.env.AGENT_CONFIG = cli.configPath;
+  if (cli.opencodeBaseUrl) process.env.AGENT_OPENCODE_BASE_URL = cli.opencodeBaseUrl;
+  if (!process.env.AGENT_OPENCODE_BASE_URL) {
+    const savedEndpoint = restoreOpenCodeEndpoint();
+    if (savedEndpoint) process.env.AGENT_OPENCODE_BASE_URL = savedEndpoint;
+  }
+  try {
+    if (restoreOpenCodeCredentials()) {
+      console.log("[desktop] Restored OpenCode credentials from secure app storage.");
+    }
+  } catch {
+    console.warn("[desktop] Stored OpenCode credentials could not be restored; reconnect from the project dialog.");
+  }
   const dbPath = resolveDbPath(cli.dbPath);
   await ensureDbParent(dbPath);
   const store = new SqliteRelayStore(dbPath);
@@ -353,10 +367,13 @@ app.whenReady().then(async () => {
   const config = await configRepo.load();
 
   const discoveredOpenCodeUrl = await discoverOpenCodeServerUrl();
-  const opencodeBaseUrl = cli.opencodeBaseUrl ?? discoveredOpenCodeUrl;
+  const opencodeBaseUrl =
+    cli.opencodeBaseUrl ??
+    process.env.AGENT_OPENCODE_BASE_URL ??
+    discoveredOpenCodeUrl;
   if (discoveredOpenCodeUrl) {
     console.log(`[desktop] Auto-discovered OpenCode server URL: ${discoveredOpenCodeUrl}`);
-  } else if (!cli.opencodeBaseUrl) {
+  } else if (!opencodeBaseUrl) {
     console.log(`[desktop] No OpenCode server auto-discovery found; using default 4096.`);
   }
 

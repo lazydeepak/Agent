@@ -2,6 +2,9 @@ import { spawn } from "node:child_process";
 import { app, dialog } from "electron";
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { promptAndStoreOpenCodeCredentials } from "./opencode-credentials.js";
+import { discoverOpenCodeServerUrl } from "../../src/adapters/opencode/desktop-state.js";
+import { saveOpenCodeEndpoint } from "./endpoint-settings.js";
 import { DesktopApplicationError, type DesktopApplicationService } from "../../src/application/desktop-service.js";
 import type { ProjectPairService } from "../../src/application/project-pair-service.js";
 import type { WorkerProgressService } from "../../src/application/worker-progress.js";
@@ -479,11 +482,23 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   }));
   handle(IPC_CHANNELS.adapterSettings, guarded(async (_e, settings: unknown) => {
     const svc = ctx.requireService();
-    if (typeof (svc as unknown as { applyAdapterSettings?: (c: unknown) => Promise<void> | void }).applyAdapterSettings === "function") {
-      await (svc as unknown as { applyAdapterSettings: (c: unknown) => Promise<void> | void }).applyAdapterSettings(settings);
+    const result = svc.applyAdapterSettings(settings);
+    if (settings && typeof settings === "object" && "opencodeServer" in settings) {
+      saveOpenCodeEndpoint(svc.getOpenCodeEndpoint());
     }
-    return { ok: true };
+    return result;
   }));
+  handle(
+    IPC_CHANNELS.configureOpenCodeCredentials,
+    guarded(async () => {
+      const endpoint =
+        process.env.AGENT_OPENCODE_BASE_URL ??
+        (await discoverOpenCodeServerUrl()) ??
+        ctx.requireService().getOpenCodeEndpoint();
+      const result = await promptAndStoreOpenCodeCredentials(endpoint);
+      return result;
+    })
+  );
   handle(
     IPC_CHANNELS.deleteArchive,
     guarded(async (_e, ref: unknown) => ctx.requireService().deleteArchivedPair(asArchiveRef(ref)))

@@ -160,7 +160,7 @@ export class WorkerSessionService {
   }
 
     getOpenCodeEndpoint(): string {
-    const configured = this.ctx.options.opencode?.baseUrl ?? process.env.AGENT_OPENCODE_BASE_URL;
+    const configured = process.env.AGENT_OPENCODE_BASE_URL ?? this.ctx.options.opencode?.baseUrl;
     if (configured) return configured;
 
     const first = this.firstWorkerServer()?.baseUrl;
@@ -444,8 +444,8 @@ export class WorkerSessionService {
 
     openCodeClientOptions(baseUrl: string) {
     return {
-      baseUrl,
       ...this.ctx.options.opencode,
+      baseUrl,
       fetch: this.ctx.options.opencodeFetch,
       // Endpoints here come from persisted pair configuration or operator-supplied CLI flags, so
       // Basic credentials over plain HTTP to a known remote host remain the operator's choice.

@@ -28,6 +28,9 @@ import { runAction, setRunActionHook, type RunActionErrorHook } from "./actions.
 import { noteActivityEvent, openActivityView, wireActivityView } from "./activity-view.js";
 import { refreshRecoveryPanel, initRecoveryPanel } from "./recovery-view.js";
 import { launchPlannerForPair } from "./planner.js";
+import { startWorkerManagementServer } from "./worker-management.js";
+import { discoverPlannerProjects, startPlannerManagementBrowser } from "./planner-management.js";
+import { wireConfigForm, wireSettingsSection } from "./settings-view.js";
 import { appendPairCard, expandedPairs, setPairCardHooks } from "./pair-card.js";
 import {
   closeWizard,
@@ -184,6 +187,7 @@ declare global {
       switchWorkerModel(pairId: string, input: { providerId: string; modelId: string; notifyPlanner?: boolean }): Promise<WorkerModelSwitchResultDto>;
       resumeWithFallbackModel(pairId: string, input: { providerId: string; modelId: string }): Promise<StatusSummaryDto>;
       adapterSettings(settings: unknown): Promise<{ ok: boolean }>;
+      configureOpenCodeCredentials(): Promise<{ saved: boolean; username?: string }>;
       pickFolder(): Promise<{ folderPath?: string }>;
       getCodeIndex(): Promise<{
         totals?: { modules?: number; symbols?: number; modulesMissingHeader?: number };
@@ -1652,7 +1656,7 @@ async function detectOpenCodeProjects(): Promise<void> {
 }
 
 async function detectChatGptProjects(): Promise<void> {
-  const projects = await runAction(() => window.desktop.discoverChatGptProjects());
+  const projects = await discoverPlannerProjects();
   if (!projects) {
     return;
   }
@@ -1671,7 +1675,7 @@ async function startOpenCodeServerForPair(): Promise<void> {
     showProjectPairError("Enter a repository path before starting the Worker Agent.");
     return;
   }
-  const result = await runAction(() => window.desktop.startWorkerServer({ repoPath }));
+  const result = await startWorkerManagementServer({ repoPath });
   if (!result) {
     return;
   }
@@ -1681,7 +1685,7 @@ async function startOpenCodeServerForPair(): Promise<void> {
 
 async function startAutomationBrowserForPair(): Promise<void> {
   hideProjectPairError();
-  const result = await runAction(() => window.desktop.startPlannerBrowser());
+  const result = await startPlannerManagementBrowser();
   if (!result) {
     return;
   }
@@ -1945,73 +1949,6 @@ function initPairCreateForm(): void {
   });
 }
 
-async function wireConfigForm(): Promise<void> {
-  const opencodeUrl = document.getElementById("config-opencode-url") as HTMLInputElement | null;
-  const chatgptUrl = document.getElementById("config-chatgpt-url") as HTMLInputElement | null;
-  const status = document.getElementById("config-status");
-  const save = document.getElementById("config-save-settings");
-  const reset = document.getElementById("config-reset-settings");
-  if (!save || !opencodeUrl || !chatgptUrl || !status) return;
-  save.addEventListener("click", async () => {
-    const settings = { opencodeServer: opencodeUrl.value, chatgptUrl: chatgptUrl.value };
-    try {
-      if (typeof window.desktop?.adapterSettings === "function") {
-        await window.desktop.adapterSettings(settings);
-        status.textContent = "Saved — adapter reload queued.";
-        status.classList.toggle("ok", true);
-      } else {
-        status.textContent = "Desktop API not exposed.";
-        status.classList.toggle("fail", true);
-      }
-    } catch (error) {
-      status.textContent = "Error: " + (error instanceof Error ? error.message : String(error));
-      status.classList.toggle("fail", true);
-    }
-  });
-  reset?.addEventListener("click", () => { status.textContent = ""; status.classList.remove("ok", "fail"); });
-}
-
-async function wireSettingsSection(): Promise<void> {
-  const input = document.getElementById("history-retention-days") as HTMLInputElement | null;
-  const save = document.getElementById("history-retention-save");
-  const status = document.getElementById("history-retention-status");
-  if (!input || !save || !status) return;
-  try {
-    if (typeof window.desktop?.getSettings === "function") {
-      const settings = await window.desktop.getSettings();
-      input.value = settings.historyRetentionDays ? String(settings.historyRetentionDays) : "";
-    }
-  } catch {
-    // Leave the field empty (= keep forever) rather than fabricate a setting.
-  }
-  save.addEventListener("click", async () => {
-    if (typeof window.desktop?.updateSettings !== "function") {
-      status.textContent = "Desktop API not exposed.";
-      status.classList.toggle("fail", true);
-      return;
-    }
-    const raw = input.value.trim();
-    const days = raw === "" ? 0 : Number.parseInt(raw, 10);
-    if (Number.isNaN(days) || days < 0) {
-      status.textContent = "Enter a whole number of days (0 = keep forever).";
-      status.classList.toggle("fail", true);
-      return;
-    }
-    try {
-      const saved = await window.desktop.updateSettings(days > 0 ? { historyRetentionDays: days } : {});
-      status.textContent = saved.historyRetentionDays
-        ? `Saved — history kept for ${saved.historyRetentionDays} days. Older rows were archived/deleted now.`
-        : "Saved — history kept forever.";
-      status.classList.toggle("ok", true);
-      status.classList.remove("fail");
-    } catch (error) {
-      status.textContent = "Error: " + (error instanceof Error ? error.message : String(error));
-      status.classList.toggle("fail", true);
-      status.classList.remove("ok");
-    }
-  });
-}
-
 document.addEventListener("DOMContentLoaded", () => {
   initTheme();
   initPairCreateForm();
@@ -2101,6 +2038,14 @@ document.addEventListener("DOMContentLoaded", () => {
         repo.value = result.folderPath;
         repo.focus();
       }
+    })();
+  });
+  document.getElementById("project-pair-opencode-connect")?.addEventListener("click", () => {
+    void (async () => {
+      const result = await runAction(() => window.desktop.configureOpenCodeCredentials());
+      if (!result?.saved) return;
+      toast(`OpenCode credentials saved securely for ${result.username}.`, "ok");
+      await detectOpenCodeProjects();
     })();
   });
   document.getElementById("project-pair-repo-start-server")?.addEventListener("click", () => {

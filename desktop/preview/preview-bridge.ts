@@ -1223,6 +1223,10 @@ export function createPreviewDesktopApi(): Window["desktop"] {
       return { ok: true };
     },
 
+    async configureOpenCodeCredentials(): Promise<{ saved: boolean; username?: string }> {
+      return { saved: true, username: "opencode" };
+    },
+
     async pickFolder(): Promise<{ folderPath?: string }> {
       return { folderPath: "/Users/preview/project" };
     },

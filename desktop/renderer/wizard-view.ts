@@ -18,6 +18,18 @@ import {
   type WizardStep
 } from "./wizard.js";
 import type { CandidatePairDto, EndpointTestResultDto, OpenCodeSessionInfoDto, ProjectPairDto, UpdatePairDto, ValidationResultDto } from "../../src/contracts/desktop.js";
+import {
+  createWorkerManagementSession,
+  renderWorkerApiProtocolField,
+  startWorkerManagementServer,
+  updateWorkerManagementCommand,
+  verifyWorkerEndpoint
+} from "./worker-management.js";
+import {
+  parsePlannerConversation,
+  startPlannerManagementBrowser,
+  verifyPlannerEndpoint
+} from "./planner-management.js";
 
 /** Refresh seam into the owning renderer. */
 export interface WizardHooks {
@@ -260,7 +272,12 @@ export function renderWorkerStep(body: HTMLElement): void {
   body.appendChild(
     textField("worker-endpoint", "Worker Agent endpoint", draft.workerEndpoint, "Used for discovery and readiness.")
   );
-  body.appendChild(apiProtocolField(draft.workerApiProtocol));
+  body.appendChild(renderWorkerApiProtocolField(draft.workerApiProtocol, (protocol) => {
+    if (!wizard) return;
+    wizard.draft.workerApiProtocol = protocol;
+    wizard.validation = undefined;
+    syncWizardControls();
+  }));
   const serverActions = el("div", "field-actions");
   const startServer = el("button", "btn btn-sm");
   startServer.id = "project-pair-repo-start-server";
@@ -533,39 +550,6 @@ export function field(label: string, hint: string, buildInput: (input: HTMLInput
   return wrap;
 }
 
-export function apiProtocolField(value: "auto" | "legacy" | "v2"): HTMLElement {
-  const wrap = el("div", "field");
-  const labelEl = el("label");
-  labelEl.textContent = "API protocol";
-  const select = document.createElement("select");
-  select.id = "worker-api-protocol";
-  const options: Array<{ value: "auto" | "legacy" | "v2"; label: string }> = [
-    { value: "auto", label: "Auto-detect (Recommended for OpenCode 2.0.22)" },
-    { value: "legacy", label: "Legacy (OpenCode 1.x compatible)" },
-    { value: "v2", label: "v2 (OpenCode 2.0.22 / 2.0.x)" }
-  ];
-  for (const option of options) {
-    const optionEl = document.createElement("option");
-    optionEl.value = option.value;
-    optionEl.textContent = option.label;
-    optionEl.selected = option.value === value;
-    select.appendChild(optionEl);
-  }
-  select.addEventListener("change", () => {
-    if (!wizard) return;
-    wizard.draft.workerApiProtocol = select.value as "auto" | "legacy" | "v2";
-    wizard.validation = undefined;
-    syncWizardControls();
-  });
-  const hintEl = el("span", "hint");
-  hintEl.textContent =
-    "Auto-detect or v2 is recommended for OpenCode 2.0.22. Pin \"Legacy\" if this session is also opened in OpenCode 1.x Desktop.";
-  wrap.appendChild(labelEl);
-  wrap.appendChild(select);
-  wrap.appendChild(hintEl);
-  return wrap;
-}
-
 export function testButton(prefix: "worker" | "planner", label: string): HTMLButtonElement {
   const button = el("button", "btn btn-sm");
   button.textContent = label;
@@ -623,13 +607,11 @@ export async function createSession(): Promise<void> {
     toast("Enter a repo path before creating a Worker Agent session.", "error");
     return;
   }
-  const session = await runAction(() =>
-    window.desktop.createWorkerSession({
-      baseUrl: currentWizard.draft.workerEndpoint,
-      repoPath,
-      ...(currentWizard.draft.pairId.trim() ? { title: currentWizard.draft.pairId.trim() } : {})
-    })
-  );
+  const session = await createWorkerManagementSession({
+    baseUrl: currentWizard.draft.workerEndpoint,
+    repoPath,
+    ...(currentWizard.draft.pairId.trim() ? { title: currentWizard.draft.pairId.trim() } : {})
+  });
   if (session && wizard === currentWizard) {
     applyWorkerSession({ ...session, repoPath: session.repoPath || repoPath });
     wizard.sessions = [session, ...wizard.sessions.filter((item) => item.sessionId !== session.sessionId)];
@@ -648,11 +630,11 @@ export async function startWorkerServer(): Promise<void> {
     toast("Select a Worker Agent session first.");
     return;
   }
-  const result = await runAction(() => window.desktop.startWorkerServer({
+  const result = await startWorkerManagementServer({
     baseUrl: currentWizard.draft.workerEndpoint,
     repoPath,
     sessionId: currentWizard.draft.workerSessionId
-  }));
+  });
   if (!result || wizard !== currentWizard) return;
   wizard.draft.workerEndpoint = result.endpoint;
   renderWizard();
@@ -663,9 +645,7 @@ export async function startWorkerServer(): Promise<void> {
 export async function startPlannerBrowser(): Promise<void> {
   if (!wizard) return;
   const currentWizard = wizard;
-  const result = await runAction(() => window.desktop.startPlannerBrowser({
-    cdpUrl: currentWizard.draft.plannerEndpoint
-  }));
+  const result = await startPlannerManagementBrowser(currentWizard.draft.plannerEndpoint);
   if (!result || wizard !== currentWizard) return;
   wizard.draft.plannerEndpoint = result.endpoint;
   renderWizard();
@@ -674,7 +654,7 @@ export async function startPlannerBrowser(): Promise<void> {
 }
 
 export async function updateOpenCodeCommand(): Promise<void> {
-  const result = await runAction(() => window.desktop.updateOpenCode());
+  const result = await updateWorkerManagementCommand();
   if (result) toast(result.message, "ok");
 }
 
@@ -684,7 +664,7 @@ export async function parsePlannerUrl(): Promise<void> {
   }
   const currentWizard = wizard;
   const url = readRawInput("planner-url");
-  const parsed = await runAction(() => window.desktop.parsePlannerUrl({ url }));
+  const parsed = await parsePlannerConversation(url);
   if (parsed && wizard === currentWizard) {
     wizard.draft.parsed = {
       conversationId: parsed.conversationId,
@@ -701,13 +681,11 @@ export async function runTestWorker(): Promise<void> {
     return;
   }
   const currentWizard = wizard;
-  const result = await runAction(() =>
-    window.desktop.testWorkerEndpoint({
+  const result = await verifyWorkerEndpoint({
       baseUrl: currentWizard.draft.workerEndpoint,
       sessionId: currentWizard.draft.workerSessionId,
       repoPath: currentWizard.draft.workerRepoPath
-    })
-  );
+    });
   if (wizard !== currentWizard) {
     return;
   }
@@ -725,9 +703,10 @@ export async function runTestPlanner(): Promise<void> {
   }
   const currentWizard = wizard;
   const conversationUrl = currentWizard.draft.parsed?.conversationUrl;
-  const result = await runAction(() =>
-    window.desktop.testPlannerEndpoint({ cdpUrl: currentWizard.draft.plannerEndpoint, conversationUrl })
-  );
+  const result = await verifyPlannerEndpoint({
+    cdpUrl: currentWizard.draft.plannerEndpoint,
+    conversationUrl
+  });
   if (wizard !== currentWizard) {
     return;
   }
