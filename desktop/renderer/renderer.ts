@@ -68,6 +68,7 @@ import {
   el,
   errorMessage,
   formatTime,
+  healthBadgeClass,
   identityRow,
   toast
 } from "./dom.js";
@@ -835,9 +836,9 @@ function renderDashboard(): void {
   const gettingStarted = document.getElementById("dashboard-getting-started");
 
   const statuses = Array.from(state.statuses.values());
-  const runningCount = statuses.filter(s => s.runtimeState === "RUNNING" || s.runtimeState === "HEALTHY" || s.runtimeState === "STARTING" || s.supervisorState === "SUPERVISING").length;
-  const healthyCount = statuses.filter(s => (s.runtimeState === "RUNNING" || s.runtimeState === "HEALTHY" || s.supervisorState === "SUPERVISING") && s.supervisorState !== "FAILED" && s.supervisorState !== "STUCK" && s.worker !== "FAIL" && s.planner !== "FAIL").length;
-  const failedCount = statuses.filter(s => s.runtimeState === "ERROR" || s.supervisorState === "FAILED" || s.supervisorState === "STUCK" || s.worker === "FAIL" || s.planner === "FAIL").length;
+  const runningCount = statuses.filter(s => s.runtimeState === "RUNNING" || s.runtimeState === "STARTING" || s.supervisorState === "SUPERVISING").length;
+  const healthyCount = statuses.filter(s => (s.runtimeState === "RUNNING" || s.supervisorState === "SUPERVISING") && s.supervisorState !== "FAILED" && s.supervisorState !== "STUCK" && !["failed", "fail"].includes((s.worker ?? "").toLowerCase()) && !["failed", "fail"].includes((s.planner ?? "").toLowerCase())).length;
+  const failedCount = statuses.filter(s => s.runtimeState === "ERROR" || s.supervisorState === "FAILED" || s.supervisorState === "STUCK" || ["failed", "fail"].includes((s.worker ?? "").toLowerCase()) || ["failed", "fail"].includes((s.planner ?? "").toLowerCase())).length;
   const totalCount = Math.max(state.pairs.length, statuses.length);
 
   if (running) animateCount(running, runningCount);
@@ -916,7 +917,7 @@ if (state.pairs.length === 0) {
     name.textContent = pair.pairId;
 
     const runtimeStateBadge = el("span", `badge ${
-      (status?.runtimeState === "RUNNING" || status?.runtimeState === "HEALTHY") ? "badge-ok" :
+      (status?.runtimeState === "RUNNING" || status?.runtimeState === "STARTING") ? "badge-ok" :
       status?.runtimeState === "PAUSED" ? "badge-warn" :
       status?.runtimeState === "ERROR" ? "badge-danger" : "badge-neutral"
     }`);
@@ -927,7 +928,7 @@ if (state.pairs.length === 0) {
     const actions = el("div", "dashboard-agent-actions");
 
     // Start / Pause button
-    const isRunning = status?.runtimeState === "RUNNING" || status?.runtimeState === "HEALTHY" || status?.supervisorState === "SUPERVISING";
+    const isRunning = status?.runtimeState === "RUNNING" || status?.runtimeState === "STARTING" || status?.supervisorState === "SUPERVISING";
     const toggleBtn = el("button", `btn btn-sm ${isRunning ? "btn-warn" : "btn-primary"}`);
     toggleBtn.textContent = isRunning ? "Pause" : "Start";
     toggleBtn.addEventListener("click", async () => {
@@ -1003,8 +1004,8 @@ if (state.pairs.length === 0) {
     workerRole.textContent = "Worker Agent";
 
     const workerStatusArea = el("div", "dashboard-peer-status");
-    const workerHealth = el("span", `badge ${status?.worker === "HEALTHY" || status?.worker === "PASS" ? "badge-ok" : status?.worker === "FAIL" ? "badge-danger" : "badge-neutral"}`);
-    workerHealth.textContent = status?.worker || "HEALTHY";
+    const workerHealth = el("span", `badge ${healthBadgeClass(status?.worker)}`);
+    workerHealth.textContent = status?.worker ?? "UNKNOWN";
 
     const workerActivity = el("span", `activity-badge ${status?.workerActivity === "working" ? "working" : "idle"}`);
     const workerPulse = el("span", "pulse-circle");
@@ -1035,8 +1036,8 @@ if (state.pairs.length === 0) {
     plannerRole.textContent = "Planner Agent";
 
     const plannerStatusArea = el("div", "dashboard-peer-status");
-    const plannerHealth = el("span", `badge ${status?.planner === "HEALTHY" || status?.planner === "PASS" ? "badge-ok" : status?.planner === "FAIL" ? "badge-danger" : "badge-neutral"}`);
-    plannerHealth.textContent = status?.planner || "HEALTHY";
+    const plannerHealth = el("span", `badge ${healthBadgeClass(status?.planner)}`);
+    plannerHealth.textContent = status?.planner ?? "UNKNOWN";
 
     const plannerActivity = el("span", `activity-badge ${status?.plannerActivity === "working" ? "working" : "idle"}`);
     const plannerPulse = el("span", "pulse-circle");

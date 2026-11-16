@@ -1,5 +1,14 @@
 import { isValidError } from "./state.js";
 
+/** Maps observed peer health strings (any case) to a badge class. */
+export function healthBadgeClass(value: string | undefined): string {
+  const v = (value ?? "").trim().toLowerCase();
+  if (v === "connected" || v === "healthy" || v === "pass") return "badge-ok";
+  if (v === "degraded" || v === "warn") return "badge-degraded";
+  if (v === "failed" || v === "fail" || v === "error" || v === "disconnected") return "badge-failed";
+  return "badge-neutral";
+}
+
 /** Minimal DOM helpers shared by the renderer views. */
 
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string): HTMLElementTagNameMap[K] {

@@ -7,6 +7,7 @@ import {
   buildIdentityBlock,
   el,
   formatTime,
+  healthBadgeClass,
   toast
 } from "./dom.js";
 import {
@@ -365,7 +366,7 @@ function renderHealthStatus(card: PairCardModel, running: boolean): HTMLElement 
   const workerRow = el("div", "health-row");
   const workerLabel = el("span", "health-label");
   workerLabel.textContent = "Worker Agent:";
-  const workerStatus = el("span", `badge badge-sm ${card.workerStatus === "HEALTHY" ? "badge-ok" : "badge-danger"}`);
+  const workerStatus = el("span", `badge badge-sm ${healthBadgeClass(card.workerStatus)}`);
   workerStatus.textContent = card.workerStatus;
   const workerActivity = el("span", "health-activity");
   workerActivity.textContent = card.workerActivity ? `(${card.workerActivity})` : "";
@@ -374,7 +375,7 @@ function renderHealthStatus(card: PairCardModel, running: boolean): HTMLElement 
   const plannerRow = el("div", "health-row");
   const plannerLabel = el("span", "health-label");
   plannerLabel.textContent = "Planner Agent:";
-  const plannerStatus = el("span", `badge badge-sm ${card.plannerStatus === "HEALTHY" ? "badge-ok" : "badge-danger"}`);
+  const plannerStatus = el("span", `badge badge-sm ${healthBadgeClass(card.plannerStatus)}`);
   plannerStatus.textContent = card.plannerStatus;
   const plannerActivity = el("span", "health-activity");
   plannerActivity.textContent = card.plannerActivity ? `(${card.plannerActivity})` : "";

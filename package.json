@@ -21,15 +21,7 @@
     "agent": "npm run agent:dev",
     "agent:dev": "npm run desktop:dev",
     "agent:relay": "npm run desktop:relay",
-    "agent:package": "npm run desktop:build && npm run service:bundle",
-    "tauri:dev": "cd tauri-client && cargo tauri dev",
-    "tauri:build": "npm run service:bundle && cd tauri-client && cargo tauri build",
-    "tauri:check": "cd tauri-client && cargo tauri info",
-    "service:bundle": "node scripts/service-bundle.mjs",
-    "service:binary": "node scripts/service-binary.mjs",
-    "tauri:prepare-runtime": "node scripts/prepare-tauri-runtime.mjs",
-    "tauri:prepare-sidecar": "node scripts/tauri-prepare-sidecar.mjs",
-    "tauri:ui:build": "node scripts/build-tauri-ui.mjs"
+    "agent:package": "npm run desktop:build"
   },
   "engines": {
     "node": ">=22.5"
@@ -43,7 +35,6 @@
     "@types/node": "^22.10.2",
     "electron": "^44.0.0",
     "jscpd": "^5.4.3",
-    "postject": "^1.0.0-alpha.6",
     "tsx": "^4.19.2",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"
