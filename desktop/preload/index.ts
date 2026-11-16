@@ -129,7 +129,7 @@ export interface DesktopApi {
   switchWorkerModel(pairId: string, input: SwitchWorkerModelDto): Promise<WorkerModelSwitchResultDto>;
   adapterSettings(settings: unknown): Promise<{ ok: boolean }>;
   listLogs(): Promise<Array<{ id: string; name: string; size: number; modifiedAt: number }>>;
-  readLogFile(id: string): Promise<{ id: string; modifiedAt: number; lines: string[] }>;
+  readLogFile(id: string): Promise<{ id: string; modifiedAt: number; lines: string[]; truncated?: boolean }>;
   configureOpenCodeCredentials(): Promise<{ saved: boolean; username?: string }>;
   pickFolder(): Promise<{ folderPath?: string }>;
   getCodeIndex(): Promise<unknown>;

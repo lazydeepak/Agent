@@ -12,6 +12,8 @@ export interface LogTailDto {
   id: string;
   modifiedAt: number;
   lines: string[];
+  /** True when the file exceeds MAX_TAIL_BYTES and earlier content was dropped. */
+  truncated: boolean;
 }
 
 const SAFE_ID = /^(pairs\/)?[A-Za-z0-9][A-Za-z0-9._-]*\.ndjson$/;
@@ -90,8 +92,9 @@ export function readLogTail(id: string): LogTailDto {
     const firstNewline = text.indexOf("\n");
     text = firstNewline === -1 ? "" : text.slice(firstNewline + 1);
   }
+  const truncated = stats.size > MAX_TAIL_BYTES;
   const lines = text.split("\n").filter((line) => line.trim().length > 0).map(redactLine);
-  return { id, modifiedAt: stats.mtimeMs, lines: lines.slice(-MAX_LINES) };
+  return { id, modifiedAt: stats.mtimeMs, lines: lines.slice(-MAX_LINES), truncated };
 }
 
 /** Cheap defense-in-depth for accidental base64 payloads/credentials in log lines. */

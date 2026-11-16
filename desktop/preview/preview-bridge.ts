@@ -1230,13 +1230,14 @@ export function createPreviewDesktopApi(): Window["desktop"] {
       ];
     },
 
-    async readLogFile(id: string): Promise<{ id: string; modifiedAt: number; lines: string[] }> {
+    async readLogFile(id: string): Promise<{ id: string; modifiedAt: number; lines: string[]; truncated?: boolean }> {
       return {
         id,
         modifiedAt: Date.now(),
         lines: [
           JSON.stringify({ time: new Date().toISOString(), pairId: "ipm001", type: "WATCH_STARTED", reason: "Preview log line." })
-        ]
+        ],
+        truncated: false
       };
     },
 

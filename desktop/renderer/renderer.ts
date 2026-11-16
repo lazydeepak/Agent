@@ -189,7 +189,7 @@ declare global {
       resumeWithFallbackModel(pairId: string, input: { providerId: string; modelId: string }): Promise<StatusSummaryDto>;
       adapterSettings(settings: unknown): Promise<{ ok: boolean }>;
       listLogs(): Promise<Array<{ id: string; name: string; size: number; modifiedAt: number }>>;
-      readLogFile(id: string): Promise<{ id: string; modifiedAt: number; lines: string[] }>;
+      readLogFile(id: string): Promise<{ id: string; modifiedAt: number; lines: string[]; truncated?: boolean }>;
       configureOpenCodeCredentials(): Promise<{ saved: boolean; username?: string }>;
       pickFolder(): Promise<{ folderPath?: string }>;
       getCodeIndex(): Promise<{
@@ -2415,7 +2415,11 @@ async function loadLogFile(id: string): Promise<void> {
   viewer.textContent = "Loading…";
   const data = await runAction(() => window.desktop.readLogFile(id));
   if (!data) return;
-  viewer.textContent = data.lines.length > 0 ? data.lines.join("\n") : "(empty file)";
+  const body = data.lines.length > 0 ? data.lines.join("\n") : "(empty file)";
+  viewer.textContent = data.truncated
+    ? `— showing last portion of ${id} — \n${body}`
+    : body;
+  viewer.scrollTop = viewer.scrollHeight;
 }
 
 document.addEventListener("DOMContentLoaded", () => {
