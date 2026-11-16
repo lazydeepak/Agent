@@ -101,6 +101,15 @@ describe("normalizeChatGptProject", () => {
     expect(normalizeChatGptProject(SUSANKHYA_URL)).toEqual({ slug: SUSANKHYA_SLUG });
   });
 
+  it("preserves the canonical Planner project URL separately from its slug", () => {
+    const url = `https://chatgpt.com/g/${SUSANKHYA_SLUG}-odarehub/project`;
+    expect(normalizeChatGptProject(url)).toEqual({
+      slug: SUSANKHYA_SLUG,
+      name: "odarehub",
+      projectUrl: url
+    });
+  });
+
   it("keeps a UUID-style hyphenated slug intact instead of splitting a display name", () => {
     const uuidSlug = "g-p-6a9285a5-0528-83ee-ac88-d7af13e977dd";
     expect(normalizeChatGptProject(uuidSlug)).toEqual({ slug: uuidSlug });
@@ -283,8 +292,8 @@ describe("ProjectPairService", () => {
         worker: { repoPath: "/Users/x/Susankhya" },
         planner: { projectSlug: SUSANKHYA_SLUG }
       });
-      expect(created).toEqual(validPair());
-      await expect(service.listProjectPairs()).resolves.toEqual([validPair()]);
+      expect(created).toEqual({ ...validPair(), projectName: "Susankhya" });
+      await expect(service.listProjectPairs()).resolves.toEqual([{ ...validPair(), projectName: "Susankhya" }]);
       await expect(service.removeProjectPair("susankhya-os")).resolves.toEqual({ projectPairId: "susankhya-os" });
       await expect(service.listProjectPairs()).resolves.toEqual([]);
     } finally {

@@ -74,7 +74,9 @@ const invokeChannelNames = [
   "discoverOpenCodeProjects",
   "discoverChatGptProjects",
   "listArchive",
-  "deleteArchive"
+  "deleteArchive",
+  "listLogs",
+  "readLogFile"
 ] as const;
 
 describe("desktop IPC contract", () => {

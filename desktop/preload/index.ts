@@ -128,6 +128,8 @@ export interface DesktopApi {
   listWorkerModels(pairId: string): Promise<WorkerModelDto[]>;
   switchWorkerModel(pairId: string, input: SwitchWorkerModelDto): Promise<WorkerModelSwitchResultDto>;
   adapterSettings(settings: unknown): Promise<{ ok: boolean }>;
+  listLogs(): Promise<Array<{ id: string; name: string; size: number; modifiedAt: number }>>;
+  readLogFile(id: string): Promise<{ id: string; modifiedAt: number; lines: string[] }>;
   configureOpenCodeCredentials(): Promise<{ saved: boolean; username?: string }>;
   pickFolder(): Promise<{ folderPath?: string }>;
   getCodeIndex(): Promise<unknown>;
@@ -152,6 +154,8 @@ export interface DesktopApi {
 const api: DesktopApi = {
   configPath: process.env.AGENT_CONFIG ?? "",
   adapterSettings: (settings) => invoke(IPC_CHANNELS.adapterSettings, settings),
+  listLogs: () => invoke(IPC_CHANNELS.listLogs),
+  readLogFile: (id) => invoke(IPC_CHANNELS.readLogFile, id),
   configureOpenCodeCredentials: () => invoke(IPC_CHANNELS.configureOpenCodeCredentials),
   pickFolder: () => invoke(IPC_CHANNELS.pickFolder),
   getCodeIndex: () => invoke(IPC_CHANNELS.codeIndex),

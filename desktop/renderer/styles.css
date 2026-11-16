@@ -1711,6 +1711,7 @@ textarea::placeholder {
   border-radius: var(--radius-md);
   line-height: 1.45;
   font-size: 12.5px;
+  white-space: pre-line;
 }
 
 .result-ok {
@@ -4371,3 +4372,46 @@ html[data-theme="light"] .browser-pairing-error { background: #fff5f5; color: #b
 .database-restore { padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--danger-soft); background: var(--danger-soft); margin-bottom: 12px; }
 .settings-status.fail, .settings-status--danger { color: var(--danger); }
 .settings-status.ok { color: var(--ok); }
+
+/* Logs view */
+.logs-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 12px;
+  min-height: 320px;
+  max-height: 62vh;
+}
+.logs-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--line, #1e293b);
+  border-radius: var(--radius-md, 8px);
+  padding: 6px;
+}
+.logs-file {
+  text-align: left;
+  font: 12px/1.4 var(--mono, monospace);
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary, #94a3b8);
+  border-radius: 6px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.logs-file:hover { background: rgba(148, 163, 184, 0.08); color: var(--text-primary, #e2e8f0); }
+.logs-file.active { background: rgba(56, 189, 248, 0.12); color: var(--accent, #38bdf8); }
+.logs-viewer {
+  overflow: auto;
+  border: 1px solid var(--line, #1e293b);
+  border-radius: var(--radius-md, 8px);
+  padding: 12px;
+  font: 11px/1.55 var(--mono, monospace);
+  white-space: pre;
+  color: var(--text-secondary, #94a3b8);
+}
+.logs-empty { padding: 16px; color: var(--text-muted, #64748b); font-size: 13px; }

@@ -176,7 +176,7 @@ export function renderProjectPicker(): HTMLElement {
   for (const project of wizard!.projects) {
     const option = document.createElement("option");
     option.value = project.projectPairId;
-    option.textContent = `${project.projectPairId} — ${projectRepoBasename(project.worker.repoPath)} ↔ ${project.planner.projectName ?? project.planner.projectSlug}`;
+    option.textContent = `${project.projectName?.trim() || project.projectPairId} — ${projectRepoBasename(project.worker.repoPath) || "no repository"} ↔ ${project.planner.projectName ?? project.planner.projectSlug}`;
     select.appendChild(option);
   }
   select.value = draft.projectPairId ?? "";
@@ -197,7 +197,7 @@ export function renderProjectPicker(): HTMLElement {
   const hint = el("span", "hint");
   const project = selectedProject();
   hint.textContent = project
-    ? `Sessions use this project's repository and are assigned to ${project.projectPairId}.`
+    ? `Sessions use this project's repository and are assigned to ${project.projectName ?? project.projectPairId}.`
     : "Pick a project to lock the repository, or enter a custom path.";
   wrap.appendChild(hint);
   return wrap;
@@ -434,7 +434,7 @@ export function updateStepReadiness(status: HTMLElement, step: WizardStep): void
   status.classList.toggle("result-fail", issues.length > 0);
   status.textContent = issues.length === 0
     ? `${step === "worker" ? "Worker Agent setup" : "Planner Agent setup"} is ready. You can continue.`
-    : `To continue: ${issues.join(" ")}`;
+    : `To continue:\n\u2022 ${issues.join("\n\u2022 ")}`;
 }
 
 export function renderManualCommand(body: HTMLElement): void {

@@ -95,6 +95,8 @@ export interface PairsConfig {
  */
 export interface ProjectPair {
   projectPairId: string;
+  /** Human-facing project title; independent from the stable internal id. */
+  projectName?: string;
   worker: {
     repoPath: string;
     projectId?: string;
@@ -102,6 +104,7 @@ export interface ProjectPair {
   planner: {
     projectSlug: string;
     projectName?: string;
+    projectUrl?: string;
   };
 }
 

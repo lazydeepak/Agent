@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { app, dialog } from "electron";
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { listLogs, readLogTail } from "./log-reader.js";
 import { promptAndStoreOpenCodeCredentials } from "./opencode-credentials.js";
 import { discoverOpenCodeServerUrl } from "../../src/adapters/opencode/desktop-state.js";
 import { saveOpenCodeEndpoint } from "./endpoint-settings.js";
@@ -480,6 +481,8 @@ export function registerIpcHandlers(ctx: IpcContext): void {
     });
     return { folderPath: result.canceled ? undefined : result.filePaths[0] };
   }));
+  handle(IPC_CHANNELS.listLogs, guarded(async () => listLogs()));
+  handle(IPC_CHANNELS.readLogFile, guarded(async (_e, id: unknown) => readLogTail(asNonEmptyString(id, "logId"))));
   handle(IPC_CHANNELS.adapterSettings, guarded(async (_e, settings: unknown) => {
     const svc = ctx.requireService();
     const result = svc.applyAdapterSettings(settings);

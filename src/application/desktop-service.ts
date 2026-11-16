@@ -285,7 +285,11 @@ export class DesktopApplicationService {
         this.relayEngine.reconfigurePairs(config.pairs);
         this.pairs = config.pairs;
       } catch (error) {
-        this.pairs = [];
+        // A reconfigure failure here is almost always a stale persisted RUNNING marker from an
+        // unclean shutdown (the pair is not running in this process). Hiding every pair from the UI
+        // forever is strictly worse than showing them with unknown status, so keep the config list.
+        // Configuration *edits* (refreshPairs) still use the strict guard.
+        this.pairs = config.pairs;
         this.recordEvent("CONFIG_LOAD_FAILED", undefined, { reason: messageOf(error) });
       }
     } catch (error) {

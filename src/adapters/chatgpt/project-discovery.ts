@@ -36,25 +36,35 @@ export class ChatGptProjectDiscoveryError extends Error {
 const PROJECT_SEGMENT_PATTERN = /^(g-p-(?:[0-9a-fA-F]{1,64}-)*[0-9a-fA-F]{4,64})(?:-(.+))?$/;
 
 /**
- * Accepts either a bare project slug (`g-p-<hex>[-<name>]`) or a full
- * project-scoped conversation URL (`https://chatgpt.com/g/<slug>/c/<id>`)
- * and returns the normalized `{ slug, name? }` identity.
+ * Accepts a bare project slug, a full project URL (`/g/<slug>/project`), or a
+ * project-scoped conversation URL (`/g/<slug>/c/<id>`), returning normalized identity.
  */
-export function normalizeChatGptProject(input: string): { slug: string; name?: string } {
+export function normalizeChatGptProject(input: string): { slug: string; name?: string; projectUrl?: string } {
   const trimmed = input.trim();
   if (!trimmed) {
     throw new ChatGptProjectDiscoveryError("A ChatGPT project slug or project conversation URL is required.");
   }
 
   let segment = trimmed;
+  let projectUrl: string | undefined;
   try {
-    const parsed = parseChatGptConversationUrl(trimmed);
-    if (parsed.project) {
-      segment = parsed.project;
-    } else if (trimmed !== parsed.conversationId && trimmed.includes("/")) {
-      throw new ChatGptProjectDiscoveryError(
-        "The ChatGPT URL is a plain conversation URL without a /g/<project> segment. Open a conversation inside a ChatGPT project."
-      );
+    const parsedUrl = new URL(trimmed);
+    if (!["chatgpt.com", "www.chatgpt.com"].includes(parsedUrl.hostname)) {
+      throw new ChatGptProjectDiscoveryError("Use a ChatGPT project URL.");
+    }
+    const projectPage = /^\/g\/([^/]+)\/project\/?$/.exec(parsedUrl.pathname);
+    if (projectPage) {
+      segment = decodeURIComponent(projectPage[1]!);
+      projectUrl = `https://chatgpt.com/g/${segment}/project`;
+    } else {
+      const parsed = parseChatGptConversationUrl(trimmed);
+      if (parsed.project) {
+        segment = parsed.project;
+      } else {
+        throw new ChatGptProjectDiscoveryError(
+          "The ChatGPT URL is a plain conversation URL without a /g/<project> segment. Conversation URLs belong to Add Session; use the /g/<project>/project URL here."
+        );
+      }
     }
   } catch (error) {
     if (error instanceof ChatGptProjectDiscoveryError) {
@@ -66,15 +76,15 @@ export function normalizeChatGptProject(input: string): { slug: string; name?: s
   const match = PROJECT_SEGMENT_PATTERN.exec(segment);
   if (match) {
     const name = match[2]?.trim().replace(/-/g, " ");
-    return { slug: match[1], ...(name ? { name } : {}) };
+    return { slug: match[1], ...(name ? { name } : {}), ...(projectUrl ? { projectUrl } : {}) };
   }
 
   if (/^g-p-[A-Za-z0-9_-]+$/.test(segment)) {
-    return { slug: segment };
+    return { slug: segment, ...(projectUrl ? { projectUrl } : {}) };
   }
 
   throw new ChatGptProjectDiscoveryError(
-    `Could not read a ChatGPT project from "${trimmed}". Use a g-p-<id> slug or a /g/<project>/c/<id> URL.`
+    `Could not read a ChatGPT project from "${trimmed}". Use a g-p-<id> slug or a /g/<project>/project URL.`
   );
 }
 

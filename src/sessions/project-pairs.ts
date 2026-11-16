@@ -36,7 +36,8 @@ const plannerProjectSchema = z
         chatGptProjectSlugPattern,
         "Planner projectSlug must look like g-p-<id> (the /g/<slug> segment of a project conversation URL)."
       ),
-    projectName: z.string().trim().min(1, "Planner projectName cannot be empty.").optional()
+    projectName: z.string().trim().min(1, "Planner projectName cannot be empty.").optional(),
+    projectUrl: z.string().trim().url("Planner projectUrl must be a valid URL.").optional()
   })
   .strict();
 
@@ -50,6 +51,7 @@ const legacyProjectPairSchema = z
         projectPairIdPattern,
         "projectPairId must use lowercase letters, numbers, and single hyphens, starting with a letter."
       ),
+    projectName: z.string().trim().min(1, "projectName cannot be empty.").optional(),
     worker: workerProjectSchema.optional(),
     opencode: workerProjectSchema.optional(),
     planner: plannerProjectSchema.optional(),
@@ -67,7 +69,12 @@ const legacyProjectPairSchema = z
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "A planner projectSlug is required." });
       return z.NEVER;
     }
-    return { projectPairId: value.projectPairId, worker, planner };
+    return {
+      projectPairId: value.projectPairId,
+      ...(value.projectName ? { projectName: value.projectName } : {}),
+      worker,
+      planner
+    };
   });
 
 const projectPairsConfigSchema = z
@@ -119,5 +126,3 @@ function validateUniqueProjectPairs(pairs: ProjectPair[]): void {
     throw new ProjectPairConfigError(issues);
   }
 }
-
-

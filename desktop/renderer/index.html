@@ -25,7 +25,7 @@
         <span class="brand-name">Agent</span>
       </div>
       <div class="global-actions">
-        <button id="add-pair" class="btn btn-primary btn-sm">+ Add Session</button>
+        <button id="add-pair" class="btn btn-primary btn-sm">+ Add Pair</button>
         <button id="add-project-pair" class="btn btn-ghost btn-sm">+ Add Project</button>
         <button id="refresh" class="btn" title="Refresh status">Refresh</button>
         <button id="start-all" class="btn btn-primary">Start All</button>
@@ -350,6 +350,22 @@
             <div class="pair-create-actions">
               <button id="pair-create-save" class="btn btn-primary">Save Pair</button>
             </div>
+          </div>
+        </section>
+
+        <section class="panel logs-panel hidden" id="logs-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Logs</h2>
+              <p class="panel-subtitle">Supervisor and relay logs from <code>logs/</code> and <code>logs/pairs/</code></p>
+            </div>
+            <div class="panel-header-actions">
+              <button id="logs-refresh" class="btn btn-sm btn-ghost" title="Refresh log files">Refresh</button>
+            </div>
+          </div>
+          <div class="logs-layout">
+            <div id="logs-list" class="logs-list" role="listbox" aria-label="Log files"></div>
+            <div id="logs-viewer" class="logs-viewer" tabindex="0" aria-label="Log file contents">Select a log file to read the last lines.</div>
           </div>
         </section>
 
@@ -695,14 +711,14 @@
             <span class="hint">The Worker Agent desktop project at this repository path.</span>
           </div>
           <div class="field">
-            <label for="project-pair-chatgpt">Planner project (slug or conversation URL)</label>
-            <input id="project-pair-chatgpt" type="text" autocomplete="off" placeholder="g-p-… or https://chatgpt.com/g/…/c/…" />
+            <label for="project-pair-chatgpt">Planner project URL or slug</label>
+            <input id="project-pair-chatgpt" type="text" autocomplete="off" placeholder="https://chatgpt.com/g/g-p-…/project" />
             <div class="field-actions">
               <button id="project-pair-chatgpt-detect" class="btn btn-sm">Detect from open tabs</button>
               <button id="project-pair-chatgpt-start-browser" class="btn btn-sm">Start Planner Agent browser</button>
             </div>
             <select id="project-pair-chatgpt-options" class="hidden" aria-label="Detected Planner projects"></select>
-            <span class="hint">The Planner Agent chat project holding this slug.</span>
+            <span class="hint">Project URL identifies the Planner project; conversation URLs are added to individual sessions.</span>
           </div>
           <p id="project-pair-error" class="detail hidden"></p>
         </div>

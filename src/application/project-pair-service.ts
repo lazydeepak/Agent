@@ -82,22 +82,25 @@ export class ProjectPairService {
     if (!slugInput) {
       throw new DesktopApplicationError("INVALID_INPUT", "A non-empty ChatGPT project slug or URL is required.");
     }
-    let normalized: { slug: string; name?: string };
+    let normalized: { slug: string; name?: string; projectUrl?: string };
     try {
       normalized = normalizeChatGptProject(slugInput);
     } catch (error) {
       throw new DesktopApplicationError("INVALID_CHATGPT_PROJECT", messageOf(error));
     }
     const explicitName = input.planner?.projectName?.trim();
+    const projectName = input.projectName?.trim() || basename(repoPath);
     const projectPairId = input.projectPairId?.trim() || suggestProjectPairId(repoPath, normalized.slug);
     const pair: ProjectPair = {
       projectPairId,
+      projectName,
       worker: {
         repoPath: resolve(repoPath),
         ...(input.worker?.projectId?.trim() ? { projectId: input.worker.projectId.trim() } : {})
       },
       planner: {
         projectSlug: normalized.slug,
+        ...(normalized.projectUrl ? { projectUrl: normalized.projectUrl } : {}),
         ...(explicitName ? { projectName: explicitName } : normalized.name ? { projectName: normalized.name } : {})
       }
     };
@@ -113,13 +116,13 @@ export class ProjectPairService {
     projectPairId: string,
     input: {
       worker?: { repoPath?: string; projectId?: string };
-      planner?: { projectSlug?: string; projectName?: string };
+      planner?: { projectSlug?: string; projectName?: string; projectUrl?: string };
     }
   ): Promise<ProjectPair> {
     try {
       const edits: {
         worker?: { repoPath?: string; projectId?: string };
-        planner?: { projectSlug?: string; projectName?: string };
+        planner?: { projectSlug?: string; projectName?: string; projectUrl?: string };
       } = {};
       if (input.worker) {
         edits.worker = {};
@@ -141,13 +144,14 @@ export class ProjectPairService {
         edits.planner = {};
         const slugInput = input.planner.projectSlug?.trim();
         if (slugInput !== undefined) {
-          let normalized: { slug: string; name?: string };
+          let normalized: { slug: string; name?: string; projectUrl?: string };
           try {
             normalized = normalizeChatGptProject(slugInput);
           } catch (error) {
             throw new DesktopApplicationError("INVALID_CHATGPT_PROJECT", messageOf(error));
           }
           edits.planner.projectSlug = normalized.slug;
+          if (normalized.projectUrl) edits.planner.projectUrl = normalized.projectUrl;
           const explicitName = input.planner.projectName?.trim();
           if (explicitName || normalized.name) {
             edits.planner.projectName = explicitName || normalized.name;

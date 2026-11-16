@@ -1223,6 +1223,23 @@ export function createPreviewDesktopApi(): Window["desktop"] {
       return { ok: true };
     },
 
+    async listLogs(): Promise<Array<{ id: string; name: string; size: number; modifiedAt: number }>> {
+      return [
+        { id: "supervisor.ndjson", name: "supervisor.ndjson", size: 181_000, modifiedAt: Date.now() - 60_000 },
+        { id: "pairs/ipm001.ndjson", name: "pairs/ipm001.ndjson", size: 96_000, modifiedAt: Date.now() - 120_000 }
+      ];
+    },
+
+    async readLogFile(id: string): Promise<{ id: string; modifiedAt: number; lines: string[] }> {
+      return {
+        id,
+        modifiedAt: Date.now(),
+        lines: [
+          JSON.stringify({ time: new Date().toISOString(), pairId: "ipm001", type: "WATCH_STARTED", reason: "Preview log line." })
+        ]
+      };
+    },
+
     async configureOpenCodeCredentials(): Promise<{ saved: boolean; username?: string }> {
       return { saved: true, username: "opencode" };
     },

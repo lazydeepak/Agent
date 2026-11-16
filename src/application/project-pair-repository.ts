@@ -102,7 +102,7 @@ export class ProjectPairRepository {
     projectPairId: string,
     edits: {
       worker?: { repoPath?: string; projectId?: string };
-      planner?: { projectSlug?: string; projectName?: string };
+      planner?: { projectSlug?: string; projectName?: string; projectUrl?: string };
     }
   ): Promise<ProjectPairsConfig> {
     return this.mutate(async () => {
@@ -125,10 +125,16 @@ export class ProjectPairRepository {
         ? {
             ...existing.planner,
             ...(edits.planner.projectSlug !== undefined ? { projectSlug: edits.planner.projectSlug } : {}),
-            ...(edits.planner.projectName !== undefined ? { projectName: edits.planner.projectName } : {})
+            ...(edits.planner.projectName !== undefined ? { projectName: edits.planner.projectName } : {}),
+            ...(edits.planner.projectUrl !== undefined ? { projectUrl: edits.planner.projectUrl } : {})
           }
         : existing.planner;
-      const updated: ProjectPair = { projectPairId: existing.projectPairId, worker, planner };
+      const updated: ProjectPair = {
+        projectPairId: existing.projectPairId,
+        ...(existing.projectName ? { projectName: existing.projectName } : {}),
+        worker,
+        planner
+      };
       const next = {
         projectPairs: current.projectPairs.map((pair) => (pair.projectPairId === projectPairId ? updated : pair))
       };
@@ -201,4 +207,3 @@ export class ProjectPairRepository {
     }
   }
 }
-

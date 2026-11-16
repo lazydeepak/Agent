@@ -71,6 +71,8 @@ export const IPC_CHANNELS = {
   discoverChatGptProjects: "desktop:project-pairs:discover-chatgpt-projects",
   listArchive: "desktop:archive:list",
   deleteArchive: "desktop:archive:delete",
+  listLogs: "desktop:logs:list",
+  readLogFile: "desktop:logs:tail",
   event: "desktop:event"
 } as const;
 
@@ -147,7 +149,9 @@ export const ALLOWED_INVOKE_CHANNELS: readonly string[] = [
   IPC_CHANNELS.discoverOpenCodeProjects,
   IPC_CHANNELS.discoverChatGptProjects,
   IPC_CHANNELS.listArchive,
-  IPC_CHANNELS.deleteArchive
+  IPC_CHANNELS.deleteArchive,
+  IPC_CHANNELS.listLogs,
+  IPC_CHANNELS.readLogFile
 ];
 
 export const EVENT_CHANNEL = IPC_CHANNELS.event;

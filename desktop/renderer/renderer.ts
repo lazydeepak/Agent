@@ -187,6 +187,8 @@ declare global {
       switchWorkerModel(pairId: string, input: { providerId: string; modelId: string; notifyPlanner?: boolean }): Promise<WorkerModelSwitchResultDto>;
       resumeWithFallbackModel(pairId: string, input: { providerId: string; modelId: string }): Promise<StatusSummaryDto>;
       adapterSettings(settings: unknown): Promise<{ ok: boolean }>;
+      listLogs(): Promise<Array<{ id: string; name: string; size: number; modifiedAt: number }>>;
+      readLogFile(id: string): Promise<{ id: string; modifiedAt: number; lines: string[] }>;
       configureOpenCodeCredentials(): Promise<{ saved: boolean; username?: string }>;
       pickFolder(): Promise<{ folderPath?: string }>;
       getCodeIndex(): Promise<{
@@ -641,6 +643,7 @@ export function setView(view: ViewMode): void {
   const dashboardPanel = document.getElementById("dashboard-panel");
   const projectPairsPanel = document.getElementById("project-pairs-panel");
   const activityPanel = document.getElementById("activity-panel");
+  const logsPanel = document.getElementById("logs-panel");
   const recoveryPanel = document.getElementById("recovery-panel");
   const pairsPanel = document.getElementById("pairs-panel");
   const pairsList = document.getElementById("pairs-list");
@@ -671,6 +674,7 @@ export function setView(view: ViewMode): void {
   if (view === "activity") {
     layout?.classList.remove("view-home", "view-sessions");
     layout?.classList.add("view-activity");
+    logsPanel?.classList.add("hidden");
     dashboardPanel?.classList.add("hidden");
     projectPairsPanel?.classList.add("hidden");
     pairsPanel?.classList.add("hidden");
@@ -681,9 +685,24 @@ export function setView(view: ViewMode): void {
     return;
   }
 
+  if (view === "logs") {
+    layout?.classList.remove("view-home", "view-sessions", "view-activity");
+    dashboardPanel?.classList.add("hidden");
+    projectPairsPanel?.classList.add("hidden");
+    pairsPanel?.classList.add("hidden");
+    activityPanel?.classList.add("hidden");
+    recoveryPanel?.classList.add("hidden");
+    mockPagePanel?.classList.add("hidden");
+    sourcePanel?.classList.add("hidden");
+    logsPanel?.classList.remove("hidden");
+    void openLogsView();
+    return;
+  }
+
   if (view === "recovery") {
     layout?.classList.remove("view-home", "view-sessions");
     recoveryPanel?.classList.remove("hidden");
+    logsPanel?.classList.add("hidden");
     dashboardPanel?.classList.add("hidden");
     projectPairsPanel?.classList.add("hidden");
     pairsPanel?.classList.add("hidden");
@@ -695,6 +714,7 @@ export function setView(view: ViewMode): void {
 
   if (view === "source") {
     layout?.classList.remove("view-home", "view-sessions", "view-activity");
+    logsPanel?.classList.add("hidden");
     dashboardPanel?.classList.add("hidden");
     projectPairsPanel?.classList.add("hidden");
     pairsPanel?.classList.add("hidden");
@@ -711,6 +731,7 @@ export function setView(view: ViewMode): void {
 
   if (view === "pairs") {
     layout?.classList.remove("view-home", "view-sessions", "view-activity");
+    logsPanel?.classList.add("hidden");
     dashboardPanel?.classList.add("hidden");
     projectPairsPanel?.classList.add("hidden");
     activityPanel?.classList.add("hidden");
@@ -724,10 +745,10 @@ export function setView(view: ViewMode): void {
 
   pairsPanel?.classList.add("hidden");
 
+  logsPanel?.classList.add("hidden");
   const mockViews: Record<string, { title: string; description: string }> = {
     models: { title: "Models", description: "Worker AI models: list, switch, fallback." },
     modules: { title: "Modules & Plugins", description: "Install and manage local plugins and diagnostic capability." },
-    logs: { title: "Logs", description: "Supervisor and relay logs from logs/ and pairs logs." },
     config: { title: "Config", description: "" },
     devices: { title: "Devices", description: "Mobile devices connected via the remote service." },
     health: { title: "Health", description: "Worker connectivity, browser state, and delivery health." },
@@ -877,7 +898,7 @@ function renderDashboard(): void {
 function renderDashboardAgentHealth(container: HTMLElement): void {
 if (state.pairs.length === 0) {
     const empty = el("div", "empty-state agent-empty");
-    empty.innerHTML = `<svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true"><circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="2" stroke-opacity="0.4"/><path d="M24 8 L36 24 L24 40 L12 24 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2"/><circle cx="24" cy="24" r="4" fill="currentColor"/></svg><span><strong>No agent pairs yet.</strong><br/>Click <em>+ Add Session</em> to create your first Planner ↔ Worker relay.</span>`;
+    empty.innerHTML = `<svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true"><circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="2" stroke-opacity="0.4"/><path d="M24 8 L36 24 L24 40 L12 24 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2"/><circle cx="24" cy="24" r="4" fill="currentColor"/></svg><span><strong>No agent pairs yet.</strong><br/>Click <em>+ Add Pair</em> to create your first Planner ↔ Worker relay.</span>`;
     container.replaceChildren(empty);
     return;
   }
@@ -937,7 +958,21 @@ if (state.pairs.length === 0) {
         if (result?.status === "READY") {
           toast(`Pair "${pair.pairId}" initialized: ready for relay.`);
         } else {
-          toast(`Pair "${pair.pairId}" initialized with warnings.`);
+          const failed = (result?.checks ?? []).filter((check) => check.status === "FAIL");
+          if (failed.length > 0) {
+            const details = failed.map((check) => `${check.name}: ${check.reason}`).join(" · ");
+            toast(`Pair "${pair.pairId}" not ready — ${failed.length} failing check${failed.length === 1 ? "" : "s"}: ${details}`);
+            for (const check of failed) {
+              noteActivityEvent({
+                pairId: pair.pairId,
+                type: "PAIR_VALIDATION_FAILED",
+                reason: `${check.name}: ${check.reason}`,
+                time: new Date().toISOString()
+              });
+            }
+          } else {
+            toast(`Pair "${pair.pairId}" initialized with warnings.`);
+          }
         }
         await refresh();
       } catch (err) {
@@ -1058,12 +1093,25 @@ function installAgentRefreshTimer(): void {
   }, 1000);
 }
 
+/** Pick the pair the dashboard should focus on: the running one, else an enabled non-paused one, else the first. */
+function pickDashboardPair(pairs: typeof state.pairs): (typeof state.pairs)[number] | undefined {
+  const running = pairs.find((pair) => {
+    const status = state.statuses.get(pair.pairId);
+    return status?.runtimeState === "RUNNING" || status?.runtimeState === "STARTING";
+  });
+  if (running) return running;
+  const enabled = pairs.find((pair) => pair.enabled && state.statuses.get(pair.pairId)?.paused !== true);
+  return enabled ?? pairs[0];
+}
+
 function renderAgent(): void {
   const statuses = Array.from(state.statuses.values());
-  const focused = state.pairs[0];
+  const focused = pickDashboardPair(state.pairs);
   const focusedStatus = focused ? state.statuses.get(focused.pairId) : undefined;
 
-  const activePairs = state.pairs.filter((p) => p.enabled).length;
+  const activePairs = state.statuses
+    ? [...state.statuses.values()].filter((s) => s.runtimeState === "RUNNING" || s.runtimeState === "STARTING").length
+    : 0;
   const isAmbiguous = (s: PeerHealthDto): boolean => s.latestDeliveryStatus === "DELIVERING" && (s.latestDeliveryVerifyAttempts ?? 0) >= 3;
   const attentionPairs = statuses.filter((s) => s.supervisorState === "STUCK" || s.supervisorState === "FAILED" || s.recovering === true || isAmbiguous(s)).length;
 
@@ -1290,14 +1338,11 @@ function renderProjectPairs(): void {
     return;
   }
   const navProjectsCount = document.getElementById("nav-projects-count");
-  if (navProjectsCount) {
-    navProjectsCount.textContent = String(state.projectPairs.length);
-  }
+  const groups = projectPairGroups();
+  if (navProjectsCount) navProjectsCount.textContent = String(groups.length);
   updateStartAllButton();
   const fragment = document.createDocumentFragment();
-  for (const pair of state.projectPairs) {
-    fragment.appendChild(renderProjectPairCard(pair));
-  }
+  for (const group of groups) fragment.appendChild(renderProjectPairCard(group.primary, group.members));
   const unassigned = renderUnassignedSessions();
   if (unassigned) {
     fragment.appendChild(unassigned);
@@ -1316,24 +1361,27 @@ function renderSidebarProjects(): void {
   const query = (searchInput?.value ?? "").toLowerCase().trim();
 
   const fragment = document.createDocumentFragment();
-  const projects = state.projectPairs.filter(p => p.projectPairId.toLowerCase().includes(query));
+  const projects = projectPairGroups().filter((group) => group.title.toLowerCase().includes(query));
 
   if (projects.length === 0) {
     const empty = el("div", "sidebar-empty-hint");
     empty.textContent = query ? "No matches" : "No projects";
     fragment.appendChild(empty);
   } else {
-    for (const project of projects) {
+    for (const group of projects) {
+      const project = group.primary;
       const btn = el("button", "sidebar-project-item");
       btn.dataset.projectPairId = project.projectPairId;
-      const presence = projectPairPresence(project);
+      const presence = group.members.some((member) => projectPairPresence(member) === "active")
+        ? "active"
+        : group.members.some((member) => projectPairPresence(member) === "partial") ? "partial" : "idle";
       const dotClass = presence === "active" ? "dot-ok" : presence === "partial" ? "dot-warn" : "dot-dim";
       const dot = el("span", `sidebar-project-status-dot ${dotClass}`);
       const icon = el("span", "sidebar-project-icon");
       icon.textContent = "📁";
       const name = el("span", "sidebar-project-name");
-      name.textContent = project.projectPairId;
-      name.title = project.projectPairId;
+      name.textContent = group.title;
+      name.title = group.title;
       btn.append(dot, icon, name);
       btn.addEventListener("click", () => {
         container.querySelectorAll(".sidebar-project-item").forEach((el) => el.classList.remove("active-project"));
@@ -1380,13 +1428,47 @@ function renderUnassignedSessions(): HTMLElement | null {
   });
 }
 
-function renderProjectPairCard(pair: ProjectPairDto): HTMLElement {
+function projectDisplayName(pair: ProjectPairDto): string {
+  return pair.projectName?.trim() || repoBasename(pair.worker.repoPath) || pair.planner.projectName || pair.projectPairId;
+}
+
+function projectPairGroups(): Array<{ title: string; primary: ProjectPairDto; members: ProjectPairDto[] }> {
+  const grouped = new Map<string, ProjectPairDto[]>();
+  for (const pair of state.projectPairs) {
+    const title = projectDisplayName(pair);
+    const key = title.trim().toLocaleLowerCase();
+    const members = grouped.get(key) ?? [];
+    members.push(pair);
+    grouped.set(key, members);
+  }
+  return [...grouped.values()].map((members) => {
+    members.sort((left, right) => Number(Boolean(right.worker.repoPath)) - Number(Boolean(left.worker.repoPath)));
+    return { title: projectDisplayName(members[0]!), primary: members[0]!, members };
+  });
+}
+
+function renderProjectPairCard(pair: ProjectPairDto, members: ProjectPairDto[] = [pair]): HTMLElement {
   const expanded = expandedProjectPairs.has(pair.projectPairId);
-  const presence = projectPairPresence(pair);
+  const presence = members.some((member) => projectPairPresence(member) === "active")
+    ? "active"
+    : members.some((member) => projectPairPresence(member) === "partial") ? "partial" : "idle";
 
   const body: HTMLElement[] = [];
   if (expanded) {
     body.push(renderProjectPairDetails(pair));
+    if (members.length > 1) {
+      const mappings = el("div", "project-session-list");
+      for (const member of members) {
+        const mapping = el("div", "detail");
+        mapping.textContent = [
+          member.planner.projectName ?? member.planner.projectSlug,
+          member.planner.projectUrl,
+          member.projectPairId
+        ].filter(Boolean).join(" · ");
+        mappings.appendChild(mapping);
+      }
+      body.push(mappings);
+    }
     body.push(buildDangerZone([{
       label: "Remove",
       enabled: true,
@@ -1398,10 +1480,10 @@ function renderProjectPairCard(pair: ProjectPairDto): HTMLElement {
   }
 
   const titleSpan = el("span", "pair-id");
-  titleSpan.textContent = pair.projectPairId;
+  titleSpan.textContent = projectDisplayName(pair);
 
   const sessions = state.pairs.filter(
-    (session) => state.sessionProject.get(session.pairId) === pair.projectPairId
+    (session) => members.some((member) => state.sessionProject.get(session.pairId) === member.projectPairId)
   );
   if (sessions.length > 0) {
     const head = el("div", "detail");
@@ -1430,7 +1512,7 @@ function renderProjectPairCard(pair: ProjectPairDto): HTMLElement {
     return s && (s.runtimeState === "RUNNING" || s.runtimeState === "STARTING");
   });
   const projectActions = el("div", "project-actions");
-  if (hasEligiblePair) {
+  if (members.length === 1 && hasEligiblePair) {
     projectActions.appendChild(actionButton("Start Relay", "btn-sm btn-primary", true, () => {
       void (async () => {
         const status = await runAction(async () => window.desktop.startProject?.(pair.projectPairId));
@@ -1439,7 +1521,7 @@ function renderProjectPairCard(pair: ProjectPairDto): HTMLElement {
       })();
     }));
   }
-  if (hasActivePair) {
+  if (members.length === 1 && hasActivePair) {
     projectActions.appendChild(actionButton("Stop Relay", "btn-sm", true, () => {
       void (async () => {
         const status = await runAction(async () => window.desktop.pauseProject?.(pair.projectPairId));
@@ -1507,7 +1589,8 @@ function renderProjectPairDetails(pair: ProjectPairDto): HTMLElement {
   details.appendChild(plannerHead);
   details.appendChild(buildIdentityBlock([
     { label: "Name", value: pair.planner.projectName ?? "—" },
-    { label: "Slug", value: pair.planner.projectSlug }
+    { label: "Slug", value: pair.planner.projectSlug },
+    { label: "Project URL", value: pair.planner.projectUrl ?? "—" }
   ]));
 
   const conversations = snapshot?.chatgpt?.conversationIds ?? [];
@@ -1705,6 +1788,8 @@ async function useActiveOpenCodeSession(): Promise<void> {
   const repo = document.getElementById("project-pair-repo") as HTMLInputElement | null;
   if (repo) {
     repo.value = found.repoPath;
+    const name = document.getElementById("project-pair-name") as HTMLInputElement | null;
+    if (name && !name.value.trim()) name.value = repoBasename(found.repoPath);
   }
   toast(`Using active desktop session in ${found.repoPath}.`, "ok");
 }
@@ -1719,11 +1804,11 @@ async function confirmProjectPairCreation(): Promise<void> {
     return;
   }
   if (!chatgpt) {
-    showProjectPairError("A ChatGPT project slug or project conversation URL is required.");
+    showProjectPairError("A Planner project URL or project slug is required. Use Add Pair for conversation URLs.");
     return;
   }
   const input: CreateProjectPairDto = {
-    ...(name ? { projectPairId: name } : {}),
+    ...(name ? { projectName: name } : {}),
     worker: { repoPath },
     planner: { projectSlug: chatgpt }
   };
@@ -2036,6 +2121,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const repo = document.getElementById("project-pair-repo") as HTMLInputElement | null;
       if (result?.folderPath && repo) {
         repo.value = result.folderPath;
+        const name = document.getElementById("project-pair-name") as HTMLInputElement | null;
+        if (name && !name.value.trim()) name.value = repoBasename(result.folderPath);
         repo.focus();
       }
     })();
@@ -2088,6 +2175,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const repo = document.getElementById("project-pair-repo") as HTMLInputElement | null;
     if (repo) {
       repo.value = value;
+      const name = document.getElementById("project-pair-name") as HTMLInputElement | null;
+      if (name && !name.value.trim()) name.value = repoBasename(value);
     }
   });
   document.getElementById("project-pair-chatgpt-options")?.addEventListener("change", (event) => {
@@ -2183,6 +2272,9 @@ document.addEventListener("DOMContentLoaded", () => {
   addProjectPairBtn?.addEventListener("click", closeMobileSidebar);
 
   setView("home");
+  document.getElementById("logs-refresh")?.addEventListener("click", () => {
+    void openLogsView();
+  });
 
   installAgentRefreshTimer();
   wireActivityView();
@@ -2275,6 +2367,54 @@ async function updateBackendHealthStatus(): Promise<void> {
       chatgptStatusEl.className = "badge badge-danger";
     }
   }
+}
+
+const logsEmpty = (message: string): HTMLElement => {
+  const node = el("div", "logs-empty");
+  node.textContent = message;
+  return node;
+};
+
+async function openLogsView(): Promise<void> {
+  const list = document.getElementById("logs-list");
+  const viewer = document.getElementById("logs-viewer");
+  if (!list) return;
+  list.replaceChildren(logsEmpty("Loading logs…"));
+  const files = await runAction(() => window.desktop.listLogs());
+  if (!files) {
+    list.replaceChildren(logsEmpty("Could not list logs/."));
+    return;
+  }
+  if (files.length === 0) {
+    list.replaceChildren(logsEmpty("No .ndjson logs under logs/ yet."));
+    if (viewer) viewer.textContent = "Nothing to show.";
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  for (const file of files) {
+    const button = el("button", "logs-file");
+    button.type = "button";
+    button.textContent = `${file.name}  ·  ${formatBytes(file.size)}`;
+    button.title = `${file.name} — modified ${new Date(file.modifiedAt).toLocaleString()}`;
+    button.addEventListener("click", () => {
+      list.querySelectorAll(".logs-file.active").forEach((node) => node.classList.remove("active"));
+      button.classList.add("active");
+      void loadLogFile(file.id);
+    });
+    fragment.appendChild(button);
+  }
+  list.replaceChildren(fragment);
+  const first = list.querySelector<HTMLButtonElement>(".logs-file");
+  first?.click();
+}
+
+async function loadLogFile(id: string): Promise<void> {
+  const viewer = document.getElementById("logs-viewer");
+  if (!viewer) return;
+  viewer.textContent = "Loading…";
+  const data = await runAction(() => window.desktop.readLogFile(id));
+  if (!data) return;
+  viewer.textContent = data.lines.length > 0 ? data.lines.join("\n") : "(empty file)";
 }
 
 document.addEventListener("DOMContentLoaded", () => {

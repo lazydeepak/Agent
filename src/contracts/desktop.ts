@@ -251,6 +251,7 @@ export interface UpdatePairDto {
 
 export interface ProjectPairDto {
   projectPairId: string;
+  projectName?: string;
   worker: {
     repoPath: string;
     projectId?: string;
@@ -258,11 +259,13 @@ export interface ProjectPairDto {
   planner: {
     projectSlug: string;
     projectName?: string;
+    projectUrl?: string;
   };
 }
 
 export interface CreateProjectPairDto {
   projectPairId?: string;
+  projectName?: string;
   worker: {
     repoPath: string;
     projectId?: string;
@@ -270,6 +273,7 @@ export interface CreateProjectPairDto {
   planner: {
     projectSlug: string;
     projectName?: string;
+    projectUrl?: string;
   };
 }
 

@@ -196,7 +196,7 @@ export function rebindSelection(draft: WizardDraft): string | undefined {
 export function wizardTitle(kind: WizardKind, draft: WizardDraft): string {
   switch (kind) {
     case "create":
-      return "Add Session";
+      return "Add Pair";
     case "edit":
       return `Edit Session — ${draft.targetPairId || draft.pairId || "session"}`;
     case "rebind":
