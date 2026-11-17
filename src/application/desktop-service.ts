@@ -1626,7 +1626,7 @@ export class DesktopApplicationService {
     }
     const entries: DatabaseBackupEntryDto[] = [];
     for (const name of readdirSync(backupDir)) {
-      if (!/^agent-.*\.sqlite$/.test(name)) {
+      if (!/^(agent|pre-restore)-.*\.sqlite$/.test(name)) {
         continue;
       }
       const full = join(backupDir, name);
@@ -1655,7 +1655,8 @@ export class DesktopApplicationService {
 
   restoreDatabase(fileName: string): DatabaseRestoreResultDto {
     const dbPath = resolveDbPath(this.options.dbPath);
-    if (!/^agent-[0-9]{8}-[0-9]{6}-backup\.sqlite$|^agent-[0-9]{8}-[0-9]{6}\.sqlite$/.test(fileName)) {
+    // Must match exactly what backupDatabase() generates: agent-<yyyy>-<MM>-<dd>-<HH>-<mm>-<ss>.sqlite
+    if (!/^(agent|pre-restore)-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}\.sqlite$/.test(fileName)) {
       throw new DesktopApplicationError("RESTORE_INVALID_NAME", "Backup file name is not a recognised Agent backup.");
     }
     const backupDir = join(dirname(dbPath), "backups");
@@ -1679,13 +1680,19 @@ export class DesktopApplicationService {
     const validationTarget = join(backupDir, `.restore-verify-${Date.now()}.sqlite`);
     copyFileSync(backupPath, validationTarget);
     try {
-      const probe = new SqliteRelayStore(validationTarget);
+      let compatible = false;
       try {
-        if (!probe.requiredTablesExist()) {
-          throw new DesktopApplicationError("RESTORE_INCOMPATIBLE", "Backup is missing required relay tables.");
+        const probe = new SqliteRelayStore(validationTarget);
+        try {
+          compatible = probe.requiredTablesExist();
+        } finally {
+          probe.close();
         }
-      } finally {
-        probe.close();
+      } catch {
+        compatible = false;
+      }
+      if (!compatible) {
+        throw new DesktopApplicationError("RESTORE_INCOMPATIBLE", "Backup is missing required relay tables.");
       }
     } finally {
       try { rmSync(validationTarget, { force: true }); } catch { /* cleanup best effort */ }

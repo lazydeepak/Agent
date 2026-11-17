@@ -363,6 +363,27 @@ Security and architecture boundaries:
 - **Config + persistence**: the dashboard loads the same `PairsConfig` format and persists to the same SQLite store; sensitive values (passwords, cookies, tokens) are never sent to the renderer.
 - **Shutdown**: closing the app stops the Agent runtimes this desktop process started; it never kills an external OpenCode server or external Chrome.
 
+### Database diagnostics and backup
+
+The desktop app ships a **Settings → Config → Database** card: it shows the SQLite file location, size, WAL size, journal mode, applied vs expected schema version (v17), and per-table counts, plus read-only evidence in Source → Ground Truth. Actions are limited to:
+
+- **Back Up Now** — atomic `VACUUM INTO` snapshot in `data/backups/agent-<timestamp>.sqlite`.
+- **Reveal in Finder** / **Copy Path**.
+- **Restore from Backup…** — refuses while any pair is running; validates the chosen backup (SQLite magic + required relay tables, name-checked against app-generated backups), snapshots the current database as `pre-restore-<timestamp>.sqlite`, atomically swaps files, then relaunches the app. Backups made before schema v17 remain restorable (new tables are re-created by the migration on next boot). There is deliberately no raw SQL editor and no in-UI delete.
+
+Restore is covered by `tests/database-backup.test.ts`.
+
+### Permission grants (v1.1 §11.5)
+
+**Settings → Config → Permissions** implements least-privilege, per-project (falls back to per-pair) grants for additional operator-approved authority. Today the enforced action is `model-switch-outside-approved`: switching a worker to a model not in the operator-approved list (`config/models.local.json`) requires an active grant.
+
+- **One-time** grants are consumed atomically when the authorized action succeeds; **permanent** grants persist until revoked.
+- **Revocation blocks new admissions immediately** — checks read current rows, there is no caching layer.
+- Every grant/revoke/consume is audit-logged to the append-only event log (`PERMISSION_GRANTED` / `PERMISSION_REVOKED` / `PERMISSION_CONSUMED`).
+- Project-scoped grants require a project registry validator (wired in the desktop app via the project-pairs service); contexts without one fail closed.
+
+Base relay authority is unchanged: pair Stop/Pause remains the control for stopping transport, and approved-model allow-lists remain enforced for ordinary switches.
+
 ### M10b - Desktop pair setup wizard
 
 M10b adds pair setup to the dashboard so a normal workflow needs only: open app → Add Pair → choose/create an OpenCode session → paste a ChatGPT conversation URL → validate → save → start. Everything reuses the same core APIs as the CLI; the renderer keeps no validation or readiness logic.
