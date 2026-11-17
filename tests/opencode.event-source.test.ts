@@ -59,7 +59,7 @@ describe("HttpOpenCodeEventSource", () => {
   });
 
   it("supports CRLF records and SSE multiline data", async () => {
-    const payload = JSON.stringify({ type: "session.next.step.ended", durable: { seq: 5 } });
+    const payload = JSON.stringify({ sessionID: "ses_worker_1", type: "session.next.step.ended", durable: { seq: 5 } });
     const split = payload.indexOf(",") + 1;
     const record = `data: ${payload.slice(0, split)}\r\ndata:${payload.slice(split)}\r\n\r\n`;
     const source = eventSource([sseResponse([record])]);
@@ -128,7 +128,7 @@ describe("HttpOpenCodeEventSource", () => {
 
     await take(source, 1, { afterSeq: 9 });
     expect(requestedUrl).toBe(
-      "http://127.0.0.1:4096/api/session/ses_worker_1/event?after=9"
+      "http://127.0.0.1:4096/api/event?after=9"
     );
   });
 
@@ -238,7 +238,8 @@ async function take(
 }
 
 function sse(payload: Record<string, unknown>): string {
-  return `data: ${JSON.stringify(payload)}\n\n`;
+  // The live stream is server-wide; subscribers must see per-frame session identity.
+  return `data: ${JSON.stringify({ sessionID: "ses_worker_1", ...payload })}\n\n`;
 }
 
 function sseResponse(chunks: string[]): Response {
