@@ -183,6 +183,7 @@ describe("Rule 5 step 5 — conditional OpenCode Desktop termination", () => {
       backoff: INSTANT_BACKOFF,
       sleep: noopSleep,
       verifyAllAffectedWorkersIdle: async () => false,
+      sharedServiceRestartAuthorized: async () => true,
       terminateOpenCodeDesktop: terminate,
       relaunchOpenCodeDesktop: relaunch,
       relaunchSettleMs: 0
@@ -207,6 +208,7 @@ describe("Rule 5 step 5 — conditional OpenCode Desktop termination", () => {
       verifyAllAffectedWorkersIdle: async () => {
         throw new Error("probe failed");
       },
+      sharedServiceRestartAuthorized: async () => true,
       terminateOpenCodeDesktop: terminate,
       relaunchOpenCodeDesktop: vi.fn(async () => undefined),
       relaunchSettleMs: 0
@@ -230,6 +232,7 @@ describe("Rule 5 step 5 — conditional OpenCode Desktop termination", () => {
       backoff: INSTANT_BACKOFF,
       sleep: noopSleep,
       verifyAllAffectedWorkersIdle: async () => true,
+      sharedServiceRestartAuthorized: async () => true,
       terminateOpenCodeDesktop: terminate,
       relaunchOpenCodeDesktop: relaunch,
       relaunchSettleMs: 0
@@ -252,6 +255,7 @@ describe("Rule 5 step 5 — conditional OpenCode Desktop termination", () => {
       backoff: INSTANT_BACKOFF,
       sleep: noopSleep,
       verifyAllAffectedWorkersIdle: async () => true,
+      sharedServiceRestartAuthorized: async () => true,
       terminateOpenCodeDesktop: terminate,
       relaunchOpenCodeDesktop: relaunch,
       relaunchSettleMs: 0
@@ -293,6 +297,7 @@ describe("recoverOpenCode — v1.1 §9.3 shared-restart deadline and pause/resto
       backoff: INSTANT_BACKOFF,
       sleep: noopSleep,
       verifyAllAffectedWorkersIdle: async () => true,
+      sharedServiceRestartAuthorized: async () => true,
       terminateOpenCodeDesktop: terminate,
       relaunchOpenCodeDesktop: relaunch,
       sharedRestartDeadlineMs: -1,     // deadline already blown before the restart branch
@@ -317,6 +322,7 @@ describe("recoverOpenCode — v1.1 §9.3 shared-restart deadline and pause/resto
       backoff: INSTANT_BACKOFF,
       sleep: noopSleep,
       verifyAllAffectedWorkersIdle: async () => true,
+      sharedServiceRestartAuthorized: async () => true,
       terminateOpenCodeDesktop: async () => { order.push("terminate"); },
       relaunchOpenCodeDesktop: async () => { order.push("relaunch"); },
       pauseAffectedPairs: async () => { order.push("pause"); },
@@ -341,6 +347,7 @@ describe("recoverOpenCode — v1.1 §9.3 shared-restart deadline and pause/resto
       backoff: INSTANT_BACKOFF,
       sleep: noopSleep,
       verifyAllAffectedWorkersIdle: async () => true,
+      sharedServiceRestartAuthorized: async () => true,
       terminateOpenCodeDesktop: async () => undefined,
       relaunchOpenCodeDesktop: async () => undefined,
       pauseAffectedPairs: async () => undefined,
@@ -349,5 +356,101 @@ describe("recoverOpenCode — v1.1 §9.3 shared-restart deadline and pause/resto
     });
     expect(result).toMatchObject({ recovered: true, action: "reobserve-session" });
     expect(restore).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("v1.1 §9 — shared-service restart requires operator authorization", () => {
+  it("refuses to touch the shared service when no grant exists, without pausing pairs", async () => {
+    const worker = new ControllableWorker();
+    worker.setUnreachable();
+    const terminate = vi.fn(async () => undefined);
+    const relaunch = vi.fn(async () => undefined);
+    const pauseAffectedPairs = vi.fn(async () => undefined);
+    const holds: string[] = [];
+    const result = await recoverOpenCode({
+      worker,
+      sessionId: "ses_elsewhere",
+      expectedRepoPath: makePair().worker.repoPath,
+      maxAttempts: 1,
+      backoff: INSTANT_BACKOFF,
+      sleep: noopSleep,
+      verifyAllAffectedWorkersIdle: async () => true,
+      terminateOpenCodeDesktop: terminate,
+      relaunchOpenCodeDesktop: relaunch,
+      pauseAffectedPairs,
+      onRestartUnsafeHold: (reason) => holds.push(reason),
+      relaunchSettleMs: 0
+    });
+    expect(result).toMatchObject({ recovered: false, code: "OPENCODE_UNREACHABLE" });
+    if (!result.recovered) expect(result.reason).toContain("Not Authorized");
+    expect(terminate).not.toHaveBeenCalled();
+    expect(relaunch).not.toHaveBeenCalled();
+    expect(pauseAffectedPairs).not.toHaveBeenCalled();
+    if (!result.recovered) expect(result.reason).toContain("Not Authorized");
+    expect(holds[0]).toMatch(/no active 'shared-service-restart' permission grant/);
+  });
+
+  it("refuses when the grant was consumed or revoked (authorizer returns false)", async () => {
+    const worker = new ControllableWorker();
+    worker.setUnreachable();
+    const terminate = vi.fn(async () => undefined);
+    const result = await recoverOpenCode({
+      worker,
+      sessionId: "ses_elsewhere",
+      expectedRepoPath: makePair().worker.repoPath,
+      maxAttempts: 1,
+      backoff: INSTANT_BACKOFF,
+      sleep: noopSleep,
+      verifyAllAffectedWorkersIdle: async () => true,
+      sharedServiceRestartAuthorized: async () => false,
+      terminateOpenCodeDesktop: terminate,
+      relaunchOpenCodeDesktop: vi.fn(async () => undefined),
+      relaunchSettleMs: 0
+    });
+    expect(terminate).not.toHaveBeenCalled();
+    if (!result.recovered) expect(result.reason).toContain("Not Authorized");
+  });
+
+  it("fails closed when the authorizer itself throws", async () => {
+    const worker = new ControllableWorker();
+    worker.setUnreachable();
+    const terminate = vi.fn(async () => undefined);
+    const result = await recoverOpenCode({
+      worker,
+      sessionId: "ses_elsewhere",
+      expectedRepoPath: makePair().worker.repoPath,
+      maxAttempts: 1,
+      backoff: INSTANT_BACKOFF,
+      sleep: noopSleep,
+      verifyAllAffectedWorkersIdle: async () => true,
+      sharedServiceRestartAuthorized: async () => {
+        throw new Error("store offline");
+      },
+      terminateOpenCodeDesktop: terminate,
+      relaunchOpenCodeDesktop: vi.fn(async () => undefined),
+      relaunchSettleMs: 0
+    });
+    expect(terminate).not.toHaveBeenCalled();
+    if (!result.recovered) expect(result.reason).toContain("Not Authorized");
+  });
+
+  it("authorization is checked before the verified-idle probe runs", async () => {
+    const worker = new ControllableWorker();
+    worker.setUnreachable();
+    const idle = vi.fn(async () => true);
+    const result = await recoverOpenCode({
+      worker,
+      sessionId: "ses_elsewhere",
+      expectedRepoPath: makePair().worker.repoPath,
+      maxAttempts: 1,
+      backoff: INSTANT_BACKOFF,
+      sleep: noopSleep,
+      verifyAllAffectedWorkersIdle: idle,
+      terminateOpenCodeDesktop: vi.fn(async () => undefined),
+      relaunchOpenCodeDesktop: vi.fn(async () => undefined),
+      relaunchSettleMs: 0
+    });
+    expect(idle).not.toHaveBeenCalled();
+    if (!result.recovered) expect(result.reason).toContain("Not Authorized");
   });
 });

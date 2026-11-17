@@ -375,12 +375,15 @@ Restore is covered by `tests/database-backup.test.ts`.
 
 ### Permission grants (v1.1 §11.5)
 
-**Settings → Config → Permissions** implements least-privilege, per-project (falls back to per-pair) grants for additional operator-approved authority. Today the enforced action is `model-switch-outside-approved`: switching a worker to a model not in the operator-approved list (`config/models.local.json`) requires an active grant.
+**Settings → Config → Permissions** implements least-privilege grants for additional operator-approved authority:
+
+- `model-switch-outside-approved` — per-project (falls back to per-pair): switching a worker to a model not in the operator-approved list (`config/models.local.json`) requires an active grant.
+- `shared-service-restart` — **global, machine-wide**: an explicit operator grant is additionally required before Agent terminates/relaunches the shared OpenCode Desktop service (on top of the existing safe-policy + all-affected-workers-verified-idle + deadline + pause/restore gates). No grant on file → the restart is refused with an operator hold notification and no pair is paused. Grant one-time (consumed at authorization time) or permanent; revocation blocks the next restart immediately.
 
 - **One-time** grants are consumed atomically when the authorized action succeeds; **permanent** grants persist until revoked.
 - **Revocation blocks new admissions immediately** — checks read current rows, there is no caching layer.
 - Every grant/revoke/consume is audit-logged to the append-only event log (`PERMISSION_GRANTED` / `PERMISSION_REVOKED` / `PERMISSION_CONSUMED`).
-- Project-scoped grants require a project registry validator (wired in the desktop app via the project-pairs service); contexts without one fail closed.
+- Project-scoped grants require a project registry validator (wired in the desktop app via the project-pairs service); contexts without one fail closed. Global grants need no registry.
 
 Base relay authority is unchanged: pair Stop/Pause remains the control for stopping transport, and approved-model allow-lists remain enforced for ordinary switches.
 

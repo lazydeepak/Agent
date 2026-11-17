@@ -386,9 +386,10 @@ export interface DatabaseRestoreResultDto {
   preRestoreBackup: string;
 }
 
-export type PermissionGrantAction = "model-switch-outside-approved";
+export type PermissionGrantAction = "model-switch-outside-approved" | "shared-service-restart";
 export type PermissionGrantMode = "one-time" | "permanent";
-export type PermissionGrantScopeType = "project" | "pair";
+/** v1.1 §11.5 — 'global' authorizes machine-wide operations (shared-service restart). */
+export type PermissionGrantScopeType = "project" | "pair" | "global";
 
 export interface PermissionGrantDto {
   id: number;

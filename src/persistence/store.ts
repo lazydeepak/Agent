@@ -36,11 +36,13 @@ export interface StoreDiagnosticsSnapshot {
   journalMode: string;
 }
 
+export type PermissionGrantAction = "model-switch-outside-approved" | "shared-service-restart";
+
 export interface PermissionGrantRow {
   id: number;
-  scopeType: "project" | "pair";
+  scopeType: "project" | "pair" | "global";
   scopeRef: string;
-  action: "model-switch-outside-approved";
+  action: PermissionGrantAction;
   mode: "one-time" | "permanent";
   grantedBy: string;
   grantedAt: string;
@@ -55,8 +57,8 @@ function rowToPermissionGrant(row: unknown): PermissionGrantRow | undefined {
   const scopeType = String(record.scope_type);
   const action = String(record.action);
   const mode = String(record.mode);
-  if (scopeType !== "project" && scopeType !== "pair") return undefined;
-  if (action !== "model-switch-outside-approved") return undefined;
+  if (scopeType !== "project" && scopeType !== "pair" && scopeType !== "global") return undefined;
+  if (action !== "model-switch-outside-approved" && action !== "shared-service-restart") return undefined;
   if (mode !== "one-time" && mode !== "permanent") return undefined;
   return {
     id: Number(record.id),
@@ -86,17 +88,17 @@ export interface RelayStore {
   requiredTablesExist(): boolean;
   /** v1.1 §11.5 — least-privilege, project/pair-scoped permission grants. */
   insertPermissionGrant(input: {
-    scopeType: "project" | "pair";
+    scopeType: "project" | "pair" | "global";
     scopeRef: string;
-    action: "model-switch-outside-approved";
+    action: PermissionGrantAction;
     mode: "one-time" | "permanent";
     grantedBy?: string;
     note?: string;
   }): PermissionGrantRow;
   listPermissionGrants(filter?: {
-    scopeType?: "project" | "pair";
+    scopeType?: "project" | "pair" | "global";
     scopeRef?: string;
-    action?: "model-switch-outside-approved";
+    action?: PermissionGrantAction;
   }): PermissionGrantRow[];
   getPermissionGrant(id: number): PermissionGrantRow | undefined;
   /** Sets revoked_at iff the grant exists and is not already revoked. Returns the updated row. */
@@ -322,15 +324,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_proposal_identity
 CREATE INDEX IF NOT EXISTS idx_proposal_pair ON ai_proposals (pair_id, status);
 `;
 
-export const EXPECTED_SCHEMA_VERSION = 17;
-const SCHEMA_VERSION = EXPECTED_SCHEMA_VERSION;  // v17: permission_grants (project/pair-scoped, one-time|permanent); v16: supervisor_state.{last_failure_signature,identical_failure_count,identical_failure_first_at,incident_disposition}; pair_state.{starting_side,last_capture_boundary_at}
+export const EXPECTED_SCHEMA_VERSION = 18;
+const SCHEMA_VERSION = EXPECTED_SCHEMA_VERSION;  // v18: permission_grants widen to global scope + shared-service-restart action; v17: permission_grants (project/pair-scoped)
 
+// v17: original single-action table. Kept for exact migration replay on fresh v18 databases.
 const PERMISSION_GRANTS_SCHEMA = `
 CREATE TABLE IF NOT EXISTS permission_grants (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  scope_type TEXT NOT NULL CHECK (scope_type IN ('project', 'pair')),
+  scope_type TEXT NOT NULL CHECK (scope_type IN ('project', 'pair', 'global')),
   scope_ref TEXT NOT NULL,
-  action TEXT NOT NULL CHECK (action IN ('model-switch-outside-approved')),
+  action TEXT NOT NULL CHECK (action IN ('model-switch-outside-approved', 'shared-service-restart')),
   mode TEXT NOT NULL CHECK (mode IN ('one-time', 'permanent')),
   granted_by TEXT NOT NULL DEFAULT 'operator',
   granted_at TEXT NOT NULL,
@@ -338,6 +341,27 @@ CREATE TABLE IF NOT EXISTS permission_grants (
   revoked_at TEXT,
   consumed_at TEXT
 );
+CREATE INDEX IF NOT EXISTS idx_permission_grants_scope
+  ON permission_grants (scope_type, scope_ref, action);
+`;
+
+// v18: widen CHECK constraints of v17 databases (project|pair / model-switch-outside-approved only).
+const PERMISSION_GRANTS_V18_MIGRATION = `
+CREATE TABLE permission_grants_v18 (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  scope_type TEXT NOT NULL CHECK (scope_type IN ('project', 'pair', 'global')),
+  scope_ref TEXT NOT NULL,
+  action TEXT NOT NULL CHECK (action IN ('model-switch-outside-approved', 'shared-service-restart')),
+  mode TEXT NOT NULL CHECK (mode IN ('one-time', 'permanent')),
+  granted_by TEXT NOT NULL DEFAULT 'operator',
+  granted_at TEXT NOT NULL,
+  note TEXT,
+  revoked_at TEXT,
+  consumed_at TEXT
+);
+INSERT INTO permission_grants_v18 SELECT * FROM permission_grants;
+DROP TABLE permission_grants;
+ALTER TABLE permission_grants_v18 RENAME TO permission_grants;
 CREATE INDEX IF NOT EXISTS idx_permission_grants_scope
   ON permission_grants (scope_type, scope_ref, action);
 `;
@@ -587,6 +611,9 @@ export class SqliteRelayStore implements RelayStore {
       }
       if (current < 17) {
         this.db.exec(PERMISSION_GRANTS_SCHEMA);
+      }
+      if (current >= 17 && current < 18) {
+        this.db.exec(PERMISSION_GRANTS_V18_MIGRATION);
       }
       if (row === undefined) {
         this.db.prepare("INSERT INTO schema_version (version) VALUES (?)").run(SCHEMA_VERSION);
@@ -1710,9 +1737,9 @@ export class SqliteRelayStore implements RelayStore {
   }
 
   insertPermissionGrant(input: {
-    scopeType: "project" | "pair";
+    scopeType: "project" | "pair" | "global";
     scopeRef: string;
-    action: "model-switch-outside-approved";
+    action: PermissionGrantAction;
     mode: "one-time" | "permanent";
     grantedBy?: string;
     note?: string;
@@ -1741,9 +1768,9 @@ export class SqliteRelayStore implements RelayStore {
   }
 
   listPermissionGrants(filter?: {
-    scopeType?: "project" | "pair";
+    scopeType?: "project" | "pair" | "global";
     scopeRef?: string;
-    action?: "model-switch-outside-approved";
+    action?: PermissionGrantAction;
   }): PermissionGrantRow[] {
     const clauses: string[] = [];
     const params: string[] = [];

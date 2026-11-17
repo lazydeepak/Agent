@@ -9,7 +9,8 @@ import type { PermissionGrantDto, PermissionGrantMode } from "../../src/contract
 import { toast } from "./dom.js";
 
 const ACTION_LABELS: Record<string, string> = {
-  "model-switch-outside-approved": "Model switch (outside approved list)"
+  "model-switch-outside-approved": "Model switch (outside approved list)",
+  "shared-service-restart": "Shared-service restart (all pairs)"
 };
 
 let currentPairs: Array<{ pairId: string; projectPairId?: string }> = [];
@@ -103,13 +104,23 @@ export async function initPermissionsCard(): Promise<void> {
   const grantButton = document.getElementById("permission-grant") as HTMLButtonElement | null;
   if (!pairSelect || !actionSelect || !modeSelect || !grantButton) return;
 
-  // Load pair choices for the grant form.
+  // Load pair choices for the grant form. The scope list follows the selected action:
+  // restart grants are machine-wide (single global option); model-switch grants are per pair/project.
   try {
     const pairs = typeof window.desktop?.listPairs === "function" ? await window.desktop.listPairs() : [];
     currentPairs = (pairs ?? []).map((pair) => ({
       pairId: pair.pairId,
       projectPairId: pair.projectPairId
     }));
+  } catch {
+    currentPairs = [];
+  }
+
+  const rebuildScopeOptions = (action: string): void => {
+    if (action === "shared-service-restart") {
+      pairSelect.innerHTML = `<option value="global:shared-opencode">Machine (shared OpenCode) — all pairs</option>`;
+      return;
+    }
     const options: string[] = [];
     for (const pair of currentPairs) {
       options.push(`<option value="pair:${escapeHtmlC(pair.pairId)}">Pair ${escapeHtmlC(pair.pairId)}</option>`);
@@ -118,9 +129,9 @@ export async function initPermissionsCard(): Promise<void> {
       }
     }
     pairSelect.innerHTML = options.length > 0 ? options.join("") : `<option value="">No pairs configured</option>`;
-  } catch {
-    pairSelect.innerHTML = `<option value="">Pairs unavailable</option>`;
-  }
+  };
+  actionSelect.addEventListener("change", () => rebuildScopeOptions(actionSelect.value));
+  rebuildScopeOptions(actionSelect.value);
 
   grantButton.addEventListener("click", async () => {
     const choice = pairSelect.value;

@@ -608,7 +608,7 @@
             </div>
             <div class="settings-card permissions-card">
               <h4 class="settings-title settings-card-title">Permissions</h4>
-              <p class="settings-hint">Least privilege by default. Grants are additional operator-approved authority scoped to one project (all of its session pairs) or one pair. One-time grants are consumed by the authorized action; permanent grants persist until revoked. Revocation blocks new admissions immediately and every grant, revoke, and consume is recorded in the append-only event log.</p>
+              <p class="settings-hint">Least privilege by default. Grants are additional operator-approved authority scoped to one project (all of its session pairs) or one pair — or, for the shared OpenCode restart, one machine-wide global grant covering all pairs. One-time grants are consumed by the authorized action; permanent grants persist until revoked. Revocation blocks new admissions immediately and every grant, revoke, and consume is recorded in the append-only event log.</p>
               <div class="permissions-grant-form">
                 <div class="field">
                   <label for="permission-pair-select">Grant to</label>
@@ -617,7 +617,8 @@
                 <div class="field">
                   <label for="permission-action-select">Action</label>
                   <select id="permission-action-select">
-                    <option value="model-switch-outside-approved">Model switch (outside approved list)</option>
+                    <option value="model-switch-outside-approved" selected>Model switch (outside approved list)</option>
+                    <option value="shared-service-restart">Shared-service restart (all pairs)</option>
                   </select>
                 </div>
                 <div class="field">

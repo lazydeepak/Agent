@@ -497,13 +497,19 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   }));
   handle(IPC_CHANNELS.grantPermission, guarded(async (_e, input: unknown) => {
     const raw = (input ?? {}) as Record<string, unknown>;
-    const scopeType = raw.scopeType === "project" || raw.scopeType === "pair" ? raw.scopeType : undefined;
-    const scopeRef = typeof raw.scopeRef === "string" ? raw.scopeRef.trim() : "";
-    const action = raw.action === "model-switch-outside-approved" ? raw.action : undefined;
+    const scopeType =
+      raw.scopeType === "project" || raw.scopeType === "pair" || raw.scopeType === "global" ? raw.scopeType : undefined;
+    const rawScopeRef = typeof raw.scopeRef === "string" ? raw.scopeRef.trim() : "";
+    const action =
+      raw.action === "model-switch-outside-approved" || raw.action === "shared-service-restart" ? raw.action : undefined;
     const mode = raw.mode === "one-time" || raw.mode === "permanent" ? raw.mode : undefined;
     const note = typeof raw.note === "string" && raw.note.trim().length > 0 ? raw.note.trim().slice(0, 500) : undefined;
-    if (!scopeType || !scopeRef || !action || !mode) {
-      throw new Error("permission grant requires scopeType (project|pair), scopeRef, action and mode.");
+    if (!scopeType || !action || !mode) {
+      throw new Error("permission grant requires scopeType (project|pair|global), action and mode.");
+    }
+    const scopeRef = scopeType === "global" ? "shared-opencode" : rawScopeRef;
+    if (!scopeRef) {
+      throw new Error("permission grant requires a non-empty scopeRef.");
     }
     return ctx.requireService().grantPermission({ scopeType, scopeRef, action, mode, note });
   }));

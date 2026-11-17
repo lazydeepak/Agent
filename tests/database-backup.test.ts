@@ -58,8 +58,8 @@ describe("DesktopApplicationService — database backup & restore", () => {
       const info = ctx.service.getDatabaseInfo();
       expect(info.databaseExists).toBe(true);
       expect(info.databasePath).toBe(ctx.dbPath);
-      expect(info.schemaVersion).toBe(17);
-      expect(info.expectedSchemaVersion).toBe(17);
+      expect(info.schemaVersion).toBe(18);
+      expect(info.expectedSchemaVersion).toBe(18);
       expect(info.tableCounts).toMatchObject({ relay_records: 1, permission_grants: 0 });
 
       const backup = ctx.service.backupDatabase();

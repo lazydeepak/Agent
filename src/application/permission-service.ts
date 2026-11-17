@@ -15,7 +15,15 @@ import type {
   PermissionGrantInputDto,
   PermissionGrantAction
 } from "../contracts/desktop.js";
+
+/** v1.1 §9 — the only global-scope grant in v1: authorizes restarting the shared OpenCode service. */
+export const GLOBAL_SCOPE_REF = "shared-opencode";
 import type { SessionPair } from "../types.js";
+
+export interface GlobalAuthorization {
+  authorized: boolean;
+  consumedGrantId?: number;
+}
 
 export interface PermissionServiceContext {
   store: RelayStore;
@@ -69,16 +77,32 @@ export class PermissionService {
     const scopeType = input?.scopeType;
     const mode = input?.mode;
     const action = input?.action;
-    if (scopeType !== "project" && scopeType !== "pair") {
-      throw new DesktopApplicationError("INVALID_INPUT", "Scope type must be 'project' or 'pair'.");
+    if (scopeType !== "project" && scopeType !== "pair" && scopeType !== "global") {
+      throw new DesktopApplicationError("INVALID_INPUT", "Scope type must be 'project', 'pair' or 'global'.");
     }
-    if (action !== "model-switch-outside-approved") {
+    if (action !== "model-switch-outside-approved" && action !== "shared-service-restart") {
       throw new DesktopApplicationError("INVALID_INPUT", `Unknown permission action "${String(action)}".`);
     }
     if (mode !== "one-time" && mode !== "permanent") {
       throw new DesktopApplicationError("INVALID_INPUT", "Mode must be 'one-time' or 'permanent'.");
     }
-    const scopeRef = await this.ctx.validateScopeRef(scopeType, String(input.scopeRef ?? "").trim());
+    const rawScopeRef = String(input.scopeRef ?? "").trim();
+    if (scopeType === "global") {
+      // Least privilege: global scope exists only for the machine-wide shared-service restart.
+      if (action !== "shared-service-restart") {
+        throw new DesktopApplicationError("INVALID_INPUT", "Global grants are only valid for shared-service-restart.");
+      }
+      if (rawScopeRef !== GLOBAL_SCOPE_REF) {
+        throw new DesktopApplicationError("INVALID_INPUT", `Global grants must use scopeRef '${GLOBAL_SCOPE_REF}'.`);
+      }
+    }
+    if (action === "shared-service-restart" && scopeType !== "global") {
+      // The restart is machine-wide; pair/project-scoped grants must never authorize it.
+      throw new DesktopApplicationError("INVALID_INPUT", "shared-service-restart grants must use global scope.");
+    }
+    const scopeRef = scopeType === "global"
+      ? GLOBAL_SCOPE_REF
+      : await this.ctx.validateScopeRef(scopeType, rawScopeRef);
     const note = typeof input.note === "string" && input.note.trim().length > 0 ? input.note.trim() : undefined;
     const row = this.ctx.store.insertPermissionGrant({
       scopeType,
@@ -140,6 +164,36 @@ export class PermissionService {
       if (hit) return hit;
     }
     return undefined;
+  }
+
+  /**
+   * v1.1 §9 — authorization for restarting the SHARED OpenCode service.
+   * Checks the global 'shared-service-restart' grant; a one-time grant is consumed at
+   * authorization time (the grant authorizes the disruption; the outcome is evidence, not authority).
+   */
+  authorizeGlobal(action: PermissionGrantAction): GlobalAuthorization {
+    const rows = this.ctx.store.listPermissionGrants({ scopeType: "global", scopeRef: GLOBAL_SCOPE_REF, action });
+    const active = rows.find(isActive);
+    if (!active) {
+      return { authorized: false };
+    }
+    if (active.mode === "permanent") {
+      return { authorized: true };
+    }
+    const consumed = this.ctx.store.consumePermissionGrant(active.id);
+    if (!consumed) {
+      // Lost the race against a concurrent consumer — fail closed.
+      return { authorized: false };
+    }
+    this.audit("PERMISSION_CONSUMED", undefined, {
+      grantId: active.id,
+      scopeType: "global",
+      scopeRef: GLOBAL_SCOPE_REF,
+      action,
+      mode: "one-time",
+      reason: "shared-service-restart authorization"
+    });
+    return { authorized: true, consumedGrantId: active.id };
   }
 
   /** Atomically consumes a one-time grant. Permanent grants are left intact. */

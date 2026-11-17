@@ -48,14 +48,59 @@ const makePair = (pairId: string, overrides: Partial<SessionPair> = {}): Session
 
 describe("SqliteRelayStore — v17 permission_grants", () => {
   it("advances the schema to v17 and creates permission_grants", async () => {
-    expect(EXPECTED_SCHEMA_VERSION).toBe(17);
+    expect(EXPECTED_SCHEMA_VERSION).toBe(18);
     const { dbPath } = await freshStore();
     const store = new SqliteRelayStore(dbPath);
     await store.init();
     const snapshot = store.diagnosticsSnapshot();
-    expect(snapshot.schemaVersion).toBe(17);
+    expect(snapshot.schemaVersion).toBe(18);
     const counts = store.tableCounts();
     expect(counts).toHaveProperty("permission_grants", 0);
+    store.close();
+  });
+
+  it("migrates a v17 database forward to v18 preserving grants", async () => {
+    const { dbPath } = await freshStore();
+    // Hand-build a v17 database: legacy CHECK constraints, one pair-scoped grant.
+    const { DatabaseSync } = await import("node:sqlite");
+    const raw = new DatabaseSync(dbPath);
+    raw.exec(`
+      CREATE TABLE permission_grants (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        scope_type TEXT NOT NULL CHECK (scope_type IN ('project', 'pair')),
+        scope_ref TEXT NOT NULL,
+        action TEXT NOT NULL CHECK (action IN ('model-switch-outside-approved')),
+        mode TEXT NOT NULL CHECK (mode IN ('one-time', 'permanent')),
+        granted_by TEXT NOT NULL DEFAULT 'operator',
+        granted_at TEXT NOT NULL,
+        note TEXT,
+        revoked_at TEXT,
+        consumed_at TEXT
+      );
+      CREATE INDEX idx_permission_grants_scope ON permission_grants (scope_type, scope_ref, action);
+      INSERT INTO permission_grants (scope_type, scope_ref, action, mode, granted_by, granted_at, note)
+        VALUES ('pair', 'kisab-main', 'model-switch-outside-approved', 'one-time', 'operator', '2026-11-14T00:00:00.000Z', 'keep me');
+      CREATE TABLE schema_version (version INTEGER NOT NULL);
+      INSERT INTO schema_version (version) VALUES (17);
+    `);
+    raw.close();
+    const store = new SqliteRelayStore(dbPath);
+    await store.init();
+    const check = new DatabaseSync(dbPath);
+    expect((check.prepare("SELECT version FROM schema_version").get() as { version: number }).version).toBe(18);
+    check.close();
+    expect(store.tableCounts()).toHaveProperty("permission_grants", 1);
+    const grants = store.listPermissionGrants();
+    expect(grants).toHaveLength(1);
+    expect(grants[0]).toMatchObject({ scopeRef: "kisab-main", action: "model-switch-outside-approved", note: "keep me" });
+    // Widened actions now insert cleanly.
+    const created = store.insertPermissionGrant({
+      scopeType: "global",
+      scopeRef: "shared-opencode",
+      action: "shared-service-restart",
+      mode: "permanent"
+    });
+    expect(created.scopeType).toBe("global");
     store.close();
   });
 
@@ -199,6 +244,36 @@ describe("PermissionService", () => {
     store.close();
   });
 
+  it("authorizes the shared-service restart only via the global grant, consuming one-time grants", async () => {
+    const { service, store, events } = await makeService();
+    expect(service.authorizeGlobal("shared-service-restart").authorized).toBe(false);
+
+    const permanent = await service.grant({ scopeType: "global", scopeRef: "shared-opencode", action: "shared-service-restart", mode: "permanent" });
+    expect(service.authorizeGlobal("shared-service-restart").authorized).toBe(true);
+    expect(service.authorizeGlobal("shared-service-restart").authorized).toBe(true);
+    service.revoke(permanent.id);
+    expect(service.authorizeGlobal("shared-service-restart").authorized).toBe(false);
+
+    const oneTime = await service.grant({ scopeType: "global", scopeRef: "shared-opencode", action: "shared-service-restart", mode: "one-time" });
+    expect(service.authorizeGlobal("shared-service-restart").authorized).toBe(true);
+    expect(service.authorizeGlobal("shared-service-restart").authorized).toBe(false);
+    expect(events).toContain("PERMISSION_CONSUMED");
+    store.close();
+  });
+
+  it("refuses scope/action combinations that don't match the global rule", async () => {
+    const { service, store } = await makeService();
+    await expect(service.grant({ scopeType: "pair", scopeRef: "kisab-main", action: "shared-service-restart", mode: "one-time" }))
+      .rejects.toMatchObject({ code: "INVALID_INPUT" });
+    await expect(service.grant({ scopeType: "project", scopeRef: "proj-1", action: "shared-service-restart", mode: "permanent" }))
+      .rejects.toMatchObject({ code: "INVALID_INPUT" });
+    await expect(service.grant({ scopeType: "global", scopeRef: "wrong-ref", action: "shared-service-restart", mode: "one-time" }))
+      .rejects.toMatchObject({ code: "INVALID_INPUT" });
+    await expect(service.grant({ scopeType: "global", scopeRef: "shared-opencode", action: "model-switch-outside-approved", mode: "one-time" }))
+      .rejects.toMatchObject({ code: "INVALID_INPUT" });
+    store.close();
+  });
+
   it("revoke of a nonexistent grant fails with NOT_FOUND", async () => {
     const { service, store } = await makeService();
     expect(() => service.revoke(9999)).toThrow(DesktopApplicationError);
@@ -323,6 +398,27 @@ describe("switchWorkerModel — §11.5 grant enforcement", () => {
       });
       await ctx.service.switchWorkerModel("kisab-main", { providerID: "openrouter", id: "unlisted" });
       expect(ctx.switched).toEqual([{ path: "/api/session/ses_worker_kisab-main/model" }]);
+      await ctx.service.shutdown();
+    } finally {
+      await ctx.cleanup();
+    }
+  });
+
+  it("sharedServiceRestartAuthorized enforces the global grant at the service boundary", async () => {
+    const ctx = await makeContext();
+    try {
+      await ctx.service.init();
+      expect(ctx.service.sharedServiceRestartAuthorized()).toBe(false);
+      const grant = await ctx.service.grantPermission({
+        scopeType: "global",
+        scopeRef: "shared-opencode",
+        action: "shared-service-restart",
+        mode: "one-time"
+      });
+      expect(ctx.service.sharedServiceRestartAuthorized()).toBe(true);
+      // One-time grant consumed — the next check fails closed.
+      expect(ctx.service.sharedServiceRestartAuthorized()).toBe(false);
+      expect(grant.id).toBeGreaterThan(0);
       await ctx.service.shutdown();
     } finally {
       await ctx.cleanup();

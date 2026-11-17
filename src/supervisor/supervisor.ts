@@ -61,6 +61,8 @@ export interface SupervisorRecoveryOptions {
   pauseAffectedPairs?: () => Promise<void>;
   /** v1.1 §9.3 — restore exactly the pairs paused by pauseAffectedPairs. */
   restoreAffectedPairs?: () => Promise<void>;
+  /** v1.1 §9 — global permission required to touch the shared OpenCode service; fail closed when absent. */
+  sharedServiceRestartAuthorized?: () => Promise<boolean>;
 }
 
 export interface SupervisorDeps {
@@ -706,7 +708,8 @@ export class Supervisor {
       relaunchSettleMs: recovery.relaunchSettleMs,
       sharedRestartDeadlineMs: recovery.sharedRestartDeadlineMs,
       pauseAffectedPairs: recovery.pauseAffectedPairs,
-      restoreAffectedPairs: recovery.restoreAffectedPairs
+      restoreAffectedPairs: recovery.restoreAffectedPairs,
+      sharedServiceRestartAuthorized: recovery.sharedServiceRestartAuthorized
     });
     return this.recoveryEngine;
   }

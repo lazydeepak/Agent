@@ -962,6 +962,14 @@ export class DesktopApplicationService {
     return this.ensurePermissions().revoke(grantId);
   }
 
+  /**
+   * v1.1 §9 — authorization for restarting the SHARED OpenCode service.
+   * Requires an active global 'shared-service-restart' grant; consumes it when one-time.
+   */
+  sharedServiceRestartAuthorized(): boolean {
+    return this.ensurePermissions().authorizeGlobal("shared-service-restart").authorized;
+  }
+
   getOpenCodeEndpoint(): string {
     return this.workerSessions.getOpenCodeEndpoint();
   }
@@ -1844,9 +1852,12 @@ export class DesktopApplicationService {
           }
         }
       },
-      // v1.1 §9 — predefined shared-service recovery, gated on verified idle.
+      // v1.1 §9 — predefined shared-service recovery, gated on verified idle AND operator grant.
       terminateOpenCodeDesktop: this.options.recoveryPolicy === "safe" ? desktopControl.terminateOpenCodeDesktop : undefined,
       relaunchOpenCodeDesktop: this.options.recoveryPolicy === "safe" ? desktopControl.relaunchOpenCodeDesktop : undefined,
+      sharedServiceRestartAuthorized: this.options.recoveryPolicy === "safe"
+        ? async () => this.sharedServiceRestartAuthorized()
+        : undefined,
       startServerLauncher:
         this.options.recoveryPolicy === "safe"
           ? (repoPath, baseUrl) => this.desktopTools.startOpenCode({ repoPath, baseUrl })

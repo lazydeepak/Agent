@@ -44,6 +44,12 @@ export interface OpenCodeRecoveryInput {
   pauseAffectedPairs?: () => Promise<void>;
   /** v1.1 §9.3 — restore exactly the pairs paused by pauseAffectedPairs, after verified restoration. */
   restoreAffectedPairs?: () => Promise<void>;
+  /**
+   * v1.1 §9 — authorization to restart the SHARED OpenCode service. When absent or returning
+   * false, the restart is refused with a hold + operator notification; it never proceeds.
+   * One-time grants are consumed at authorization time by the caller.
+   */
+  sharedServiceRestartAuthorized?: () => Promise<boolean>;
 }
 
 export interface OpenCodeStartOutcome {
@@ -83,7 +89,8 @@ export async function recoverOpenCode(
     relaunchSettleMs: input.relaunchSettleMs,
     sharedRestartDeadlineMs: input.sharedRestartDeadlineMs,
     pauseAffectedPairs: input.pauseAffectedPairs,
-    restoreAffectedPairs: input.restoreAffectedPairs
+    restoreAffectedPairs: input.restoreAffectedPairs,
+    sharedServiceRestartAuthorized: input.sharedServiceRestartAuthorized
   });
   if (healthOk !== true) {
     return {
@@ -155,6 +162,12 @@ interface TransportInput {
   pauseAffectedPairs?: () => Promise<void>;
   /** v1.1 §9.3 — restore exactly the pairs paused by pauseAffectedPairs, after verified restoration. */
   restoreAffectedPairs?: () => Promise<void>;
+  /**
+   * v1.1 §9 — authorization to restart the SHARED OpenCode service. When absent or returning
+   * false, the restart is refused with a hold + operator notification; it never proceeds.
+   * One-time grants are consumed at authorization time by the caller.
+   */
+  sharedServiceRestartAuthorized?: () => Promise<boolean>;
 }
 
 async function recoverTransport(input: TransportInput): Promise<true | { message: string }> {
@@ -198,6 +211,25 @@ async function recoverTransport(input: TransportInput): Promise<true | { message
   }
 
   const baseMessage = `OpenCode server did not become reachable after ${input.maxAttempts} attempts: ${readableError(lastError)}`;
+
+  // v1.1 §9 — authorize BEFORE verifying idle: if the operator has not granted a shared-service
+  // restart (or the grant was consumed), hold with an operator notification; the shared service
+  // is never restarted and no affected pair is paused. Fail closed.
+  if (input.terminateOpenCodeDesktop && input.relaunchOpenCodeDesktop) {
+    let authorized = false;
+    if (input.sharedServiceRestartAuthorized) {
+      try {
+        authorized = await input.sharedServiceRestartAuthorized();
+      } catch {
+        authorized = false;
+      }
+    }
+    if (!authorized) {
+      const holdReason = `Awaiting Operator — Shared-Service Restart Not Authorized: no active 'shared-service-restart' permission grant is on file (or it was consumed). OpenCode was NOT restarted and no pair was paused. Grant one-time or permanent permission in Settings → Permissions.`;
+      input.onRestartUnsafeHold?.(holdReason);
+      return { message: holdReason };
+    }
+  }
 
   // v1.1 §9 — terminate/reopen OpenCode ONLY after EVERY potentially affected Worker is verified idle.
   // Active, unreachable, or unobservable is NOT idle. If any affected pair is not idle (or the

@@ -47,6 +47,8 @@ export interface RecoveryEngineDeps {
   pauseAffectedPairs?: () => Promise<void>;
   /** v1.1 §9.3 — restore exactly the pairs paused by pauseAffectedPairs. */
   restoreAffectedPairs?: () => Promise<void>;
+  /** v1.1 §9 — global permission required to restart the shared OpenCode service; fail closed when absent. */
+  sharedServiceRestartAuthorized?: () => Promise<boolean>;
   relaunchSettleMs?: number;
 }
 
@@ -387,6 +389,7 @@ export class RecoveryEngine {
       sharedRestartDeadlineMs: this.deps.sharedRestartDeadlineMs,
       pauseAffectedPairs: this.deps.pauseAffectedPairs,
       restoreAffectedPairs: this.deps.restoreAffectedPairs,
+      sharedServiceRestartAuthorized: this.deps.sharedServiceRestartAuthorized,
       onStartAttempt: () => this.emit("RECOVERY_RETRY", { reason: "Checking/starting the configured OpenCode server.", details: { action: "start-server" } }),
       onStartError: (error) => this.emit("RECOVERY_RETRY", { reason: `OpenCode server start failed: ${error.message}`, details: { action: "start-server" } })
     });
