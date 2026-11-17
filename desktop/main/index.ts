@@ -405,7 +405,16 @@ app.whenReady().then(async () => {
     chatgpt: cli.chatgptCdpUrl ? { cdpUrl: cli.chatgptCdpUrl } : undefined,
     relay: cli.relay,
     recoveryPolicy: "safe",
-    relayEngine
+    relayEngine,
+    validateProjectScope: async (projectPairId: string) => {
+      if (!projectPairService) return false;
+      try {
+        const pairs = await projectPairService.listProjectPairs();
+        return pairs.some((pair) => pair.projectPairId === projectPairId);
+      } catch {
+        return false;
+      }
+    }
   });
   projectPairService = new ProjectPairService({
     configPath: projectPairsConfigPath(),

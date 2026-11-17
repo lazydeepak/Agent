@@ -187,7 +187,7 @@ export interface EndpointTestResultDto {
   checks?: Array<{ name: string; status: string; reason: string }>;
 }
 
-export type PairStartPriming = "from-worker" | "from-planner" | "from-trigger";
+export type PairStartPriming = "from-worker" | "from-planner" | "from-trigger" | "resume";
 
 export interface AutomationInfoDto {
   mode: "observe" | "relay";
@@ -199,6 +199,10 @@ export interface PlannerSeedResultDto {
   pairId: string;
   promptVersion: string;
   sentAt: string;
+  /** v1.1 §7.5 — resume path only: whether direct continuation was used. */
+  consistency?: "proven" | "unproven";
+  /** v1.1 §7.5 — resume path only: reasons direct continuation was refused. */
+  uncertainties?: string[];
 }
 
 export interface LocalAgentFeedResultDto {
@@ -380,4 +384,29 @@ export interface DatabaseBackupEntryDto {
 export interface DatabaseRestoreResultDto {
   restoredFrom: string;
   preRestoreBackup: string;
+}
+
+export type PermissionGrantAction = "model-switch-outside-approved";
+export type PermissionGrantMode = "one-time" | "permanent";
+export type PermissionGrantScopeType = "project" | "pair";
+
+export interface PermissionGrantDto {
+  id: number;
+  scopeType: PermissionGrantScopeType;
+  scopeRef: string;
+  action: PermissionGrantAction;
+  mode: PermissionGrantMode;
+  grantedBy: string;
+  grantedAt: string;
+  note?: string;
+  revokedAt?: string;
+  consumedAt?: string;
+}
+
+export interface PermissionGrantInputDto {
+  scopeType: PermissionGrantScopeType;
+  scopeRef: string;
+  action: PermissionGrantAction;
+  mode: PermissionGrantMode;
+  note?: string;
 }

@@ -9,7 +9,8 @@ export {
   SqliteRelayStore,
   ensureDbParent,
   resolveDbPath,
-  type RelayStore
+  type RelayStore,
+  type PermissionGrantRow
 } from "./store.js";
 export { canonicalRelayIdentity, canonicalizeText, hashText } from "./canonical.js";
 export {

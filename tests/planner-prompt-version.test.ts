@@ -22,7 +22,7 @@ function sha256(text: string): string {
  */
 const EXPECTED_VERSION_DIGESTS: Record<string, string> = {
   [`universal:${UNIVERSAL_PLANNER_PROMPT_VERSION}`]:
-    "8c00346e069932cd256ade99e6ce61406ac57732d94300d4ab35259fed52c84b",
+    "f1b3183eb84c71637e5a112474ba27ce6d5be252b15700cb79b43a72502bbaf5",
   [`local-agent:${LOCAL_AGENT_PLANNER_PROMPT_VERSION}`]:
     "aa0c0b2096c340319a0919254711d12426f610e28d0eefed83665b0119909347"
 };

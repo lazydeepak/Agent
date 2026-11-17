@@ -491,6 +491,29 @@ export function registerIpcHandlers(ctx: IpcContext): void {
     }
     return result;
   }));
+  handle(IPC_CHANNELS.listPermissionGrants, guarded(async (_e, input: unknown) => {
+    const pairId = (input as { pairId?: unknown } | undefined)?.pairId;
+    return ctx.requireService().listPermissionGrants(typeof pairId === "string" ? pairId : undefined);
+  }));
+  handle(IPC_CHANNELS.grantPermission, guarded(async (_e, input: unknown) => {
+    const raw = (input ?? {}) as Record<string, unknown>;
+    const scopeType = raw.scopeType === "project" || raw.scopeType === "pair" ? raw.scopeType : undefined;
+    const scopeRef = typeof raw.scopeRef === "string" ? raw.scopeRef.trim() : "";
+    const action = raw.action === "model-switch-outside-approved" ? raw.action : undefined;
+    const mode = raw.mode === "one-time" || raw.mode === "permanent" ? raw.mode : undefined;
+    const note = typeof raw.note === "string" && raw.note.trim().length > 0 ? raw.note.trim().slice(0, 500) : undefined;
+    if (!scopeType || !scopeRef || !action || !mode) {
+      throw new Error("permission grant requires scopeType (project|pair), scopeRef, action and mode.");
+    }
+    return ctx.requireService().grantPermission({ scopeType, scopeRef, action, mode, note });
+  }));
+  handle(IPC_CHANNELS.revokePermission, guarded(async (_e, input: unknown) => {
+    const grantId = Number((input as { grantId?: unknown } | undefined)?.grantId);
+    if (!Number.isInteger(grantId) || grantId <= 0) {
+      throw new Error("grantId must be a positive integer.");
+    }
+    return ctx.requireService().revokePermission(grantId);
+  }));
   handle(
     IPC_CHANNELS.configureOpenCodeCredentials,
     guarded(async () => {

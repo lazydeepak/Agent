@@ -4415,3 +4415,20 @@ html[data-theme="light"] .browser-pairing-error { background: #fff5f5; color: #b
   color: var(--text-secondary, #94a3b8);
 }
 .logs-empty { padding: 16px; color: var(--text-muted, #64748b); font-size: 13px; }
+
+/* Settings — Permissions card */
+.permissions-grant-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; align-items: end; margin-bottom: 10px; }
+.permissions-grant-form .settings-actions { grid-column: 1 / -1; margin: 0; }
+.field-optional { font-weight: 400; opacity: 0.6; }
+.permissions-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 4px; }
+.permission-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border-radius: var(--radius-md); background: var(--zebra); border: 1px solid var(--line-soft); }
+.permission-row-info { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; font-size: 12px; }
+.permission-scope { font-weight: 600; }
+.permission-action { color: var(--muted); }
+.permission-mode { font-size: 11px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line-soft); }
+.permission-state { font-size: 11px; padding: 1px 6px; border-radius: 999px; }
+.permission-state--ok { color: var(--ok); border: 1px solid var(--ok); }
+.permission-state--muted { color: var(--muted); border: 1px solid var(--line-soft); }
+.permission-state--danger { color: var(--danger); border: 1px solid var(--danger-soft); }
+.permission-row-meta { flex-basis: 100%; font-size: 11px; color: var(--muted); }
+.permission-row-info { row-gap: 2px; }

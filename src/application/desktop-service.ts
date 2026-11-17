@@ -18,12 +18,13 @@ import { SqliteRelayStore, ensureDbParent, resolveDbPath, EXPECTED_SCHEMA_VERSIO
 import { ExternalBrowserManager, type BrowserManager } from "../recovery/index.js";
 import { LockRegistry, createPairAdapters, isFailedRuntime, type RuntimeAdapterOptions, type RuntimeStatusSummary } from "../runtime/index.js";
 import type { OpenCodeModelInfo, OpenCodeModelRef } from "../types.js";
-import type { DiagnosticsSnapshotDto, DatabaseSettingsInfoDto, DatabaseBackupEntryDto, DatabaseRestoreResultDto } from "../contracts/desktop.js";
+import type { DiagnosticsSnapshotDto, DatabaseSettingsInfoDto, DatabaseBackupEntryDto, DatabaseRestoreResultDto, PermissionGrantDto, PermissionGrantInputDto } from "../contracts/desktop.js";
 import { ConfigError } from "../sessions/pairs.js";
 import { ChatGptUrlError, parseChatGptConversationUrl } from "../util/chatgpt-url.js";
 import { validatePair } from "../validator/readiness.js";
 import { hashText } from "../util/canonical.js";
 import { credentialsAllowed, isHttpUrl } from "../util/net.js";
+import { PermissionService } from "./permission-service.js";
 import { PairConfigError, PairConfigRepository, type PairEdits } from "./pair-config-repository.js";
 import {
   LocalDesktopToolLauncher,
@@ -71,6 +72,11 @@ export interface DesktopServiceOptions {
   openCodeDesktopScan?: () => Promise<OpenCodeSessionInfo>;
   desktopToolLauncher?: DesktopToolLauncher;
   relayEngine: RelayEngine;
+  /**
+   * v1.1 §11.5 — validates that a project pair id exists before a project-scoped grant is
+   * recorded. Optional; when omitted, project-scoped grants are refused (fail closed).
+   */
+  validateProjectScope?: (projectPairId: string) => Promise<boolean> | boolean;
 }
 
 export type DesktopEventRecord = EventRecord;
@@ -217,7 +223,8 @@ export class DesktopApplicationService {
       assertPairStopped: (pairId) => this.assertPairStopped(pairId),
       ensureBrowserLocks: () => (this.browserLocks ??= new LockRegistry()),
       recordEvent: (type, pairId, extras) => this.recordEvent(type, pairId, extras),
-      rebindWorker: (pairId, sessionId) => this.rebindWorker(pairId, sessionId)
+      rebindWorker: (pairId, sessionId) => this.rebindWorker(pairId, sessionId),
+      permissions: () => this.ensurePermissions()
     });
     this.plannerSeeding = new PlannerSeedingService({
       relay: Boolean(options.relay),
@@ -894,6 +901,67 @@ export class DesktopApplicationService {
   async listOpenCodeSessions(pairId: string): Promise<OpenCodeSessionInfo[]> {
     return this.workerSessions.listOpenCodeSessions(pairId);
   }
+  // --- v1.1 §11.5 — permission grants ---------------------------------------------------
+  private permissionService?: PermissionService;
+
+  private ensurePermissions(): PermissionService {
+    if (!this.permissionService) {
+      this.permissionService = new PermissionService({
+        store: this.ensureStore(),
+        validateScopeRef: async (scopeType, scopeRef) => {
+          if (!scopeRef) {
+            throw new DesktopApplicationError("INVALID_INPUT", "Grant scope must not be empty.");
+          }
+          if (scopeType === "pair") {
+            if (!this.getPairDetail(scopeRef)) {
+              throw new DesktopApplicationError("UNKNOWN_PAIR", `Unknown pairId "${scopeRef}".`);
+            }
+            return scopeRef;
+          }
+          const validator = this.options.validateProjectScope;
+          if (!validator) {
+            // Fail closed: project scopes cannot be validated in this context.
+            throw new DesktopApplicationError(
+              "PROJECT_SCOPE_UNVALIDATED",
+              "Project-scoped grants are not available in this context (no project registry wired). Use pair scope instead."
+            );
+          }
+          const ok = await validator(scopeRef);
+          if (!ok) {
+            throw new DesktopApplicationError("UNKNOWN_PROJECT_PAIR", `Unknown project pair "${scopeRef}".`);
+          }
+          return scopeRef;
+        },
+        recordEvent: (type, pairId, extras) => this.recordEvent(type, pairId, extras)
+      });
+    }
+    return this.permissionService;
+  }
+
+  /** All grants, or those applying to one pair (its own scope + its project scope). */
+  listPermissionGrants(pairId?: string): PermissionGrantDto[] {
+    if (pairId === undefined) {
+      return this.ensurePermissions().listAll();
+    }
+    this.assertKnownPair(pairId);
+    const pair = this.getPairDetail(pairId);
+    if (!pair) {
+      throw new DesktopApplicationError("UNKNOWN_PAIR", `Unknown pairId "${pairId}".`);
+    }
+    return this.ensurePermissions().listForPair(pair);
+  }
+
+  async grantPermission(input: PermissionGrantInputDto): Promise<PermissionGrantDto> {
+    if (!input || typeof input !== "object") {
+      throw new DesktopApplicationError("INVALID_INPUT", "Grant input must be an object.");
+    }
+    return this.ensurePermissions().grant(input);
+  }
+
+  revokePermission(grantId: number): PermissionGrantDto {
+    return this.ensurePermissions().revoke(grantId);
+  }
+
   getOpenCodeEndpoint(): string {
     return this.workerSessions.getOpenCodeEndpoint();
   }

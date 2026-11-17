@@ -26,6 +26,7 @@ import { DesktopToolError } from "./desktop-tool-manager.js";
 import { DesktopApplicationError } from "./desktop-service.js";
 import type { RelayableMessage, SessionPair } from "../types.js";
 import { isModelApproved } from "./approved-models.js";
+import type { PermissionService } from "./permission-service.js";
 
 /**
  * Everything the worker-session service needs from the owning application service. Declared as an
@@ -50,6 +51,8 @@ export interface WorkerSessionContext {
   ensureBrowserLocks(): LockRegistry;
   recordEvent(type: string, pairId: string | undefined, extras?: { reason?: string; details?: Record<string, unknown> }): void;
   rebindWorker(pairId: string, sessionId: string): Promise<PairDetail>;
+  /** v1.1 §11.5 — lazily-resolved permission service; absent in minimal test contexts. */
+  permissions?(): PermissionService;
 }
 
 function messageOf(error: unknown): string {
@@ -92,16 +95,34 @@ export class WorkerSessionService {
       const selected = available.find(
         (candidate) => candidate.enabled !== false && candidate.providerID === model.providerID && candidate.id === model.id
       );
+      let grant: { id: number; mode: "one-time" | "permanent" } | undefined;
       if (!isModelApproved(model.providerID, model.id)) {
-        throw new DesktopApplicationError(
-          "MODEL_NOT_AUTHORIZED",
-          `Model ${model.providerID}/${model.id} is not in the operator-approved list (config/models.local.json). Request operator approval to use this model or choose an approved one.`
-        );
+        // v1.1 §11.5 — an out-of-approved-list switch is additional authority:
+        // require an active operator-granted permission (one-time or permanent),
+        // checked at admission; one-time grants are consumed only after the switch succeeds.
+        const service = this.ctx.permissions?.();
+        const active = service?.findActiveGrant(pair, "model-switch-outside-approved");
+        if (service && active) {
+          grant = { id: active.id, mode: active.mode };
+        } else {
+          throw new DesktopApplicationError(
+            "MODEL_NOT_AUTHORIZED",
+            `Model ${model.providerID}/${model.id} is not in the operator-approved list (config/models.local.json). Grant a one-time or permanent permission (Settings → Permissions) or choose an approved one.`
+          );
+        }
       }
       if (!selected) {
         throw new DesktopApplicationError("UNKNOWN_WORKER_MODEL", "The selected worker model is not available from the configured OpenCode server.");
       }
       await worker.switchSessionModel(pair.worker, model);
+      if (grant) {
+        const service = this.ctx.permissions?.();
+        const consumed = service?.consumeForPair(pair, "model-switch-outside-approved", grant.id) ?? false;
+        this.ctx.recordEvent("PERMISSION_CONSUMED", pairId, {
+          reason: "Authorized out-of-approved-list model switch completed.",
+          details: { action: "model-switch-outside-approved", grantId: grant.id, mode: grant.mode, consumed }
+        });
+      }
       this.ctx.recordEvent("WORKER_MODEL_SWITCHED", pairId, {
         reason: `Worker session model switched to ${model.providerID}/${model.id}.`,
         details: { sessionId: pair.worker.sessionId, providerId: model.providerID, modelId: model.id }

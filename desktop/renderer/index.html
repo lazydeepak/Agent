@@ -606,6 +606,38 @@
                 <button id="database-restore-toggle" type="button" class="btn btn-danger btn-sm">Restore from Backup…</button>
               </div>
             </div>
+            <div class="settings-card permissions-card">
+              <h4 class="settings-title settings-card-title">Permissions</h4>
+              <p class="settings-hint">Least privilege by default. Grants are additional operator-approved authority scoped to one project (all of its session pairs) or one pair. One-time grants are consumed by the authorized action; permanent grants persist until revoked. Revocation blocks new admissions immediately and every grant, revoke, and consume is recorded in the append-only event log.</p>
+              <div class="permissions-grant-form">
+                <div class="field">
+                  <label for="permission-pair-select">Grant to</label>
+                  <select id="permission-pair-select"></select>
+                </div>
+                <div class="field">
+                  <label for="permission-action-select">Action</label>
+                  <select id="permission-action-select">
+                    <option value="model-switch-outside-approved">Model switch (outside approved list)</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="permission-mode-select">Mode</label>
+                  <select id="permission-mode-select">
+                    <option value="one-time" selected>One-time (consumed on use)</option>
+                    <option value="permanent">Permanent (until revoked)</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="permission-note-input">Note <span class="field-optional">(optional)</span></label>
+                  <input id="permission-note-input" type="text" autocomplete="off" maxlength="200" placeholder="Why is this granted?" />
+                </div>
+                <div class="settings-actions">
+                  <button id="permission-grant" type="button" class="btn btn-primary btn-sm">Grant Permission</button>
+                </div>
+              </div>
+              <div id="permissions-list" class="permissions-list"></div>
+              <p id="permission-status" class="settings-status" role="status"></p>
+            </div>
                         <div class="dashboard-section dashboard-backend-health-section">
               <div class="section-header">
                 <div>

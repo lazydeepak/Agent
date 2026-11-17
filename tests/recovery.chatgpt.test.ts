@@ -38,6 +38,18 @@ class ScriptedChatGPTAdapter implements ChatGPTBrowserAdapter {
   }
 }
 
+class ExactUrlRecordingAdapter extends ScriptedChatGPTAdapter {
+  readonly refreshed: Array<{ conversationId: string; conversationUrl: string }> = [];
+
+  constructor(observation: PlannerObservation) {
+    super(observation);
+  }
+
+  async refreshConversation(planner: PlannerIdentity): Promise<void> {
+    this.refreshed.push({ conversationId: planner.conversationId, conversationUrl: planner.conversationUrl });
+  }
+}
+
 class ManagedScriptedBrowser extends RecordingBrowserManager {
   relaunches = 0;
 
@@ -181,6 +193,51 @@ describe("recoverChatGPT", () => {
     }
     expect(browser.counts().relaunch).toBe(0);
     expect(browser.actions.some((action) => action === "relaunch")).toBe(false);
+  });
+
+  it("closes and reopens the exact Planner session URL on refresh (Rule 4 / §8.1)", async () => {
+    const pair = makePair();
+    const adapter = new ExactUrlRecordingAdapter(closedPage());
+    const browser = new RecordingBrowserManager("external");
+
+    const outcomePromise = recoverChatGPT({
+      planner: pair.planner,
+      adapter,
+      browser,
+      sleep: noopSleep
+    });
+    adapter.setObservation(healthyObservation());
+    const outcome = await outcomePromise;
+
+    expect(outcome).toMatchObject({ recovered: true, action: "reopen-conversation" });
+    expect(adapter.refreshed).toHaveLength(1);
+    expect(adapter.refreshed[0]).toEqual({
+      conversationId: pair.planner.conversationId,
+      conversationUrl: pair.planner.conversationUrl
+    });
+  });
+
+  it("continues probing (and lets the probe decide) when the refresh itself fails", async () => {
+    const adapter = new ExactUrlRecordingAdapter(closedPage());
+    const originalRefresh = adapter.refreshConversation.bind(adapter);
+    adapter.refreshConversation = async () => {
+      adapter.refreshed.push({ conversationId: "x", conversationUrl: "y" });
+      throw new Error("refresh exploded");
+    };
+    const browser = new RecordingBrowserManager("external");
+
+    const outcomePromise = recoverChatGPT({
+      planner: makePair().planner,
+      adapter,
+      browser,
+      sleep: noopSleep
+    });
+    adapter.setObservation(healthyObservation());
+    const outcome = await outcomePromise;
+
+    expect(outcome).toMatchObject({ recovered: true, action: "reopen-conversation" });
+    expect(adapter.refreshed.length).toBeGreaterThan(0);
+    void originalRefresh;
   });
 
   it("relaunches a managed browser exactly once even while it stays unhealthy", async () => {

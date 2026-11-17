@@ -87,11 +87,11 @@ export function castOpenCodeEndpoint(value: unknown): { baseUrl?: string } {
   return result;
 }
 
-export function castStartPriming(value: unknown): "from-worker" | "from-planner" | "from-trigger" | undefined {
+export function castStartPriming(value: unknown): "from-worker" | "from-planner" | "from-trigger" | "resume" | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }
-  if (value === "from-worker" || value === "from-planner" || value === "from-trigger") {
+  if (value === "from-worker" || value === "from-planner" || value === "from-trigger" || value === "resume") {
     return value;
   }
   throw new DesktopApplicationError("INVALID_START_PRIMING", `Unknown start priming "${String(value)}".`);

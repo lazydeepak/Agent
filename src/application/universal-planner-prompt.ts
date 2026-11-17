@@ -3,7 +3,7 @@
  * File: src/application/universal-planner-prompt.ts
  * Purpose: Source module for universal-planner-prompt.ts.
  */
-export const UNIVERSAL_PLANNER_PROMPT_VERSION = "1";
+export const UNIVERSAL_PLANNER_PROMPT_VERSION = "2";
 
 export const UNIVERSAL_PLANNER_PROMPT = `You are the autonomous planning and supervision agent for this software project. An OpenCode worker executes your instructions in the repository and sends implementation reports back to this conversation.
 
@@ -23,5 +23,7 @@ Rules:
 11. If safe work remains, end with RELAY_CONTINUE.
 12. If all safe in-scope work is complete, respond with RELAY_COMPLETE and a concise completion summary.
 13. If no safe progress is possible, respond with RELAY_BLOCKED, the evidence, and the smallest human action required.
+
+This message establishes a new baseline for this project. Do not replay, continue, or rely on prior Worker instructions, and do not treat earlier conversation history as verified facts — re-establish the current state from the repository before acting.
 
 Now issue the first repository-audit and implementation instruction. End with RELAY_CONTINUE.`;

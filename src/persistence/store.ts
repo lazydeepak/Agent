@@ -36,6 +36,42 @@ export interface StoreDiagnosticsSnapshot {
   journalMode: string;
 }
 
+export interface PermissionGrantRow {
+  id: number;
+  scopeType: "project" | "pair";
+  scopeRef: string;
+  action: "model-switch-outside-approved";
+  mode: "one-time" | "permanent";
+  grantedBy: string;
+  grantedAt: string;
+  note?: string;
+  revokedAt?: string;
+  consumedAt?: string;
+}
+
+function rowToPermissionGrant(row: unknown): PermissionGrantRow | undefined {
+  const record = row as Record<string, unknown> | undefined;
+  if (!record) return undefined;
+  const scopeType = String(record.scope_type);
+  const action = String(record.action);
+  const mode = String(record.mode);
+  if (scopeType !== "project" && scopeType !== "pair") return undefined;
+  if (action !== "model-switch-outside-approved") return undefined;
+  if (mode !== "one-time" && mode !== "permanent") return undefined;
+  return {
+    id: Number(record.id),
+    scopeType,
+    scopeRef: String(record.scope_ref),
+    action,
+    mode,
+    grantedBy: String(record.granted_by ?? "operator"),
+    grantedAt: String(record.granted_at),
+    note: nullableString(record.note),
+    revokedAt: nullableString(record.revoked_at),
+    consumedAt: nullableString(record.consumed_at)
+  };
+}
+
 export interface RelayStore {
   /** Public for read-only diagnostics (db path for stat reporting). */
   readonly dbPath: string;
@@ -48,6 +84,25 @@ export interface RelayStore {
   rawBackup(target: string): void;
   /** True iff the required relay tables exist. */
   requiredTablesExist(): boolean;
+  /** v1.1 §11.5 — least-privilege, project/pair-scoped permission grants. */
+  insertPermissionGrant(input: {
+    scopeType: "project" | "pair";
+    scopeRef: string;
+    action: "model-switch-outside-approved";
+    mode: "one-time" | "permanent";
+    grantedBy?: string;
+    note?: string;
+  }): PermissionGrantRow;
+  listPermissionGrants(filter?: {
+    scopeType?: "project" | "pair";
+    scopeRef?: string;
+    action?: "model-switch-outside-approved";
+  }): PermissionGrantRow[];
+  getPermissionGrant(id: number): PermissionGrantRow | undefined;
+  /** Sets revoked_at iff the grant exists and is not already revoked. Returns the updated row. */
+  revokePermissionGrant(id: number, revokedAt?: string): PermissionGrantRow | undefined;
+  /** Atomically consumes an active one-time grant. Returns true iff this call consumed it. */
+  consumePermissionGrant(id: number, consumedAt?: string): boolean;
   /** v1.1-style read-only evidence snapshot for the Source view. SELECTs only. */
   diagnosticsSnapshot(): StoreDiagnosticsSnapshot;
   close(): void;
@@ -267,8 +322,25 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_proposal_identity
 CREATE INDEX IF NOT EXISTS idx_proposal_pair ON ai_proposals (pair_id, status);
 `;
 
-export const EXPECTED_SCHEMA_VERSION = 16;
-const SCHEMA_VERSION = EXPECTED_SCHEMA_VERSION;  // v16: supervisor_state.{last_failure_signature,identical_failure_count,identical_failure_first_at,incident_disposition}; pair_state.{starting_side,last_capture_boundary_at}
+export const EXPECTED_SCHEMA_VERSION = 17;
+const SCHEMA_VERSION = EXPECTED_SCHEMA_VERSION;  // v17: permission_grants (project/pair-scoped, one-time|permanent); v16: supervisor_state.{last_failure_signature,identical_failure_count,identical_failure_first_at,incident_disposition}; pair_state.{starting_side,last_capture_boundary_at}
+
+const PERMISSION_GRANTS_SCHEMA = `
+CREATE TABLE IF NOT EXISTS permission_grants (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  scope_type TEXT NOT NULL CHECK (scope_type IN ('project', 'pair')),
+  scope_ref TEXT NOT NULL,
+  action TEXT NOT NULL CHECK (action IN ('model-switch-outside-approved')),
+  mode TEXT NOT NULL CHECK (mode IN ('one-time', 'permanent')),
+  granted_by TEXT NOT NULL DEFAULT 'operator',
+  granted_at TEXT NOT NULL,
+  note TEXT,
+  revoked_at TEXT,
+  consumed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_permission_grants_scope
+  ON permission_grants (scope_type, scope_ref, action);
+`;
 
 const RECOVERY_SUPERVISOR_COLUMNS = [
   "candidate_worker_message_id TEXT",
@@ -512,6 +584,9 @@ export class SqliteRelayStore implements RelayStore {
         if (!this.columnExists("relay_records", "authorization")) {
           this.db.exec("ALTER TABLE relay_records ADD COLUMN authorization TEXT");
         }
+      }
+      if (current < 17) {
+        this.db.exec(PERMISSION_GRANTS_SCHEMA);
       }
       if (row === undefined) {
         this.db.prepare("INSERT INTO schema_version (version) VALUES (?)").run(SCHEMA_VERSION);
@@ -1587,7 +1662,7 @@ export class SqliteRelayStore implements RelayStore {
 
   tableCounts(): Record<string, number> {
     const tableNames = [
-      "ai_proposals", "attention_items", "pair_state", "relay_cycles",
+      "ai_proposals", "attention_items", "pair_state", "permission_grants", "relay_cycles",
       "relay_records", "runtime_state", "startup_operations", "supervisor_state"
     ];
     const counts: Record<string, number> = {};
@@ -1612,6 +1687,9 @@ export class SqliteRelayStore implements RelayStore {
   }
 
   requiredTablesExist(): boolean {
+    // Deliberately excludes tables introduced after v16 (e.g. permission_grants, v17):
+    // backups taken before a migration must remain restorable. New tables are created
+    // by the migration path on next boot instead.
     const required = ["ai_proposals", "attention_items", "pair_state", "relay_cycles", "relay_records", "runtime_state", "startup_operations", "supervisor_state"];
     try {
       const rows = this.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Array<{ name: string }>;
@@ -1629,6 +1707,89 @@ export class SqliteRelayStore implements RelayStore {
     // Filename always comes from the service (timestamp-derived); no caller-controlled interpolation.
     const safe = target.replace(/'/g, "''");
     this.db.exec(`VACUUM INTO '${safe}';`);
+  }
+
+  insertPermissionGrant(input: {
+    scopeType: "project" | "pair";
+    scopeRef: string;
+    action: "model-switch-outside-approved";
+    mode: "one-time" | "permanent";
+    grantedBy?: string;
+    note?: string;
+  }): PermissionGrantRow {
+    const grantedAt = new Date().toISOString();
+    const result = this.db
+      .prepare(
+        `INSERT INTO permission_grants (scope_type, scope_ref, action, mode, granted_by, granted_at, note)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        input.scopeType,
+        input.scopeRef,
+        input.action,
+        input.mode,
+        input.grantedBy ?? "operator",
+        grantedAt,
+        input.note ?? null
+      );
+    const id = Number(result.lastInsertRowid);
+    const row = this.getPermissionGrant(id);
+    if (!row) {
+      throw new RelayStoreError("permission grant insert did not round-trip");
+    }
+    return row;
+  }
+
+  listPermissionGrants(filter?: {
+    scopeType?: "project" | "pair";
+    scopeRef?: string;
+    action?: "model-switch-outside-approved";
+  }): PermissionGrantRow[] {
+    const clauses: string[] = [];
+    const params: string[] = [];
+    if (filter?.scopeType) {
+      clauses.push("scope_type = ?");
+      params.push(filter.scopeType);
+    }
+    if (filter?.scopeRef) {
+      clauses.push("scope_ref = ?");
+      params.push(filter.scopeRef);
+    }
+    if (filter?.action) {
+      clauses.push("action = ?");
+      params.push(filter.action);
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    const rows = this.db
+      .prepare(`SELECT * FROM permission_grants ${where} ORDER BY id ASC`)
+      .all(...params);
+    return rows
+      .map((row) => rowToPermissionGrant(row))
+      .filter(isDefined);
+  }
+
+  getPermissionGrant(id: number): PermissionGrantRow | undefined {
+    const row = this.db.prepare("SELECT * FROM permission_grants WHERE id = ?").get(id);
+    return rowToPermissionGrant(row);
+  }
+
+  revokePermissionGrant(id: number, revokedAt?: string): PermissionGrantRow | undefined {
+    const ts = revokedAt ?? new Date().toISOString();
+    this.db.prepare(
+      "UPDATE permission_grants SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL"
+    ).run(ts, id);
+    return this.getPermissionGrant(id);
+  }
+
+  consumePermissionGrant(id: number, consumedAt?: string): boolean {
+    const ts = consumedAt ?? new Date().toISOString();
+    const result = this.db
+      .prepare(
+        `UPDATE permission_grants SET consumed_at = ?
+         WHERE id = ? AND mode = 'one-time' AND revoked_at IS NULL AND consumed_at IS NULL`
+      )
+      .run(ts, id);
+    return Number(result.changes) === 1;
   }
 }
 

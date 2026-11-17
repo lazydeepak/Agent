@@ -506,6 +506,19 @@ let duplicateReportState: { status: "ok" | "not-scanned" | "failed"; report?: {
 };
 
 const autoResumeState = new Map<string, boolean>();
+const previewPermissionGrants: import("../../src/contracts/desktop.js").PermissionGrantDto[] = [
+  {
+    id: 1,
+    scopeType: "pair",
+    scopeRef: "new-session-2026-09-14t15-40-42-638z",
+    action: "model-switch-outside-approved",
+    mode: "one-time",
+    grantedBy: "operator",
+    grantedAt: new Date(Date.now() - 3600_000).toISOString(),
+    note: "preview grant"
+  }
+];
+
 let previewSettings: SettingsDto = {};
 
 const store: PreviewStore = {
@@ -1243,6 +1256,36 @@ export function createPreviewDesktopApi(): Window["desktop"] {
 
     async configureOpenCodeCredentials(): Promise<{ saved: boolean; username?: string }> {
       return { saved: true, username: "opencode" };
+    },
+
+    async listPermissionGrants(pairId?: string): Promise<import("../../src/contracts/desktop.js").PermissionGrantDto[]> {
+      const rows = [...previewPermissionGrants];
+      if (pairId === undefined) return rows;
+      return rows.filter((g) => g.scopeRef === pairId || g.scopeType === "project");
+    },
+
+    async grantPermission(input: import("../../src/contracts/desktop.js").PermissionGrantInputDto): Promise<import("../../src/contracts/desktop.js").PermissionGrantDto> {
+      const grant: import("../../src/contracts/desktop.js").PermissionGrantDto = {
+        id: (previewPermissionGrants.reduce((max, g) => Math.max(max, g.id), 0) ?? 0) + 1,
+        scopeType: input.scopeType,
+        scopeRef: input.scopeRef,
+        action: input.action,
+        mode: input.mode,
+        grantedBy: "operator",
+        grantedAt: new Date().toISOString(),
+        note: input.note
+      };
+      previewPermissionGrants.push(grant);
+      emitStatusRefresh("permission-grant");
+      return grant;
+    },
+
+    async revokePermission(grantId: number): Promise<import("../../src/contracts/desktop.js").PermissionGrantDto> {
+      const grant = previewPermissionGrants.find((g) => g.id === grantId);
+      if (!grant) throw new Error(`Grant #${grantId} not found.`);
+      grant.revokedAt = new Date().toISOString();
+      emitStatusRefresh("permission-revoke");
+      return grant;
     },
 
     async pickFolder(): Promise<{ folderPath?: string }> {

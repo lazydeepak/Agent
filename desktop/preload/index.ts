@@ -131,6 +131,9 @@ export interface DesktopApi {
   listLogs(): Promise<Array<{ id: string; name: string; size: number; modifiedAt: number }>>;
   readLogFile(id: string): Promise<{ id: string; modifiedAt: number; lines: string[]; truncated?: boolean }>;
   configureOpenCodeCredentials(): Promise<{ saved: boolean; username?: string }>;
+  listPermissionGrants(pairId?: string): Promise<import("../../src/contracts/desktop.js").PermissionGrantDto[]>;
+  grantPermission(input: import("../../src/contracts/desktop.js").PermissionGrantInputDto): Promise<import("../../src/contracts/desktop.js").PermissionGrantDto>;
+  revokePermission(grantId: number): Promise<import("../../src/contracts/desktop.js").PermissionGrantDto>;
   pickFolder(): Promise<{ folderPath?: string }>;
   getCodeIndex(): Promise<unknown>;
   getDuplicateReport(): Promise<{ status: 'ok' | 'not-scanned' | 'failed'; report?: unknown; error?: string; generatedAt?: string | null }>;
@@ -157,6 +160,9 @@ const api: DesktopApi = {
   listLogs: () => invoke(IPC_CHANNELS.listLogs),
   readLogFile: (id) => invoke(IPC_CHANNELS.readLogFile, id),
   configureOpenCodeCredentials: () => invoke(IPC_CHANNELS.configureOpenCodeCredentials),
+  listPermissionGrants: (pairId?: string) => invoke(IPC_CHANNELS.listPermissionGrants, pairId === undefined ? undefined : { pairId }),
+  grantPermission: (input) => invoke(IPC_CHANNELS.grantPermission, input),
+  revokePermission: (grantId: number) => invoke(IPC_CHANNELS.revokePermission, { grantId }),
   pickFolder: () => invoke(IPC_CHANNELS.pickFolder),
   getCodeIndex: () => invoke(IPC_CHANNELS.codeIndex),
   getDuplicateReport: () => invoke(IPC_CHANNELS.duplicateReport),

@@ -7,6 +7,8 @@ import type {
   EndpointTestResultDto,
   DatabaseBackupEntryDto,
   DatabaseSettingsInfoDto,
+  PermissionGrantDto,
+  PermissionGrantInputDto,
   EventRecordDto,
   OpenCodeProjectDto,
   OpenCodeSessionInfoDto,
@@ -31,6 +33,7 @@ import { launchPlannerForPair } from "./planner.js";
 import { startWorkerManagementServer } from "./worker-management.js";
 import { discoverPlannerProjects, startPlannerManagementBrowser } from "./planner-management.js";
 import { wireConfigForm, wireSettingsSection } from "./settings-view.js";
+import { initPermissionsCard, refreshPermissionsCard } from "./permissions-view.js";
 import { appendPairCard, expandedPairs, setPairCardHooks } from "./pair-card.js";
 import {
   closeWizard,
@@ -130,6 +133,9 @@ declare global {
       startAll(): Promise<StatusSummaryDto>;
       stopAll(): Promise<StatusSummaryDto>;
       getDiagnosticsSnapshot(): Promise<import("../../src/contracts/desktop.js").DiagnosticsSnapshotDto>;
+      listPermissionGrants(pairId?: string): Promise<PermissionGrantDto[]>;
+      grantPermission(input: PermissionGrantInputDto): Promise<PermissionGrantDto>;
+      revokePermission(grantId: number): Promise<PermissionGrantDto>;
       getDatabaseInfo(): Promise<DatabaseSettingsInfoDto>;
       backupDatabase(): Promise<{ path: string }>;
       listDatabaseBackups(): Promise<DatabaseBackupEntryDto[]>;
@@ -775,6 +781,7 @@ export function setView(view: ViewMode): void {
     if (configContent) configContent.classList.toggle("hidden", !isConfig);
     if (isConfig) {
       void refreshDatabaseSection();
+      void refreshPermissionsCard();
     }
     if (mockPageTitle) mockPageTitle.textContent = isConfig ? "Adapter Settings" : mockViews[view].title;
     return;
@@ -2281,6 +2288,7 @@ document.addEventListener("DOMContentLoaded", () => {
   wireActivityView();
   initRecoveryPanel();
   initDatabasePanel();
+  void initPermissionsCard();
   document.getElementById("ground-truth-refresh")?.addEventListener("click", () => { void refreshGroundTruth(); });
   wireEvents();
   initGlobalFocusTrap();

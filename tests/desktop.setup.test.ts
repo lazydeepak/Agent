@@ -10,6 +10,7 @@ import type { ChatGPTReadinessProbe } from "../src/adapters/chatgpt/index.js";
 import type { OpenCodeSessionInfo } from "../src/adapters/opencode/http.js";
 import type { SessionPair } from "../src/types.js";
 import type { DesktopToolLauncher } from "../src/application/desktop-tool-manager.js";
+import { UNIVERSAL_PLANNER_PROMPT_VERSION } from "../src/application/universal-planner-prompt.js";
 import { createTestDesktopService } from "./helpers.js";
 
 const tempDirs: string[] = [];
@@ -27,7 +28,7 @@ describe("DesktopApplicationService wizard operations", () => {
       await relay.service.init();
       expect(observe.service.getAutomationInfo()).toMatchObject({
         mode: "observe",
-        universalPromptVersion: "1"
+        universalPromptVersion: UNIVERSAL_PLANNER_PROMPT_VERSION
       });
       expect(relay.service.getAutomationInfo()).toMatchObject({ mode: "relay" });
       expect(relay.service.getAutomationInfo().universalPrompt).toContain("RELAY_CONTINUE");
@@ -45,10 +46,10 @@ describe("DesktopApplicationService wizard operations", () => {
       ctx.service.subscribeEvents((event) => events.push(event.type));
       await expect(ctx.service.seedPlanner("main-1")).resolves.toMatchObject({
         pairId: "main-1",
-        promptVersion: "1"
+        promptVersion: UNIVERSAL_PLANNER_PROMPT_VERSION
       });
       expect(events).toContain("PLANNER_SEEDED");
-      expect(ctx.service.listPairs()[0]?.planner.automation).toMatchObject({ promptVersion: "1" });
+      expect(ctx.service.listPairs()[0]?.planner.automation).toMatchObject({ promptVersion: UNIVERSAL_PLANNER_PROMPT_VERSION });
     } finally {
       await ctx.cleanup();
     }
@@ -93,7 +94,7 @@ describe("DesktopApplicationService wizard operations", () => {
       await expect(ctx.service.startPair("main-1", "from-trigger")).resolves.toBeDefined();
       expect(events).toContain("PLANNER_SEEDED");
       expect(events).toContain("PAIR_PRIMED");
-      expect(ctx.service.listPairs()[0]?.planner.automation).toMatchObject({ promptVersion: "1" });
+      expect(ctx.service.listPairs()[0]?.planner.automation).toMatchObject({ promptVersion: UNIVERSAL_PLANNER_PROMPT_VERSION });
       await ctx.service.stopPair("main-1");
     } finally {
       await ctx.cleanup();

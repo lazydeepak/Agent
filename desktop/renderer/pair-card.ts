@@ -296,7 +296,9 @@ function selectedStartPriming(pairId: string, hasRelayHistory: boolean): PairSta
   if (state.automation?.mode !== "relay") {
     return undefined;
   }
-  return hasRelayHistory ? undefined : "from-planner";
+  // v1.1 §7.5 — pairs with relay history resume via direct continuation only when the
+  // durable ledger shows no uncertainty; otherwise a checkpoint briefing is sent.
+  return hasRelayHistory ? "resume" : "from-planner";
 }
 
 export async function startPair(pairId: string, priming?: PairStartPriming): Promise<void> {

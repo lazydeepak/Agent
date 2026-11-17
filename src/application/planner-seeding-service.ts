@@ -14,6 +14,10 @@ import type {
 } from "../contracts/desktop.js";
 import { DesktopApplicationError } from "./desktop-service.js";
 import { UNIVERSAL_PLANNER_PROMPT, UNIVERSAL_PLANNER_PROMPT_VERSION } from "./universal-planner-prompt.js";
+import {
+  buildResumeDecision,
+  collectResumeEvidence
+} from "./continuation-briefing.js";
 import { LOCAL_AGENT_PLANNER_PROMPT, LOCAL_AGENT_PLANNER_PROMPT_VERSION } from "./local-agent-planner-prompt.js";
 import type { RelayableMessage, SessionPair } from "../types.js";
 
@@ -100,6 +104,83 @@ export class PlannerSeedingService {
     return { pairId, promptVersion: UNIVERSAL_PLANNER_PROMPT_VERSION, sentAt };
   }
 
+  /**
+   * v1.1 §7.5 — Resume continuation.
+   * Direct continuation only when the durable ledger records no uncertainty
+   * (proven); otherwise a checkpoint briefing is sent listing last known state,
+   * the latest worker report (marked possible prior delivery), and the specific
+   * uncertainties. Never re-dispatches prior worker instructions.
+   */
+  async seedResume(pairId: string): Promise<PlannerSeedResult> {
+    this.ctx.assertPairStopped(pairId);
+    const pair = this.ctx.getPairDetail(pairId);
+    if (!pair) throw new DesktopApplicationError("UNKNOWN_PAIR", `Unknown pairId "${pairId}".`);
+    this.ctx.ensureBrowserLocks();
+    const store = this.ctx.ensureStore();
+    const planner = createPairAdapters(pair, this.ctx.adapterOptions()).planner;
+    const sentAt = new Date().toISOString();
+
+    const evidence = collectResumeEvidence(store, pairId);
+    const decision = buildResumeDecision(evidence);
+
+    // v1.1 §4 — durable startup-operation identity BEFORE any activation is sent.
+    const startupOp = store.createStartupOperation({
+      pairId,
+      mode: "resume",
+      plannerSessionId: pair.planner.conversationId,
+      workerSessionId: pair.worker.sessionId,
+      maxAttempts: 3
+    });
+    store.recordStartupAttempt(startupOp.id);
+
+    const message: RelayableMessage = {
+      id: `resume-${decision.consistency}-${pairId}-${Date.now()}`,
+      source: "worker",
+      role: "user",
+      text: decision.text,
+      createdAt: Date.now()
+    };
+
+    try {
+      await planner.sendWorkerMessage(pair.planner, message);
+    } catch (error) {
+      store.markStartupOperationHold(startupOp.id, `Resume activation could not be confirmed: ${error instanceof Error ? error.message : String(error)}`);
+      this.ctx.recordEvent("INTERVENTION_REQUIRED", pairId, {
+        reason: `Resume activation for pair ${pairId} is on hold — delivery could not be confirmed. Operator must reconcile before any managed work is dispatched.`,
+        details: { action: "resume-hold", startupId: startupOp.id, consistency: decision.consistency }
+      });
+      throw new DesktopApplicationError(
+        "RESUME_HOLD",
+        `Resume activation is on hold for pair ${pairId}: delivery could not be confirmed. Inspect the planner conversation and reconcile or resume the pair explicitly.`
+      );
+    }
+
+    this.ctx.recordEvent(
+      decision.consistency === "proven" ? "RESUME_CONTINUATION_SENT" : "RESUME_BRIEFING_SENT",
+      pairId,
+      {
+        reason:
+          decision.consistency === "proven"
+            ? "Direct continuation sent; the durable ledger records no uncertainty."
+            : `Resume briefing sent with ${decision.uncertainties.length} recorded uncertainty(ies).`,
+        details: {
+          consistency: decision.consistency,
+          uncertainties: decision.uncertainties,
+          promptVersion: decision.promptVersion,
+          startupId: startupOp.id,
+          latestCycleStatus: evidence.latestCycle?.cycleStatus ?? "none"
+        }
+      }
+    );
+    return {
+      pairId,
+      promptVersion: decision.promptVersion,
+      sentAt,
+      consistency: decision.consistency,
+      uncertainties: decision.uncertainties
+    };
+  }
+
   async feedLocalAgentPrompt(pairId: string): Promise<LocalAgentFeedResult> {
     this.ctx.assertPairStopped(pairId);
     const pair = this.ctx.getPairDetail(pairId);
@@ -149,6 +230,15 @@ export class PlannerSeedingService {
     this.ctx.assertPairStopped(pairId);
     const pair = this.ctx.getPairDetail(pairId);
     if (!pair) throw new DesktopApplicationError("UNKNOWN_PAIR", `Unknown pairId "${pairId}".`);
+
+    if (priming === "resume") {
+      const result = await this.seedResume(pairId);
+      this.ctx.recordEvent("PAIR_PRIMED", pairId, {
+        reason: `Resume ${result.consistency === "proven" ? "direct continuation" : "checkpoint briefing"} sent before start (consistency: ${result.consistency ?? "unknown"}).`,
+        details: { priming, consistency: result.consistency, uncertainties: result.uncertainties }
+      });
+      return;
+    }
 
     if (priming === "from-trigger") {
       await this.seedPlanner(pairId);
