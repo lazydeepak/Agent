@@ -1134,7 +1134,8 @@ function renderAgent(): void {
     ? [...state.statuses.values()].filter((s) => s.runtimeState === "RUNNING" || s.runtimeState === "STARTING").length
     : 0;
   const isAmbiguous = (s: PeerHealthDto): boolean => s.latestDeliveryStatus === "DELIVERING" && (s.latestDeliveryVerifyAttempts ?? 0) >= 3;
-  const attentionPairs = statuses.filter((s) => s.supervisorState === "STUCK" || s.supervisorState === "FAILED" || s.recovering === true || isAmbiguous(s)).length;
+  const needsOperator = (s: PeerHealthDto): boolean => s.incidentDisposition === "terminated_unverified" || s.incidentDisposition === "awaiting_operator" || s.incidentDisposition === "held";
+  const attentionPairs = statuses.filter((s) => s.supervisorState === "STUCK" || s.supervisorState === "FAILED" || s.recovering === true || isAmbiguous(s) || needsOperator(s)).length;
 
   const setText = (id: string, text: string): void => { const el = document.getElementById(id); if (el) el.textContent = text; };
   setText("agent-active-pairs", String(activePairs));
@@ -1183,9 +1184,18 @@ function isNotRunning(status: PeerHealthDto): boolean {
   return status.runtimeState !== "RUNNING" && status.runtimeState !== "STARTING";
 }
 
+/** True only when the durable ledger contains anything for this pair. */
+function hasRelayEvidence(status: PeerHealthDto | undefined): boolean {
+  if (!status) return false;
+  return Boolean(status.hasRelayHistory) ||
+    status.latestCycleStatus !== undefined ||
+    status.latestCycleWorkerCompletedAt !== undefined;
+}
+
 function ownerLabel(status: PeerHealthDto): string {
   if (status.paused) return "Paused";
   if (isNotRunning(status)) return "Stopped";
+  if (!hasRelayEvidence(status)) return "Ready";
   const busy = status.workerActivity === "working" || status.plannerActivity === "working";
   const stuck = status.supervisorState === "STUCK" || status.supervisorState === "FAILED";
   if (status.supervisorState === "WAITING_PLANNER") return "Planner";
@@ -1202,6 +1212,7 @@ function ownerLabel(status: PeerHealthDto): string {
 
 function activityLabel(status: PeerHealthDto): { label: string; detail: string } {
   if (isNotRunning(status)) return { label: "Stopped", detail: "Pair is not running — nothing is being relayed" };
+  if (!hasRelayEvidence(status)) return { label: "Ready", detail: "No relay turns yet — nothing dispatched, nothing delivered" };
   if (status.recovering) return { label: "Recovering", detail: status.lastError ?? "Recovery in progress" };
   if (status.supervisorState === "STUCK") return { label: "Blocked", detail: "No progress observed" };
   if (status.supervisorState === "FAILED") return { label: "Failed", detail: status.lastError ?? "Turn failed" };
@@ -1231,6 +1242,7 @@ function deliveryEvidenceFor(status?: PeerHealthDto): { label: string; detail: s
 function gateLabel(status: PeerHealthDto | undefined): string {
   if (!status) return "No pair selected";
   if (isNotRunning(status)) return status.supervisorState === "STUCK" ? "Stopped — STUCK: open Recovery for details" : "Stopped — press Start to resume";
+  if (!hasRelayEvidence(status)) return "Ready — waiting for the first relay turn (no deliveries yet)";
   if (status.awaitingStartingSideSelection) return "Awaiting Starting-Side Selection — pick which side relays first";
   if (status.startingSide) return `Starting side: ${status.startingSide === "planner" ? "Planner" : "Worker"} — dispatching the selected side first`;
   if (status.lastError?.startsWith("UNRECOVERABLE_GAPS")) return "Event window may contain gaps — unverified";

@@ -1357,6 +1357,7 @@ export class DesktopApplicationService {
     latestCycleStatus?: string;
     latestCycleDispatchedAt?: string;
     latestCycleWorkerCompletedAt?: string;
+    incidentDisposition?: string;
   } {
     if (!this.store) {
       return {};
@@ -1365,14 +1366,20 @@ export class DesktopApplicationService {
     const latest = cycles.length > 0 ? cycles[cycles.length - 1] : undefined;
     let stateChangedAt: string | undefined;
     let lastRuntimeStartAt: string | undefined;
-    try { stateChangedAt = this.store.getSupervisorState(pairId)?.stateChangedAt; } catch { /* best-effort */ }
+    let incidentDisposition: string | undefined;
+    try {
+      const continuity = this.store.getSupervisorState(pairId);
+      stateChangedAt = continuity?.stateChangedAt;
+      incidentDisposition = continuity?.incidentDisposition;
+    } catch { /* best-effort */ }
     try { lastRuntimeStartAt = this.store.getRuntimeState(pairId)?.lastRuntimeStartAt; } catch { /* best-effort */ }
     return {
       ...(stateChangedAt ? { stateChangedAt } : {}),
       ...(lastRuntimeStartAt ? { lastRuntimeStartAt } : {}),
       ...(latest?.cycleStatus ? { latestCycleStatus: latest.cycleStatus } : {}),
       ...(latest?.dispatchedAt ? { latestCycleDispatchedAt: latest.dispatchedAt } : {}),
-      ...(latest?.workerCompletedAt ? { latestCycleWorkerCompletedAt: latest.workerCompletedAt } : {})
+      ...(latest?.workerCompletedAt ? { latestCycleWorkerCompletedAt: latest.workerCompletedAt } : {}),
+      ...(incidentDisposition ? { incidentDisposition } : {})
     };
   }
 

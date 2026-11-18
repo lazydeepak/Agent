@@ -56,8 +56,10 @@ export interface PeerHealthDto {
   latestDeliveryVerifyAttempts?: number;
   /** v1.1 §7.3 — operator-selected starting side for this turn while both peers are busy. */
   startingSide?: "planner" | "worker" | null;
-  /** v1.1 §7.3–7.4 — both peers busy with pending work and no starting side selected yet. */
+  /** v1.1 §7.4 — both peers busy with pending work and no starting side selected yet. */
   awaitingStartingSideSelection?: boolean;
+  /** Terminal incident disposition when one exists (terminated_unverified / awaiting_operator / held / resolved). */
+  incidentDisposition?: string;
   supervisorState?: string;
   worker: string;
   planner: string;
