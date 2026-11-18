@@ -69,6 +69,7 @@ const invokeChannelNames = [
   "getChatGptEndpoint",
   "getTimeline",
   "clearTimeline",
+  "initializePair",
   "startProject",
   "pauseProject",
   "listProjectPairs",

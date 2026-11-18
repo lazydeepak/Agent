@@ -147,6 +147,7 @@ export const ALLOWED_INVOKE_CHANNELS: readonly string[] = [
   IPC_CHANNELS.getWorkerProgress,
   IPC_CHANNELS.getTimeline,
   IPC_CHANNELS.clearTimeline,
+  IPC_CHANNELS.initializePair,
   IPC_CHANNELS.startProject,
   IPC_CHANNELS.pauseProject,
   IPC_CHANNELS.listProjectPairs,
