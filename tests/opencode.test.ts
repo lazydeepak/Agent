@@ -587,7 +587,7 @@ describe("LiveOpenCodeAdapter readiness", () => {
       expect.objectContaining({
         name: "worker.serverReachable",
         status: "FAIL",
-        reason: "OpenCode server was not reachable: server requires authentication"
+        reason: 'OpenCode server was not reachable: server requires authentication — run "Connect OpenCode…" in Agent Settings'
       })
     );
   });

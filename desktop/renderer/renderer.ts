@@ -33,6 +33,7 @@ import { launchPlannerForPair } from "./planner.js";
 import { startWorkerManagementServer } from "./worker-management.js";
 import { discoverPlannerProjects, startPlannerManagementBrowser } from "./planner-management.js";
 import { wireConfigForm, wireSettingsSection } from "./settings-view.js";
+import { initOutcome } from "./initialize-toast.js";
 import { initPermissionsCard, refreshPermissionsCard } from "./permissions-view.js";
 import { appendPairCard, expandedPairs, setPairCardHooks } from "./pair-card.js";
 import {
@@ -963,23 +964,16 @@ if (state.pairs.length === 0) {
       initBtn.textContent = "Initializing…";
       try {
         const result = await runAction(() => window.desktop.initializePair(pair.pairId));
-        if (result?.status === "READY") {
-          toast(`Pair "${pair.pairId}" initialized: ready for relay.`);
-        } else {
-          const failed = (result?.checks ?? []).filter((check) => check.status === "FAIL");
-          if (failed.length > 0) {
-            const details = failed.map((check) => `${check.name}: ${check.reason}`).join(" · ");
-            toast(`Pair "${pair.pairId}" not ready — ${failed.length} failing check${failed.length === 1 ? "" : "s"}: ${details}`);
-            for (const check of failed) {
-              noteActivityEvent({
-                pairId: pair.pairId,
-                type: "PAIR_VALIDATION_FAILED",
-                reason: `${check.name}: ${check.reason}`,
-                time: new Date().toISOString()
-              });
-            }
-          } else {
-            toast(`Pair "${pair.pairId}" initialized with warnings.`);
+        const outcome = initOutcome(pair.pairId, result);
+        toast(outcome.message, outcome.tone);
+        if (result?.status !== "READY") {
+          for (const check of (result?.checks ?? []).filter((check) => check.status !== "PASS")) {
+            noteActivityEvent({
+              pairId: pair.pairId,
+              type: "PAIR_VALIDATION_FAILED",
+              reason: `${check.name}: ${check.reason}`,
+              time: new Date().toISOString()
+            });
           }
         }
         await refresh();

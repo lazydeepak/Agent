@@ -607,7 +607,7 @@ function samePath(left: string, right: string): boolean {
 
 function readableOpenCodeError(error: unknown): string {
   if (error instanceof OpenCodeHttpError && error.status === 401) {
-    return "server requires authentication";
+    return 'server requires authentication — run "Connect OpenCode…" in Agent Settings';
   }
   if (error instanceof Error) {
     return error.message;
