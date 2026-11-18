@@ -67,6 +67,9 @@ export interface DesktopApi {
   listPairs(): Promise<PairIdentityDto[]>;
   getStatus(): Promise<StatusSummaryDto>;
   getTimeline(pairId?: string, limit?: number): Promise<Array<{ time: string; pairId?: string; projectPairId?: string; type: string; state?: string; previousState?: string; reason?: string; details?: Record<string, unknown> }>>;
+  /** Initialize a pair: validate readiness and persist the startup readiness report. */
+  initializePair(pairId: string): Promise<ValidationResultDto>;
+  clearTimeline(): Promise<{ ok: boolean }>;
   pausePair(pairId: string): Promise<StatusSummaryDto>;
   resumePair(pairId: string): Promise<StatusSummaryDto>;
   startPair(pairId: string, priming?: PairStartPriming): Promise<StatusSummaryDto>;
@@ -223,6 +226,8 @@ const api: DesktopApi = {
   resumeWithFallbackModel: (pairId, input) => invoke(IPC_CHANNELS.resumeWithFallbackModel, pairId, input),
   getWorkerProgress: (pairId, forceRefresh) => invoke(IPC_CHANNELS.getWorkerProgress, pairId, forceRefresh),
   getTimeline: (pairId?: string, limit?: number) => invoke(IPC_CHANNELS.getTimeline, { pairId, limit }),
+  initializePair: (pairId) => invoke(IPC_CHANNELS.initializePair, pairId),
+  clearTimeline: () => invoke(IPC_CHANNELS.clearTimeline),
   startProject: (projectPairId: string) => invoke(IPC_CHANNELS.startProject, projectPairId),
   pauseProject: (projectPairId: string) => invoke(IPC_CHANNELS.pauseProject, projectPairId),
   listProjectPairs: () => invoke(IPC_CHANNELS.listProjectPairs),

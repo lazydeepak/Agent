@@ -1179,8 +1179,13 @@ function renderAgent(): void {
   setText("agent-gate-text", gateLabel(focusedStatus));
 }
 
+function isNotRunning(status: PeerHealthDto): boolean {
+  return status.runtimeState !== "RUNNING" && status.runtimeState !== "STARTING";
+}
+
 function ownerLabel(status: PeerHealthDto): string {
   if (status.paused) return "Paused";
+  if (isNotRunning(status)) return "Stopped";
   const busy = status.workerActivity === "working" || status.plannerActivity === "working";
   const stuck = status.supervisorState === "STUCK" || status.supervisorState === "FAILED";
   if (status.supervisorState === "WAITING_PLANNER") return "Planner";
@@ -1196,6 +1201,7 @@ function ownerLabel(status: PeerHealthDto): string {
 }
 
 function activityLabel(status: PeerHealthDto): { label: string; detail: string } {
+  if (isNotRunning(status)) return { label: "Stopped", detail: "Pair is not running — nothing is being relayed" };
   if (status.recovering) return { label: "Recovering", detail: status.lastError ?? "Recovery in progress" };
   if (status.supervisorState === "STUCK") return { label: "Blocked", detail: "No progress observed" };
   if (status.supervisorState === "FAILED") return { label: "Failed", detail: status.lastError ?? "Turn failed" };
@@ -1224,6 +1230,7 @@ function deliveryEvidenceFor(status?: PeerHealthDto): { label: string; detail: s
 
 function gateLabel(status: PeerHealthDto | undefined): string {
   if (!status) return "No pair selected";
+  if (isNotRunning(status)) return status.supervisorState === "STUCK" ? "Stopped — STUCK: open Recovery for details" : "Stopped — press Start to resume";
   if (status.awaitingStartingSideSelection) return "Awaiting Starting-Side Selection — pick which side relays first";
   if (status.startingSide) return `Starting side: ${status.startingSide === "planner" ? "Planner" : "Worker"} — dispatching the selected side first`;
   if (status.lastError?.startsWith("UNRECOVERABLE_GAPS")) return "Event window may contain gaps — unverified";
