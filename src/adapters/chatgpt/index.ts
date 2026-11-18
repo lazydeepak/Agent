@@ -17,6 +17,7 @@ import type {
   RelayableMessage
 } from "../../types.js";
 import { fail, pass } from "../../util/readiness.js";
+import { conversationUrlMatchesId } from "../../util/chatgpt-url.js";
 import { fakeCheck, overrideEnabled } from "../fake-readiness.js";
 import { SubmissionNotAttemptedError } from "../../util/delivery-error.js";
 import { plannerControlMessage } from "../../util/planner-control.js";
@@ -765,12 +766,7 @@ function conversationMatches(url: string, conversationId: string): boolean {
     // forcing repeated navigation/tab creation.
     return url.includes("chatgpt.com");
   }
-  try {
-    const parsed = new URL(url);
-    return parsed.pathname.split("/").filter(Boolean).join("/").includes(`c/${conversationId}`);
-  } catch {
-    return false;
-  }
+  return conversationUrlMatchesId(url, conversationId);
 }
 
 async function hasComposer(page: Page): Promise<boolean> {

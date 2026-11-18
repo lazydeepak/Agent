@@ -13,10 +13,27 @@ describe("parseChatGptConversationUrl", () => {
     expect(parsed.project).toBeUndefined();
   });
 
-  it("accepts a project-scoped conversation URL", () => {
+  it("accepts a project-scoped conversation URL and preserves the full path", () => {
     const parsed = parseChatGptConversationUrl("https://chatgpt.com/g/p-xyz/c/abc-123");
     expect(parsed.conversationId).toBe("abc-123");
     expect(parsed.project).toBe("p-xyz");
+    expect(parsed.conversationUrl).toBe("https://chatgpt.com/g/p-xyz/c/abc-123");
+  });
+
+  it("preserves a project slug with hyphens (real ChatGPT project slug)", () => {
+    const parsed = parseChatGptConversationUrl(
+      "https://chatgpt.com/g/g-p-6a9d699a8a488191a554385d74bb9422-odarehub/c/6af9c057-ba34-83ee-9420-9d16f81ee302"
+    );
+    expect(parsed.conversationId).toBe("6af9c057-ba34-83ee-9420-9d16f81ee302");
+    expect(parsed.project).toBe("g-p-6a9d699a8a488191a554385d74bb9422-odarehub");
+    expect(parsed.conversationUrl).toBe(
+      "https://chatgpt.com/g/g-p-6a9d699a8a488191a554385d74bb9422-odarehub/c/6af9c057-ba34-83ee-9420-9d16f81ee302"
+    );
+  });
+
+  it("drops query strings and hashes but keeps the full project path", () => {
+    const parsed = parseChatGptConversationUrl("https://chatgpt.com/g/p-xyz/c/abc-123?model=gpt-5#thread");
+    expect(parsed.conversationUrl).toBe("https://chatgpt.com/g/p-xyz/c/abc-123");
   });
 
   it("accepts www and arbitrary path prefixes before /c/", () => {

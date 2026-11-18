@@ -76,9 +76,12 @@ export function parseChatGptConversationUrl(input: string): ParsedChatGptConvers
     project = segments[conversationMarkerIndex - 1];
   }
 
+  // Preserve the full conversation path. Project-scoped routes 404/redirect when
+  // flattened to /c/<id>; the canonical URL IS the project URL.
+  const path = `/${segments.join("/")}`;
   return {
     conversationId,
-    conversationUrl: `https://chatgpt.com/c/${conversationId}`,
+    conversationUrl: `https://chatgpt.com${path}`,
     ...(project ? { project } : {})
   };
 }
