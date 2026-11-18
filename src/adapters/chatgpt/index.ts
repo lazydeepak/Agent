@@ -859,6 +859,11 @@ async function extractAssistantMessages(
 ): Promise<RelayableMessage[]> {
   const messageNodes = page.locator('[data-message-author-role="assistant"]');
   const count = await messageNodes.count();
+  if (count === 0) {
+    // Current ChatGPT DOM no longer carries role selectors for assistant turns;
+    // fall back to the stable writing_block widget anchor.
+    return extractAssistantMessagesFromWritingBlocks(page, planner, limit);
+  }
   const results: RelayableMessage[] = [];
 
   for (let index = count - 1; index >= 0 && results.length < limit; index -= 1) {
@@ -898,6 +903,60 @@ async function extractAssistantMessages(
   }
 
   return results;
+}
+
+
+/**
+ * Writing-block-anchored fallback for ChatGPT's current DOM, which no longer
+ * exposes assistant-role selectors ([data-message-author-role="assistant"] matches
+ * nothing; only writing_block widgets remain stable).
+ *
+ * Strategy: treat the LAST visible writing_block in DOM order as the planner's
+ * latest assistant turn. The widget itself is the structured payload, so the
+ * extracted message carries [blockText] in writingBlocks — enough for the relay's
+ * deterministic selection path.
+ */
+async function extractAssistantMessagesFromWritingBlocks(
+  page: Page,
+  planner: PlannerIdentity,
+  limit: number
+): Promise<RelayableMessage[]> {
+  const widgets = page.locator('[data-client-defined-widget="writing_block"], [data-testid="chatgpt-writing-block"]');
+  const count = await widgets.count();
+  const results: RelayableMessage[] = [];
+
+  for (let index = count - 1; index >= 0 && results.length < limit; index -= 1) {
+    const widget = widgets.nth(index);
+    if (!(await widget.isVisible().catch(() => false))) {
+      continue;
+    }
+    const raw = await widget
+      .evaluate((element) => {
+        const surface = element.querySelector("[data-markdown-copy-text]");
+        const copied = surface?.getAttribute("data-markdown-copy-text") ?? "";
+        if (copied.trim().length > 0) return copied;
+        return (element as HTMLElement).innerText ?? "";
+      })
+      .catch(() => "");
+    const text = normalizeWidgetText(raw);
+    if (!text) {
+      continue;
+    }
+    results.push({
+      id: `chatgpt-writing-block-${planner.conversationId}-${hashText(text).slice(0, 16)}`,
+      source: "planner",
+      role: "assistant",
+      text,
+      createdAt: Date.now(),
+      writingBlocks: [text]
+    });
+  }
+
+  return results;
+}
+
+function normalizeWidgetText(text: string): string {
+  return text.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 function normalizeMessageText(text: string): string {
