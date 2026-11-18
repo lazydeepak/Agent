@@ -140,6 +140,11 @@ const initialStatuses = new Map<string, PeerHealthDto>([
       workerObserved: true,
       plannerObserved: true,
       lastObservedAt: new Date().toISOString(),
+      stateChangedAt: new Date(Date.now() - 47_000).toISOString(),
+      lastRuntimeStartAt: new Date(Date.now() - 42_000).toISOString(),
+      latestCycleStatus: "WORKER_RESPONDED",
+      latestCycleDispatchedAt: new Date(Date.now() - 65_000).toISOString(),
+      latestCycleWorkerCompletedAt: new Date(Date.now() - 20_000).toISOString(),
       paused: false,
       enabled: true,
       schedulerMode: "ACTIVE"

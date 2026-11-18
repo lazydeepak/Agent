@@ -437,6 +437,7 @@ export class DesktopApplicationService {
         return {
           ...pair,
           ...this.deliveryEvidence(pair.pairId),
+          ...this.cycleEvidence(pair.pairId),
           ...side,
           awaitingStartingSideSelection: (pair.workerActivity === "working" && pair.plannerActivity === "working") && !side.startingSide
         };
@@ -454,6 +455,7 @@ export class DesktopApplicationService {
     return {
       ...status,
       ...this.deliveryEvidence(pairId),
+      ...this.cycleEvidence(pairId),
       ...side,
       awaitingStartingSideSelection: (status.workerActivity === "working" && status.plannerActivity === "working") && !side.startingSide
     };
@@ -1347,6 +1349,31 @@ export class DesktopApplicationService {
     } catch {
       return { startingSide: null };
     }
+  }
+
+  private cycleEvidence(pairId: string): {
+    stateChangedAt?: string;
+    lastRuntimeStartAt?: string;
+    latestCycleStatus?: string;
+    latestCycleDispatchedAt?: string;
+    latestCycleWorkerCompletedAt?: string;
+  } {
+    if (!this.store) {
+      return {};
+    }
+    const cycles = this.store.listCycles(pairId);
+    const latest = cycles.length > 0 ? cycles[cycles.length - 1] : undefined;
+    let stateChangedAt: string | undefined;
+    let lastRuntimeStartAt: string | undefined;
+    try { stateChangedAt = this.store.getSupervisorState(pairId)?.stateChangedAt; } catch { /* best-effort */ }
+    try { lastRuntimeStartAt = this.store.getRuntimeState(pairId)?.lastRuntimeStartAt; } catch { /* best-effort */ }
+    return {
+      ...(stateChangedAt ? { stateChangedAt } : {}),
+      ...(lastRuntimeStartAt ? { lastRuntimeStartAt } : {}),
+      ...(latest?.cycleStatus ? { latestCycleStatus: latest.cycleStatus } : {}),
+      ...(latest?.dispatchedAt ? { latestCycleDispatchedAt: latest.dispatchedAt } : {}),
+      ...(latest?.workerCompletedAt ? { latestCycleWorkerCompletedAt: latest.workerCompletedAt } : {})
+    };
   }
 
   private deliveryEvidence(pairId: string): { hasRelayHistory: boolean; latestDeliveryStatus?: "DISCOVERED" | "DELIVERING" | "DELIVERED" | "FAILED"; latestDeliveryVerifyAttempts?: number } {

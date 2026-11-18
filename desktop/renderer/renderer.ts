@@ -1077,14 +1077,25 @@ if (state.pairs.length === 0) {
   container.replaceChildren(fragment);
 }
 
-const AGENT_LOADED_AT = Date.now();
-
-function formatAgentUptime(elapsedMs: number): string {
+/** Format a millisecond duration as HH:MM:SS for uptime tiles. */
+function formatElapsed(elapsedMs: number): string {
   const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
   const hh = Math.floor(totalSeconds / 3600);
   const mm = Math.floor((totalSeconds % 3600) / 60);
   const ss = totalSeconds % 60;
   return [hh, mm, ss].map((n) => String(n).padStart(2, "0")).join(":");
+}
+
+/** Real relay uptime: time since the longest-running RUNNING pair started (from runtime_state). */
+function relayUptime(statuses: PeerHealthDto[]): string {
+  let earliest: number | undefined;
+  for (const status of statuses) {
+    if (status.runtimeState !== "RUNNING" && status.runtimeState !== "STARTING") continue;
+    const start = status.lastRuntimeStartAt ? Date.parse(status.lastRuntimeStartAt) : Number.NaN;
+    if (Number.isNaN(start)) continue;
+    if (earliest === undefined || start < earliest) earliest = start;
+  }
+  return earliest === undefined ? "—" : formatElapsed(Date.now() - earliest);
 }
 
 function installAgentRefreshTimer(): void {
@@ -1106,6 +1117,14 @@ function pickDashboardPair(pairs: typeof state.pairs): (typeof state.pairs)[numb
   return enabled ?? pairs[0];
 }
 
+function turnSummary(status?: PeerHealthDto): string {
+  if (!status) return "no observation yet";
+  if (status.latestCycleStatus) {
+    return `last cycle: ${status.latestCycleStatus}`;
+  }
+  return status.hasRelayHistory ? "history present, no cycles yet" : "no turns yet";
+}
+
 function renderAgent(): void {
   const statuses = Array.from(state.statuses.values());
   const focused = pickDashboardPair(state.pairs);
@@ -1123,12 +1142,12 @@ function renderAgent(): void {
   setText("agent-last-update", focusedObserved ? `Observed ${new Date(focusedObserved).toLocaleTimeString()}` : "Awaiting observation");
   setText("agent-pairs-count", String(state.pairs.length));
   setText("agent-attention-count", String(attentionPairs));
-  setText("agent-uptime", formatAgentUptime(Date.now() - AGENT_LOADED_AT));
+  setText("agent-uptime", relayUptime(statuses));
 
   // Current Turn / Ownership
   const ownerText = focusedStatus ? ownerLabel(focusedStatus) : "Unknown";
   setText("agent-turn-owner", ownerText);
-  setText("agent-turn-subtitle", focused ? `${focused.pairId} · Turn —` : "No pair configured");
+  setText("agent-turn-subtitle", focused ? `${focused.pairId} · ${turnSummary(focusedStatus)}` : "No pair configured");
 
   // Bot Activity
   const activity = focusedStatus ? activityLabel(focusedStatus) : null;
@@ -1150,9 +1169,10 @@ function renderAgent(): void {
   }
 
   // Time in State / since
-  const sinceText = focusedStatus?.lastObservedAt ? new Date(focusedStatus.lastObservedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—";
-  setText("agent-time-value", focusedStatus?.lastObservedAt ? timeSinceIso(focusedStatus.lastObservedAt) : "—");
-  setText("agent-time-sub", focusedStatus?.lastObservedAt ? `Since ${sinceText}` : "No observation yet");
+  const stateChanged = focusedStatus?.stateChangedAt ?? focusedStatus?.lastObservedAt;
+  const sinceText = stateChanged ? new Date(stateChanged).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—";
+  setText("agent-time-value", stateChanged ? timeSinceIso(stateChanged) : "—");
+  setText("agent-time-sub", stateChanged ? `Since ${sinceText}` : "No state transition observed");
 
   // Progression stages
   renderAgentProgression(document.getElementById("agent-progression-track"), focusedStatus);
@@ -1183,7 +1203,7 @@ function activityLabel(status: PeerHealthDto): { label: string; detail: string }
   if (status.supervisorState === "WAITING_WORKER" || status.workerActivity === "working") return { label: "Observing", detail: "Awaiting Worker report" };
   if (status.supervisorState === "WAITING_PLANNER" || status.plannerActivity === "working") return { label: "Observing", detail: "Awaiting Planner response" };
   if (status.supervisorState === "WAITING_INPUT") return { label: "Awaiting", detail: "Worker waiting for input" };
-  if (status.supervisorState === "WORKING") return { label: "Dispatching", detail: "Dispatching instruction" };
+  if (status.supervisorState === "WORKING") return { label: "Dispatching", detail: "Supervisor state: WORKING" };
   if (status.supervisorState === "READY") return { label: "Ready", detail: "Ready for next turn" };
   if (status.supervisorState === "IDLE") return { label: "Idle", detail: "Idle" };
   if (status.supervisorState === "COMPLETED") return { label: "Complete", detail: "Turn complete" };
@@ -1230,12 +1250,14 @@ function timeSinceIso(iso: string): string {
   return [hh, mm, ss].map((n) => String(n).padStart(2, "0")).join(":");
 }
 
+// Real turn lifecycle, derived from the durable ledger + relay cycles:
+// admitted (planner→worker record accepted) → dispatched (cycle created) →
+// reported (worker completion observed) → delivered (report at the planner).
 const AGENT_STAGES: Array<{ id: string; label: string }> = [
-  { id: "ready", label: "Ready" },
-  { id: "sent", label: "Sent" },
-  { id: "delivered", label: "Delivered" },
-  { id: "executing", label: "Executing" },
-  { id: "complete", label: "Complete" }
+  { id: "admitted", label: "Admitted" },
+  { id: "dispatched", label: "Dispatched" },
+  { id: "reported", label: "Reported" },
+  { id: "delivered", label: "Delivered" }
 ];
 
 let lastAgentTrackSignature: string | undefined;
@@ -1244,7 +1266,7 @@ function renderAgentProgression(track: HTMLElement | null, status?: PeerHealthDt
   if (!track) return;
   const activeIndex = stageIndexFor(status);
   const blocked = status?.supervisorState === "STUCK" || status?.supervisorState === "FAILED";
-  const signature = `${activeIndex}|${blocked ? "blocked" : "open"}|${status?.supervisorState ?? "none"}|${status?.hasRelayHistory ? 1 : 0}`;
+  const signature = `${activeIndex}|${blocked ? "blocked" : "open"}|${status?.latestCycleStatus ?? "none"}|${status?.latestCycleWorkerCompletedAt ? 1 : 0}|${status?.latestCycleDispatchedAt ? 1 : 0}`;
   if (signature === lastAgentTrackSignature) return;
   lastAgentTrackSignature = signature;
   const frag = document.createDocumentFragment();
@@ -1280,11 +1302,12 @@ function renderAgentProgression(track: HTMLElement | null, status?: PeerHealthDt
 
 function stageIndexFor(status?: PeerHealthDto): number {
   if (!status) return -1;
-  if (status.supervisorState === "COMPLETED") return 4;
-  if (status.supervisorState === "STUCK" || status.supervisorState === "FAILED" || status.recovering) return 3;
-  if (status.supervisorState === "WAITING_WORKER" || status.supervisorState === "WORKING" || status.workerActivity === "working") return 3;
-  if (status.hasRelayHistory) return 2;
-  return 0;
+  const blocked = status.supervisorState === "STUCK" || status.supervisorState === "FAILED" || status.recovering;
+  if (status.latestCycleStatus === "DELIVERED") return blocked ? 3 : 3;
+  if (status.latestCycleWorkerCompletedAt) return 2;
+  if (status.latestCycleDispatchedAt || status.latestCycleStatus === "DISPATCHED" || status.latestCycleStatus === "WORKER_RESPONDED") return 1;
+  if (status.hasRelayHistory) return 0;
+  return -1;
 }
 
 function isBeforeOrDone(activeIndex: number, index: number): boolean {

@@ -110,14 +110,14 @@
       <main class="layout view-home">
         <section class="panel dashboard-panel" id="dashboard-panel">
           <div id="dashboard-content" class="dashboard-content">
-            <div class="agent-shell" role="region" aria-label="Bot Engine status">
+            <div class="agent-shell" role="region" aria-label="Agent relay status">
               <div class="agent-hero">
                 <div class="agent-hero-main">
                   <span class="agent-hero-glyph" aria-hidden="true">
                     <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M24 4 10 14v18l14 10 14-10V14L24 4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 14l14 10 14-10M24 24v16" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
                   </span>
                   <div>
-                    <div class="agent-hero-title">Bot Engine</div>
+                    <div class="agent-hero-title">Agent Relay</div>
                     <div class="agent-hero-sub">Active pairs: <span id="agent-active-pairs">0</span> · <span id="agent-last-update">Awaiting first observation</span></div>
                   </div>
                 </div>
@@ -133,7 +133,7 @@
                 </div>
                 <div class="agent-stat">
                   <span class="agent-stat-icon" aria-hidden="true">◷</span>
-                  <span class="agent-stat-label">Session Uptime</span>
+                  <span class="agent-stat-label" title="Time since the longest-running relay pair started">Relay Uptime</span>
                   <span class="agent-stat-value" id="agent-uptime">—</span>
                 </div>
               </div>
@@ -146,7 +146,7 @@
                   <div class="agent-kpi-icon-right agent-blue" aria-hidden="true">⚇</div>
                 </div>
                 <div class="agent-kpi agent-kpi-purple">
-                  <div class="agent-kpi-head"><span class="agent-kpi-icon" aria-hidden="true">◍</span>Bot Activity</div>
+                  <div class="agent-kpi-head"><span class="agent-kpi-icon" aria-hidden="true">◍</span>Relay Activity</div>
                   <div class="agent-kpi-value" id="agent-activity-label">Unknown</div>
                   <div class="agent-kpi-sub" id="agent-activity-sub">Not observing</div>
                   <div class="agent-kpi-icon-right agent-purple" aria-hidden="true">◍</div>

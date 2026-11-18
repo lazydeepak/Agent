@@ -65,6 +65,14 @@ export interface PeerHealthDto {
   plannerActivity?: "idle" | "working";
   workerFailureReason?: "transport" | "session";
   plannerFailureReason?: "transport" | "session";
+  /** v1.1 §12 — when the supervisor state last changed (real time-in-state evidence). */
+  stateChangedAt?: string;
+  /** When the pair's runtime last started (real relay uptime evidence). */
+  lastRuntimeStartAt?: string;
+  /** Latest relay cycle evidence for the turn progression stepper. */
+  latestCycleStatus?: "DISCOVERED" | "DISPATCHED" | "WORKER_RESPONDED" | "DELIVERED" | "FAILED" | string;
+  latestCycleDispatchedAt?: string;
+  latestCycleWorkerCompletedAt?: string;
   recovering: boolean;
   workerObserved: boolean;
   plannerObserved: boolean;
