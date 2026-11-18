@@ -523,10 +523,7 @@ export class PlaywrightChatGPTBrowserDriver implements ChatGPTBrowserDriver {
     const recoveringFromLimit = limitedUntil !== undefined;
     if (recoveringFromLimit || shouldNavigatePlannerPage(page.url(), planner.conversationId)) {
       this.rateLimitedUntil.delete(planner.conversationId);
-      await page.goto(planner.conversationUrl, {
-        waitUntil: "domcontentloaded",
-        timeout: timeoutFor(planner, this.options)
-      });
+      await gotoPlannerPage(page, planner.conversationUrl, timeoutFor(planner, this.options));
       await page.waitForLoadState("networkidle", { timeout: timeoutFor(planner, this.options) }).catch(() => {});
     }
 
@@ -626,6 +623,30 @@ export class PlaywrightChatGPTBrowserDriver implements ChatGPTBrowserDriver {
 
 async function* emptyPlannerEvents(): AsyncIterable<PlannerSessionEvent> {
   return;
+}
+
+/**
+ * Navigate with one bounded retry for the transient ERR_ABORTED race
+ * (navigation interrupted by an in-flight load). Other errors fail immediately.
+ */
+export async function gotoPlannerPage(page: Page, url: string, timeoutMs: number): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!isTransientGotoAbort(error)) throw error;
+      await page.waitForTimeout(500);
+    }
+  }
+  throw lastError;
+}
+
+/** ERR_ABORTED is the one transient navigation error the readiness path retries. */
+export function isTransientGotoAbort(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("ERR_ABORTED");
 }
 
 export function shouldNavigatePlannerPage(currentUrl: string, conversationId: string): boolean {
@@ -756,7 +777,7 @@ async function hasComposer(page: Page): Promise<boolean> {
   return (await findComposer(page)) !== undefined;
 }
 
-async function findComposer(page: Page) {
+async function findComposer(page: Page, attempts = 8, intervalMs = 300) {
   const selectors = [
     '[data-testid="prompt-textarea"]',
     '#prompt-textarea',
@@ -764,14 +785,20 @@ async function findComposer(page: Page) {
     'div[contenteditable="true"]'
   ];
 
-  for (const selector of selectors) {
-    const locator = page.locator(selector).first();
-    if (
-      (await locator.count()) > 0 &&
-      (await locator.isVisible().catch(() => false)) &&
-      (await locator.isEnabled().catch(() => false))
-    ) {
-      return locator;
+  // Bounded poll: ChatGPT hydrates the composer after domcontentloaded.
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    for (const selector of selectors) {
+      const locator = page.locator(selector).first();
+      if (
+        (await locator.count()) > 0 &&
+        (await locator.isVisible().catch(() => false)) &&
+        (await locator.isEnabled().catch(() => false))
+      ) {
+        return locator;
+      }
+    }
+    if (attempt < attempts - 1) {
+      await page.waitForTimeout(intervalMs);
     }
   }
 
