@@ -55,6 +55,8 @@ export interface PairCardHooks {
   removePair(pairId: string): void;
   openTimeline(pairId: string): void;
   isOpenWorkerOnStart?(): boolean;
+  /** Initialize flow with browser auto-launch; renderer-owned so pair-card stays transport-agnostic. */
+  initializePair(pairId: string): Promise<unknown>;
 }
 
 let hooks: PairCardHooks = {
@@ -63,7 +65,14 @@ let hooks: PairCardHooks = {
   openWizard: () => undefined,
   removePair: () => undefined,
   openTimeline: () => undefined,
-  isOpenWorkerOnStart: undefined
+  isOpenWorkerOnStart: undefined,
+  initializePair: async (pairId) => {
+    const result = await runAction(() => window.desktop.initializePair(pairId));
+    if (result) {
+      toast(`Initialization completed: ${result.status}`);
+    }
+    await hooks.refreshAll();
+  }
 };
 
 export function setPairCardHooks(h: PairCardHooks): void {
@@ -178,6 +187,9 @@ function renderPairCard(card: PairCardModel, pair: PairIdentityDto): HTMLElement
     actions.appendChild(actionButton("Stop Relay", "btn-sm btn-danger", true, () => stopPair(card.pairId)));
   }
   actions.appendChild(actionButton("Open Worker Agent", "btn-sm", true, () => openWorkerSession(card.pairId)));
+  // Initialize also appears in compact mode for the dashboard.
+  const notRunning = card.runtimeState !== "RUNNING" && card.runtimeState !== "STARTING";
+  actions.appendChild(actionButton("Initialize", "btn-sm", notRunning, () => initializePair(card.pairId)));
   compact.appendChild(actions);
   const autoResumeLabel = el("label", "auto-resume-toggle");
   autoResumeLabel.title = "Resume this pair automatically after an engine/computer restart (Rule 15). Default: off. An Emergency Stop always takes precedence.";
@@ -350,11 +362,7 @@ export async function resumePair(pairId: string): Promise<void> {
 }
 
 export async function initializePair(pairId: string): Promise<void> {
-  const result = await runAction(() => window.desktop.initializePair(pairId));
-  if (result) {
-    toast(`Initialization completed: ${result.status}`);
-  }
-  hooks.refreshAll();
+  await hooks.initializePair(pairId);
 }
 
 function renderHealthStatus(card: PairCardModel, running: boolean): HTMLElement {

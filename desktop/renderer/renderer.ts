@@ -2254,7 +2254,8 @@ setPairCardHooks({
   refreshAll: () => refresh(),
   openWizard: (kind, pairId) => openWizard(kind, pairId),
   removePair: (pairId) => removePair(pairId),
-  openTimeline: (pairId) => openTimelineModal(pairId)
+  openTimeline: (pairId) => openTimelineModal(pairId),
+  initializePair: (pairId) => initializePairFlow(pairId)
 });
 
 setWizardHooks({
