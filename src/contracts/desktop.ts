@@ -244,6 +244,19 @@ export interface CandidatePairDto {
 export interface SettingsDto {
   /** Days of history to keep in SQLite (relay cycles, resolved attention items, non-pending proposals). 0 or absent = keep forever. Never applies to the relay ledger. */
   historyRetentionDays?: number;
+  /** Sync direct Git repositories under the configured development root on startup. */
+  syncDevProjectsOnStartup?: boolean;
+  /** Read-only root scanned by the project catalog synchronizer. */
+  devProjectsRoot?: string;
+}
+
+export interface SyncedProjectDto {
+  projectId: string;
+  name: string;
+  repoPath: string;
+  available: boolean;
+  firstSeenAt: string;
+  lastSeenAt: string;
 }
 
 export interface AutoResumeStateDto {

@@ -64,6 +64,10 @@ export async function wireSettingsSection(): Promise<void> {
     if (typeof window.desktop?.getSettings === "function") {
       const settings = await window.desktop.getSettings();
       input.value = settings.historyRetentionDays ? String(settings.historyRetentionDays) : "";
+      const sync = document.getElementById("sync-dev-projects-on-startup") as HTMLInputElement | null;
+      if (sync) sync.checked = settings.syncDevProjectsOnStartup !== false;
+      const root = document.getElementById("dev-projects-root") as HTMLInputElement | null;
+      if (root && settings.devProjectsRoot) root.value = settings.devProjectsRoot;
     }
   } catch {
     // Leave the field empty (= keep forever) rather than fabricate a setting.
@@ -84,7 +88,13 @@ export async function wireSettingsSection(): Promise<void> {
       return;
     }
     try {
-      const saved = await window.desktop.updateSettings(days > 0 ? { historyRetentionDays: days } : {});
+      const sync = (document.getElementById("sync-dev-projects-on-startup") as HTMLInputElement | null)?.checked ?? true;
+      const root = (document.getElementById("dev-projects-root") as HTMLInputElement | null)?.value.trim() ?? "";
+      const saved = await window.desktop.updateSettings({
+        ...(days > 0 ? { historyRetentionDays: days } : {}),
+        syncDevProjectsOnStartup: sync,
+        ...(root ? { devProjectsRoot: root } : {})
+      });
       status.textContent = saved.historyRetentionDays
         ? `Saved — history kept for ${saved.historyRetentionDays} days. Older rows were archived/deleted now.`
         : "Saved — history kept forever.";
@@ -94,6 +104,16 @@ export async function wireSettingsSection(): Promise<void> {
       status.textContent = "Error: " + (error instanceof Error ? error.message : String(error));
       status.classList.toggle("fail", true);
       status.classList.remove("ok");
+    }
+  });
+  document.getElementById("sync-dev-projects-now")?.addEventListener("click", async () => {
+    const status = document.getElementById("project-sync-status");
+    try {
+      const root = (document.getElementById("dev-projects-root") as HTMLInputElement | null)?.value.trim() ?? "";
+      const projects = await window.desktop.syncDevProjects(root || undefined);
+      if (status) status.textContent = `Synced ${projects.filter((project) => project.available).length} Git projects. Missing projects remain unavailable.`;
+    } catch (error) {
+      if (status) status.textContent = error instanceof Error ? error.message : String(error);
     }
   });
 }

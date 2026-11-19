@@ -17,8 +17,8 @@ import { LiveOpenCodeAdapter, type OpenCodeSessionManager, type OpenCodeSessionS
 import { SqliteRelayStore, ensureDbParent, resolveDbPath, EXPECTED_SCHEMA_VERSION, PairArchive, type ArchiveStore, type ArchivedPairPayload, type ArchivedPairSummary, type RelayStore } from "../persistence/index.js";
 import { ExternalBrowserManager, type BrowserManager } from "../recovery/index.js";
 import { LockRegistry, createPairAdapters, isFailedRuntime, type RuntimeAdapterOptions, type RuntimeStatusSummary } from "../runtime/index.js";
-import type { OpenCodeModelInfo, OpenCodeModelRef } from "../types.js";
-import type { DiagnosticsSnapshotDto, DatabaseSettingsInfoDto, DatabaseBackupEntryDto, DatabaseRestoreResultDto, PermissionGrantDto, PermissionGrantInputDto } from "../contracts/desktop.js";
+import type { OpenCodeModelInfo, OpenCodeModelRef, SyncedProject } from "../types.js";
+import type { DiagnosticsSnapshotDto, DatabaseSettingsInfoDto, DatabaseBackupEntryDto, DatabaseRestoreResultDto, PermissionGrantDto, PermissionGrantInputDto, SyncedProjectDto } from "../contracts/desktop.js";
 import { ConfigError } from "../sessions/pairs.js";
 import { ChatGptUrlError, parseChatGptConversationUrl } from "../util/chatgpt-url.js";
 import { validatePair } from "../validator/readiness.js";
@@ -286,6 +286,13 @@ export class DesktopApplicationService {
       // Retention is maintenance; a failure must not block startup.
       this.recordEvent("HISTORY_RETENTION_FAILED", undefined, { reason: messageOf(error) });
     }
+    if (readSettings().syncDevProjectsOnStartup !== false) {
+      try {
+        this.syncDevProjects();
+      } catch (error) {
+        this.recordEvent("PROJECT_SYNC_FAILED", undefined, { reason: messageOf(error) });
+      }
+    }
     try {
       const config = await this.loadConfig();
       try {
@@ -304,6 +311,36 @@ export class DesktopApplicationService {
       this.pairs = [];
       this.recordEvent("CONFIG_LOAD_FAILED", undefined, { reason: messageOf(error) });
     }
+  }
+
+  /** Read-only catalog sync: never creates, edits, or deletes anything under the development root. */
+  syncDevProjects(root?: string): SyncedProjectDto[] {
+    const configuredRoot = root?.trim() || readSettings().devProjectsRoot || resolve(dirname(this.options.configPath), "..", "..");
+    const devRoot = resolve(configuredRoot);
+    const now = new Date().toISOString();
+    const projects: Array<Omit<SyncedProject, "firstSeenAt" | "lastSeenAt"> & { seenAt: string }> = [];
+    if (!existsSync(devRoot) || !statSync(devRoot).isDirectory()) {
+      throw new DesktopApplicationError("INVALID_INPUT", `Development projects root is not a directory: ${devRoot}`);
+    }
+    for (const entry of readdirSync(devRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const repoPath = resolve(devRoot, entry.name);
+      if (!existsSync(join(repoPath, ".git"))) continue;
+      const projectId = `dev-${entry.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "project"}`;
+      projects.push({ projectId, name: entry.name, repoPath, available: true, seenAt: now });
+    }
+    return this.ensureStore().upsertSyncedProjects(projects).map((project) => ({
+      projectId: project.projectId,
+      name: project.name,
+      repoPath: project.repoPath,
+      available: project.available,
+      firstSeenAt: project.firstSeenAt,
+      lastSeenAt: project.lastSeenAt
+    }));
+  }
+
+  listSyncedProjects(): SyncedProjectDto[] {
+    return this.ensureStore().listSyncedProjects();
   }
 
   private async loadConfig(): Promise<PairsConfig> {
@@ -1788,6 +1825,7 @@ export class DesktopApplicationService {
     if (!input || typeof input !== "object") {
       throw new DesktopApplicationError("INVALID_SETTINGS", "Settings payload must be an object.");
     }
+    const current = readSettings();
     const days = input.historyRetentionDays;
     if (days !== undefined && (!Number.isFinite(days) || days < 0 || days > 36500)) {
       throw new DesktopApplicationError(
@@ -1795,7 +1833,11 @@ export class DesktopApplicationService {
         "historyRetentionDays must be an integer between 0 (keep forever) and 36500."
       );
     }
-    const saved = writeSettings({ historyRetentionDays: days });
+    const saved = writeSettings({
+      historyRetentionDays: days ?? current.historyRetentionDays,
+      syncDevProjectsOnStartup: input.syncDevProjectsOnStartup ?? current.syncDevProjectsOnStartup,
+      devProjectsRoot: input.devProjectsRoot ?? current.devProjectsRoot
+    });
     if (saved.historyRetentionDays && saved.historyRetentionDays > 0) {
       const result = this.ensureStore().applyHistoryRetention(saved.historyRetentionDays);
       this.recordEvent("HISTORY_RETENTION_APPLIED", undefined, {

@@ -409,6 +409,15 @@ export interface RuntimeMetadata {
   autoResumeAfterRestart?: boolean;
 }
 
+export interface SyncedProject {
+  projectId: string;
+  name: string;
+  repoPath: string;
+  available: boolean;
+  firstSeenAt: string;
+  lastSeenAt: string;
+}
+
 export type RelayCycleStatus =
   | "DISPATCHED"
   | "WORKER_RESPONDED"

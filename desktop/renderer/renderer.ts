@@ -148,8 +148,10 @@ declare global {
       cancelIncident(pairId: string): Promise<StatusSummaryDto>;
       getAutoResumeState(): Promise<Array<{ pairId: string; autoResumeAfterRestart: boolean }>>;
       setAutoResumeAfterRestart(pairId: string, enabled: boolean): Promise<Array<{ pairId: string; autoResumeAfterRestart: boolean }>>;
-      getSettings(): Promise<{ historyRetentionDays?: number }>;
-      updateSettings(input: { historyRetentionDays?: number }): Promise<{ historyRetentionDays?: number }>;
+      getSettings(): Promise<{ historyRetentionDays?: number; syncDevProjectsOnStartup?: boolean; devProjectsRoot?: string }>;
+      updateSettings(input: { historyRetentionDays?: number; syncDevProjectsOnStartup?: boolean; devProjectsRoot?: string }): Promise<{ historyRetentionDays?: number; syncDevProjectsOnStartup?: boolean; devProjectsRoot?: string }>;
+      syncDevProjects(root?: string): Promise<import("../../src/contracts/desktop.js").SyncedProjectDto[]>;
+      listSyncedProjects(): Promise<import("../../src/contracts/desktop.js").SyncedProjectDto[]>;
       validatePair(pairId: string): Promise<ValidationResultDto>;
       getValidation(pairId: string): Promise<ValidationResultDto | undefined>;
       getAutomationInfo(): Promise<AutomationInfoDto>;

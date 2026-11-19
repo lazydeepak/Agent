@@ -544,6 +544,17 @@
                 <button id="history-retention-save" class="btn btn-primary">Save Retention</button>
               </div>
               <p id="history-retention-status" class="settings-status" role="status"></p>
+              <div class="settings-field">
+                <label for="dev-projects-root">Development projects root</label>
+                <input id="dev-projects-root" type="text" placeholder="/Users/lazydeepak/dev" autocomplete="off" />
+                <p class="field-hint">Read-only scan of direct Git repositories. Agent never writes under this folder.</p>
+              </div>
+              <label class="settings-checkbox">
+                <input id="sync-dev-projects-on-startup" type="checkbox" checked />
+                <span>Sync development projects on startup</span>
+              </label>
+              <button id="sync-dev-projects-now" class="btn btn-ghost">Sync Projects Now</button>
+              <p id="project-sync-status" class="settings-status" role="status"></p>
             </div>
             <div class="settings-card database-card">
               <h4 class="settings-title settings-card-title">Database</h4>

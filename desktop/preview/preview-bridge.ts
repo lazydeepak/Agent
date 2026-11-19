@@ -744,8 +744,18 @@ export function createPreviewDesktopApi(): Window["desktop"] {
     },
 
     async updateSettings(input: SettingsDto): Promise<SettingsDto> {
-      previewSettings = { historyRetentionDays: input?.historyRetentionDays };
+      previewSettings = {
+        historyRetentionDays: input?.historyRetentionDays,
+        syncDevProjectsOnStartup: input?.syncDevProjectsOnStartup !== false,
+        ...(input?.devProjectsRoot ? { devProjectsRoot: input.devProjectsRoot } : {})
+      };
       return previewSettings;
+    },
+    async syncDevProjects(): Promise<import("../../src/contracts/desktop.js").SyncedProjectDto[]> {
+      return [];
+    },
+    async listSyncedProjects(): Promise<import("../../src/contracts/desktop.js").SyncedProjectDto[]> {
+      return [];
     },
 
     async getDiagnosticsSnapshot(): Promise<import("../../src/contracts/desktop.js").DiagnosticsSnapshotDto> {

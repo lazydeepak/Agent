@@ -80,6 +80,8 @@ export interface DesktopApi {
   setAutoResumeAfterRestart(pairId: string, enabled: boolean): Promise<AutoResumeStateDto[]>;
   getSettings(): Promise<SettingsDto>;
   updateSettings(input: SettingsDto): Promise<SettingsDto>;
+  syncDevProjects(root?: string): Promise<import("../../src/contracts/desktop.js").SyncedProjectDto[]>;
+  listSyncedProjects(): Promise<import("../../src/contracts/desktop.js").SyncedProjectDto[]>;
   releaseRecoverySuspension(pairId: string): Promise<StatusSummaryDto>;
   /** v1.1-style read-only ground-truth evidence for the Source view. */
   getDiagnosticsSnapshot(): Promise<import("../../src/contracts/desktop.js").DiagnosticsSnapshotDto>;
@@ -192,6 +194,8 @@ const api: DesktopApi = {
   selectStartingSide: (pairId, side) => invoke(IPC_CHANNELS.selectStartingSide, pairId, side),
   cancelIncident: (pairId) => invoke(IPC_CHANNELS.cancelIncident, pairId),
   updateSettings: (input) => invoke(IPC_CHANNELS.updateSettings, input),
+  syncDevProjects: (root) => invoke(IPC_CHANNELS.syncDevProjects, root),
+  listSyncedProjects: () => invoke(IPC_CHANNELS.listSyncedProjects),
   validatePair: (pairId) => invoke(IPC_CHANNELS.validatePair, pairId),
   getValidation: (pairId) => invoke(IPC_CHANNELS.getValidation, pairId),
   getAutomationInfo: () => invoke(IPC_CHANNELS.getAutomationInfo),

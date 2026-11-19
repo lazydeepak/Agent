@@ -211,6 +211,10 @@ export function registerIpcHandlers(ctx: IpcContext): void {
     IPC_CHANNELS.startPlannerBrowser,
     guarded(async (_e, input: unknown) => ctx.requireService().startAutomationBrowser(castPlannerEndpoint(input)))
   );
+  handle(IPC_CHANNELS.syncDevProjects, guarded(async (_e, root: unknown) =>
+    ctx.requireService().syncDevProjects(typeof root === "string" ? root : undefined)
+  ));
+  handle(IPC_CHANNELS.listSyncedProjects, guarded(async () => ctx.requireService().listSyncedProjects()));
   handle(
     IPC_CHANNELS.openPlannerTab,
     guarded(async (_e, pairId: unknown) => {

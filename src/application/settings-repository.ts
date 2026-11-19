@@ -23,7 +23,13 @@ export function readSettings(): SettingsDto {
     }
     const parsed = JSON.parse(readFileSync(path, "utf8")) as SettingsDto;
     const days = parsed.historyRetentionDays;
-    return Number.isFinite(days) && (days as number) >= 0 ? { historyRetentionDays: Math.floor(days as number) } : {};
+    return {
+      ...(Number.isFinite(days) && (days as number) >= 0 ? { historyRetentionDays: Math.floor(days as number) } : {}),
+      ...(parsed.syncDevProjectsOnStartup !== false ? { syncDevProjectsOnStartup: true } : { syncDevProjectsOnStartup: false }),
+      ...(typeof parsed.devProjectsRoot === "string" && parsed.devProjectsRoot.trim()
+        ? { devProjectsRoot: resolve(parsed.devProjectsRoot.trim()) }
+        : {})
+    };
   } catch {
     return {};
   }
@@ -37,6 +43,10 @@ export function writeSettings(input: SettingsDto): SettingsDto {
     if (floored > 0) {
       normalized.historyRetentionDays = Math.min(floored, 36500);
     }
+  }
+  normalized.syncDevProjectsOnStartup = input.syncDevProjectsOnStartup !== false;
+  if (typeof input.devProjectsRoot === "string" && input.devProjectsRoot.trim()) {
+    normalized.devProjectsRoot = resolve(input.devProjectsRoot.trim());
   }
   const path = settingsPath();
   mkdirSync(dirname(path), { recursive: true });

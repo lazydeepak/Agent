@@ -17,6 +17,7 @@ import type {
   RelayDirection,
   RelayRecord,
   RuntimeMetadata,
+  SyncedProject,
   SchedulerMode,
   SupervisorContinuity,
   SupervisorState,
@@ -135,6 +136,8 @@ export interface RelayStore {
   getSupervisorState(pairId: string): SupervisorContinuity | undefined;
   touchRuntimeState(state: Partial<Omit<RuntimeMetadata, "pairId">> & { pairId: string }): void;
   getRuntimeState(pairId: string): RuntimeMetadata | undefined;
+  upsertSyncedProjects(projects: Array<Omit<SyncedProject, "firstSeenAt" | "lastSeenAt"> & { seenAt: string }>): SyncedProject[];
+  listSyncedProjects(): SyncedProject[];
   touchResumeState(state: { pairId: string; resumeAfterRestart: boolean }): void;
   listResumeState(): Array<{ pairId: string; resumeAfterRestart: boolean }>;
   /** v1.1 §4 — durable startup-operation identity and acceptance fence. */
@@ -458,6 +461,17 @@ CREATE TABLE IF NOT EXISTS runtime_work (
 );
 `;
 
+const PROJECT_CATALOG_SCHEMA = `
+CREATE TABLE IF NOT EXISTS project_catalog (
+  project_id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  repo_path TEXT NOT NULL UNIQUE,
+  available INTEGER NOT NULL DEFAULT 1,
+  first_seen_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL
+);
+`;
+
 const RELAY_CYCLE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS relay_cycles (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -526,6 +540,7 @@ export class SqliteRelayStore implements RelayStore {
       // Kept as a separate additive table so existing runtime metadata remains
       // backward-compatible while cumulative work time survives every restart.
       this.db.exec(RUNTIME_WORK_SCHEMA);
+      this.db.exec(PROJECT_CATALOG_SCHEMA);
       if (current < 5) {
         this.db.exec(RELAY_CYCLE_SCHEMA);
         for (const column of RUNTIME_SCHEDULER_COLUMNS) {
@@ -1567,6 +1582,50 @@ export class SqliteRelayStore implements RelayStore {
         autoResumeAfterRestart: Number(record.auto_resume_after_restart ?? 0) === 1
       };
     });
+  }
+
+  upsertSyncedProjects(
+    projects: Array<Omit<SyncedProject, "firstSeenAt" | "lastSeenAt"> & { seenAt: string }>
+  ): SyncedProject[] {
+    const upsert = this.db.prepare(
+      `INSERT INTO project_catalog (project_id, name, repo_path, available, first_seen_at, last_seen_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(project_id) DO UPDATE SET
+         name = excluded.name,
+         repo_path = excluded.repo_path,
+         available = excluded.available,
+         last_seen_at = excluded.last_seen_at`
+    );
+    const seen = new Set(projects.map((project) => project.projectId));
+    for (const project of projects) {
+      const existing = this.db.prepare("SELECT first_seen_at FROM project_catalog WHERE project_id = ?")
+        .get(project.projectId) as { first_seen_at?: string } | undefined;
+      upsert.run(
+        project.projectId,
+        project.name,
+        project.repoPath,
+        project.available ? 1 : 0,
+        existing?.first_seen_at ?? project.seenAt,
+        project.seenAt
+      );
+    }
+    const rows = this.db.prepare("SELECT * FROM project_catalog ORDER BY name COLLATE NOCASE").all() as Array<Record<string, unknown>>;
+    const markUnavailable = this.db.prepare("UPDATE project_catalog SET available = 0 WHERE project_id = ?");
+    for (const row of rows) {
+      if (!seen.has(String(row.project_id))) markUnavailable.run(String(row.project_id));
+    }
+    return this.listSyncedProjects();
+  }
+
+  listSyncedProjects(): SyncedProject[] {
+    return (this.db.prepare("SELECT * FROM project_catalog ORDER BY name COLLATE NOCASE").all() as Array<Record<string, unknown>>).map((row) => ({
+      projectId: String(row.project_id),
+      name: String(row.name),
+      repoPath: String(row.repo_path),
+      available: Number(row.available ?? 0) === 1,
+      firstSeenAt: String(row.first_seen_at),
+      lastSeenAt: String(row.last_seen_at)
+    }));
   }
 
   createCycle(input: {
