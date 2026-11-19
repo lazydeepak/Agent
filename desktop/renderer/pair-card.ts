@@ -52,7 +52,7 @@ function scheduleSync(): void {
 }
 import { createWorkerSessionForPair, openWorkerSession, alignWorkerSessionWithOpenCodeDesktop, renderWorkerModelControl } from "./worker-session.js";
 import { runAction } from "./actions.js";
-import { launchPlannerForPair } from "./planner.js";
+import { launchPlannerForPair, openPlannerTab } from "./planner.js";
 
 /** Entry points owned by the renderer that pair cards need. Wired once at boot. */
 export interface PairCardHooks {
@@ -197,6 +197,7 @@ function renderPairCard(card: PairCardModel, pair: PairIdentityDto): HTMLElement
     actionButton("Stop", "btn-sm btn-danger", controls.canStop, () => stopPair(card.pairId))
   );
   actions.appendChild(actionButton("Open Worker Agent", "btn-sm", true, () => openWorkerSession(card.pairId)));
+  actions.appendChild(actionButton("Open Planner Tab", "btn-sm", true, () => openPlannerTab(card.pairId)));
   // Initialize also appears in compact mode for the dashboard.
   const notRunning = card.runtimeState !== "RUNNING" && card.runtimeState !== "STARTING";
   actions.appendChild(actionButton("Initialize", "btn-sm", notRunning, () => initializePair(card.pairId)));

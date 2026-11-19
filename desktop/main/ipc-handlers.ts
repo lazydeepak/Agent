@@ -212,6 +212,19 @@ export function registerIpcHandlers(ctx: IpcContext): void {
     guarded(async (_e, input: unknown) => ctx.requireService().startAutomationBrowser(castPlannerEndpoint(input)))
   );
   handle(
+    IPC_CHANNELS.openPlannerTab,
+    guarded(async (_e, pairId: unknown) => {
+      const svc = ctx.requireService();
+      const pair = svc.getPairDetail(asPairId(pairId));
+      if (!pair) throw new DesktopApplicationError("UNKNOWN_PAIR", `Unknown pairId "${String(pairId)}".`);
+      const url = new URL(pair.planner.conversationUrl);
+      if (url.protocol !== "https:" || !["chatgpt.com", "www.chatgpt.com"].includes(url.hostname)) {
+        throw new DesktopApplicationError("INVALID_INPUT", "Planner tab URL must be an HTTPS ChatGPT URL.");
+      }
+      await ctx.openExternalUrl(url.toString());
+    })
+  );
+  handle(
     IPC_CHANNELS.validateCandidate,
     guarded(async (_e, input: unknown) => ctx.requireService().validateCandidatePair(castCandidatePair(input)))
   );

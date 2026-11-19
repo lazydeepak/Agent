@@ -10,3 +10,10 @@ export async function launchPlannerForPair(pairId: string, cdpUrl?: string): Pro
     dispatchRerender();
   }
 }
+
+export async function openPlannerTab(pairId: string): Promise<void> {
+  const result = await runAction(() => window.desktop.openPlannerTab(pairId));
+  if (result !== undefined) {
+    toast(`${pairId}: planner tab opened`, "ok");
+  }
+}

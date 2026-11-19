@@ -179,6 +179,7 @@ declare global {
       parsePlannerUrl(input: { url: string }): Promise<ParsedChatGptUrlDto>;
       testPlannerEndpoint(input?: { cdpUrl?: string; conversationUrl?: string }): Promise<EndpointTestResultDto>;
       startPlannerBrowser(input?: { cdpUrl?: string }): Promise<ToolLaunchResultDto>;
+      openPlannerTab(pairId: string): Promise<void>;
       validateCandidate(input: CandidatePairDto): Promise<ValidationResultDto>;
       createPair(input: CandidatePairDto): Promise<PairIdentityDto>;
       updatePair(pairId: string, input: UpdatePairDto): Promise<PairIdentityDto>;

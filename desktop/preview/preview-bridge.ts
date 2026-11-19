@@ -1069,6 +1069,9 @@ export function createPreviewDesktopApi(): Window["desktop"] {
         alreadyRunning: true
       };
     },
+    async openPlannerTab(_pairId: string): Promise<void> {
+      // Preview mode has no external browser; keep the action harmless.
+    },
 
     async validateCandidate(input: CandidatePairDto): Promise<ValidationResultDto> {
       return {

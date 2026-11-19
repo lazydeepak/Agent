@@ -120,6 +120,7 @@ export interface DesktopApi {
   parsePlannerUrl(input: { url: string }): Promise<ParsedChatGptUrlDto>;
   testPlannerEndpoint(input?: PlannerEndpointDto): Promise<EndpointTestResultDto>;
   startPlannerBrowser(input?: PlannerEndpointDto): Promise<ToolLaunchResultDto>;
+  openPlannerTab(pairId: string): Promise<void>;
   validateCandidate(input: CandidatePairDto): Promise<ValidationResultDto>;
   createPair(input: CandidatePairDto): Promise<PairIdentityDto>;
   updatePair(pairId: string, input: UpdatePairDto): Promise<PairIdentityDto>;
@@ -213,6 +214,7 @@ const api: DesktopApi = {
   parsePlannerUrl: (input) => invoke(IPC_CHANNELS.parsePlannerUrl, input),
   testPlannerEndpoint: (input) => invoke(IPC_CHANNELS.testPlannerEndpoint, input),
   startPlannerBrowser: (input) => invoke(IPC_CHANNELS.startPlannerBrowser, input),
+  openPlannerTab: (pairId) => invoke(IPC_CHANNELS.openPlannerTab, pairId),
   validateCandidate: (input) => invoke(IPC_CHANNELS.validateCandidate, input),
   createPair: (input) => invoke(IPC_CHANNELS.createPair, input),
   updatePair: (pairId, input) => invoke(IPC_CHANNELS.updatePair, pairId, input),
