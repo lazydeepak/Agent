@@ -244,7 +244,11 @@ export class RuntimeOrchestrator {
   }
 
   async stopAll(): Promise<void> {
-    const results = await Promise.allSettled([...this.runtimes.keys()].map((pairId) => this.stopPair(pairId)));
+    // Stop every pair in the registry, not just those with an active runtime.
+    // Paused pairs without a live runtime still need their state reconciled to STOPPED.
+    const pairIds = [...this.runtimes.keys(), ...this.registry.list().map((p) => p.pairId)];
+    const unique = [...new Set(pairIds)];
+    const results = await Promise.allSettled(unique.map((pairId) => this.stopPair(pairId)));
     for (const result of results) {
       if (result.status === "rejected") {
         this.emitRuntimeEvent("PAIR_RUNTIME_FAILED", undefined, {
