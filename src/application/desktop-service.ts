@@ -816,24 +816,42 @@ export class DesktopApplicationService {
     return this.relayEngine.getStatus();
   }
 
-  resumePair(pairId: string): RuntimeStatusSummary {
+  resumePair(pairId: string): RuntimeStatusSummary | Promise<RuntimeStatusSummary> {
     this.assertKnownPair(pairId);
+    const runtime = this.relayEngine.getPairStatus(pairId);
+    if (!runtime || runtime.runtimeState === "STOPPED") {
+      return this.withLifecycleMutex(async () => {
+        // The app may have been closed while the pair was paused or while the
+        // worker was busy. Re-enter through the durable resume path: it uses
+        // the saved watermark and treats the newest/last worker report as a
+        // candidate, then transports that evidence to the Planner.
+        try {
+          return await this.startPairUnlocked(pairId, "resume");
+        } catch (error) {
+          throw toDesktopApplicationError(error);
+        }
+      });
+    }
     try {
       this.relayEngine.resumePair(pairId);
     } catch (error) {
       throw toDesktopApplicationError(error);
     }
-    // v1.1 §7.1 — resume establishes a new capture boundary; dispatch still requires reconciliation evidence.
-    try {
-      this.ensureStore().touchPairState({ pairId, lastCaptureBoundaryAt: new Date().toISOString() });
-      this.recordEvent("RESUME_CAPTURE_BOUNDARY", pairId, {
-        reason: "Resume establishes a fresh capture boundary before any dispatch.",
-        details: { status: "boundary-recorded" }
-      });
-    } catch {
-      // Advisory boundary record; never fail resume on it.
-    }
+    this.recordResumeBoundary(pairId);
     return this.relayEngine.getStatus();
+  }
+
+  private recordResumeBoundary(pairId: string): void {
+      // v1.1 §7.1 — resume establishes a new capture boundary; dispatch still requires reconciliation evidence.
+      try {
+        this.ensureStore().touchPairState({ pairId, lastCaptureBoundaryAt: new Date().toISOString() });
+        this.recordEvent("RESUME_CAPTURE_BOUNDARY", pairId, {
+          reason: "Resume establishes a fresh capture boundary before any dispatch.",
+          details: { status: "boundary-recorded" }
+        });
+      } catch {
+        // Advisory boundary record; never fail resume on it.
+      }
   }
 
   async startAll(): Promise<RuntimeStatusSummary> {

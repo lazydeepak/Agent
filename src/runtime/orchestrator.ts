@@ -256,6 +256,12 @@ export class RuntimeOrchestrator {
         });
       }
     }
+    // Stop All is a terminal operator action for this run. Do not leave the
+    // persisted pause marker behind, otherwise a fresh process reports every
+    // stopped pair as PAUSED and Resume cannot distinguish it from a live pause.
+    for (const pair of this.registry.list()) {
+      this.store.touchSupervisorState({ pairId: pair.pairId, paused: false });
+    }
     this.emitRuntimeEvent("RUNTIME_STOPPED", undefined, {});
     this.activationEmitted = false;
   }
