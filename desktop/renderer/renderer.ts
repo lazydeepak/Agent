@@ -905,7 +905,7 @@ function renderDashboard(): void {
 }
 
 function renderDashboardAgentHealth(container: HTMLElement): void {
-if (state.pairs.length === 0) {
+  if (state.pairs.length === 0) {
     const empty = el("div", "empty-state agent-empty");
     empty.innerHTML = `<svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true"><circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="2" stroke-opacity="0.4"/><path d="M24 8 L36 24 L24 40 L12 24 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2"/><circle cx="24" cy="24" r="4" fill="currentColor"/></svg><span><strong>No agent pairs yet.</strong><br/>Click <em>+ Add Pair</em> to create your first Planner ↔ Worker relay.</span>`;
     container.replaceChildren(empty);
@@ -915,163 +915,9 @@ if (state.pairs.length === 0) {
   const fragment = document.createDocumentFragment();
 
   for (const pair of state.pairs) {
-    const status = state.statuses.get(pair.pairId);
-    const card = el("div", "dashboard-agent-card");
-
-    // Header: Name, overall status, Action buttons (Start/Pause, Initialize, Timeline)
-    const header = el("div", "dashboard-agent-header");
-    const titleArea = el("div", "dashboard-agent-title");
-    const name = el("span", "dashboard-agent-name");
-    name.textContent = pair.pairId;
-
-    const runtimeStateBadge = el("span", `badge ${
-      (status?.runtimeState === "RUNNING" || status?.runtimeState === "STARTING") ? "badge-ok" :
-      status?.runtimeState === "PAUSED" ? "badge-warn" :
-      status?.runtimeState === "ERROR" ? "badge-danger" : "badge-neutral"
-    }`);
-    runtimeStateBadge.textContent = status?.runtimeState || (pair.enabled ? "READY" : "DISABLED");
-
-    titleArea.append(name, runtimeStateBadge);
-
-    const actions = el("div", "dashboard-agent-actions");
-
-    // Start / Pause button
-    const isRunning = status?.runtimeState === "RUNNING" || status?.runtimeState === "STARTING" || status?.supervisorState === "SUPERVISING";
-    const toggleBtn = el("button", `btn btn-sm ${isRunning ? "btn-warn" : "btn-primary"}`);
-    toggleBtn.textContent = isRunning ? "Pause" : "Start";
-    toggleBtn.addEventListener("click", async () => {
-      toggleBtn.disabled = true;
-      try {
-        if (isRunning) {
-          await runAction(() => window.desktop.pausePair(pair.pairId));
-          toast(`Pair "${pair.pairId}" paused.`);
-        } else {
-          await runAction(() => window.desktop.startPair(pair.pairId));
-          toast(`Pair "${pair.pairId}" started.`);
-        }
-        await refresh();
-      } finally {
-        toggleBtn.disabled = false;
-      }
-    });
-
-    // Initialize button
-    const initBtn = el("button", "btn btn-sm btn-ghost");
-    initBtn.textContent = "⚡ Initialize";
-    initBtn.title = "Verify server reachability, session binding, and browser connectivity";
-    initBtn.addEventListener("click", async () => {
-      initBtn.disabled = true;
-      initBtn.textContent = "Initializing…";
-      try {
-        const result = await initializePairFlow(pair.pairId);
-        const outcome = initOutcome(pair.pairId, result);
-        toast(outcome.message, outcome.tone);
-        if (result?.status !== "READY") {
-          for (const check of (result?.checks ?? []).filter((check) => check.status !== "PASS")) {
-            noteActivityEvent({
-              pairId: pair.pairId,
-              type: "PAIR_VALIDATION_FAILED",
-              reason: `${check.name}: ${check.reason}`,
-              time: new Date().toISOString()
-            });
-          }
-        }
-        await refresh();
-      } catch (err) {
-        toast(`Initialization error: ${errorMessage(err)}`);
-      } finally {
-        initBtn.disabled = false;
-        initBtn.textContent = "⚡ Initialize";
-      }
-    });
-
-    // Timeline button
-    const timelineBtn = el("button", "btn btn-sm btn-ghost");
-    timelineBtn.textContent = "Timeline";
-    timelineBtn.addEventListener("click", () => {
-      void openTimelineModal(pair.pairId);
-    });
-
-    actions.append(toggleBtn, initBtn, timelineBtn);
-    header.append(titleArea, actions);
-
-    // Body: Worker & Planner peers side-by-side
-    const peersGrid = el("div", "dashboard-agent-peers");
-
-    // Worker Peer Box
-    const workerBox = el("div", "dashboard-peer-box");
-    const workerTop = el("div", "dashboard-peer-top");
-    const workerRole = el("span", "dashboard-peer-role");
-    workerRole.textContent = "Worker Agent";
-
-    const workerStatusArea = el("div", "dashboard-peer-status");
-    const workerHealth = el("span", `badge ${healthBadgeClass(status?.worker)}`);
-    workerHealth.textContent = status?.worker ?? "UNKNOWN";
-
-    const workerActivity = el("span", `activity-badge ${status?.workerActivity === "working" ? "working" : "idle"}`);
-    const workerPulse = el("span", "pulse-circle");
-    const workerActivityLabel = el("span");
-    workerActivityLabel.textContent = status?.workerActivity === "working" ? "Working" : "Idle";
-    workerActivity.append(workerPulse, workerActivityLabel);
-
-    workerStatusArea.append(workerHealth, workerActivity);
-    workerTop.append(workerRole, workerStatusArea);
-
-    const workerSession = el("div", "dashboard-peer-detail");
-    workerSession.textContent = `Session: ${pair.worker.sessionId || "unbound"}`;
-    workerSession.title = pair.worker.sessionId || "";
-
-    const workerRepo = el("div", "dashboard-peer-detail");
-    workerRepo.textContent = `Repo: ${pair.worker.repoPath || "not configured"}`;
-    workerRepo.title = pair.worker.repoPath || "";
-
-    const workerEndpoint = el("div", "dashboard-peer-detail");
-    workerEndpoint.textContent = `Endpoint: ${pair.worker.server?.baseUrl || "http://127.0.0.1:4096/"}`;
-
-    workerBox.append(workerTop, workerSession, workerRepo, workerEndpoint);
-
-    // Planner Peer Box
-    const plannerBox = el("div", "dashboard-peer-box");
-    const plannerTop = el("div", "dashboard-peer-top");
-    const plannerRole = el("span", "dashboard-peer-role");
-    plannerRole.textContent = "Planner Agent";
-
-    const plannerStatusArea = el("div", "dashboard-peer-status");
-    const plannerHealth = el("span", `badge ${healthBadgeClass(status?.planner)}`);
-    plannerHealth.textContent = status?.planner ?? "UNKNOWN";
-
-    const plannerActivity = el("span", `activity-badge ${status?.plannerActivity === "working" ? "working" : "idle"}`);
-    const plannerPulse = el("span", "pulse-circle");
-    const plannerActivityLabel = el("span");
-    plannerActivityLabel.textContent = status?.plannerActivity === "working" ? "Working" : "Idle";
-    plannerActivity.append(plannerPulse, plannerActivityLabel);
-
-    plannerStatusArea.append(plannerHealth, plannerActivity);
-    plannerTop.append(plannerRole, plannerStatusArea);
-
-    const plannerConv = el("div", "dashboard-peer-detail");
-    plannerConv.textContent = `Conv: ${pair.planner.conversationId || "not linked"}`;
-    plannerConv.title = pair.planner.conversationId || "";
-
-    const plannerBrowser = el("div", "dashboard-peer-detail");
-    plannerBrowser.textContent = `CDP: ${pair.planner.browser?.cdpUrl || "http://127.0.0.1:9222/"}`;
-
-    plannerBox.append(plannerTop, plannerConv, plannerBrowser);
-
-    peersGrid.append(workerBox, plannerBox);
-
-    // Footer metadata: Supervisor & recovery
-    const meta = el("div", "dashboard-agent-meta");
-    const supervisor = el("span");
-    supervisor.textContent = `Supervisor: ${status?.supervisorState || "IDLE"}${status?.recovering ? " (Recovering…)" : ""}`;
-
-    const observed = el("span");
-    observed.textContent = `Last observed: ${status?.lastObservedAt ? formatTime(status.lastObservedAt) : "Just now"}`;
-
-    meta.append(supervisor, observed);
-
-    card.append(header, peersGrid, meta);
-    fragment.appendChild(card);
+    // Single source of truth: the dashboard and the pairs panel render the exact same
+    // pair card component (desktop/renderer/pair-card.ts). No parallel card markup.
+    appendPairCard(fragment, pair);
   }
 
   container.replaceChildren(fragment);
