@@ -963,7 +963,7 @@ if (state.pairs.length === 0) {
       initBtn.disabled = true;
       initBtn.textContent = "Initializing…";
       try {
-        const result = await runAction(() => window.desktop.initializePair(pair.pairId));
+        const result = await initializePairFlow(pair.pairId);
         const outcome = initOutcome(pair.pairId, result);
         toast(outcome.message, outcome.tone);
         if (result?.status !== "READY") {
@@ -1818,6 +1818,47 @@ async function startAutomationBrowserForPair(): Promise<void> {
   }
   toast(result.message, "ok");
   void detectChatGptProjects();
+}
+
+/**
+ * v1.1 M8 transport bootstrap — Initialize now auto-launches the dedicated automation
+ * browser when its CDP endpoint is not reachable instead of failing silently.
+ *
+ * Steps:
+ *   1. Test the configured ChatGPT/CDP endpoint.
+ *   2. If unreachable (e.g. Chrome not running), launch it via startPlannerBrowser and
+ *      wait for the endpoint to become reachable.
+ *   3. Run initializePair.
+ * If the browser cannot be reached after launching, surface a clear error so the
+ * operator knows exactly what to do (Start Browser, then Initialize).
+ */
+async function initializePairFlow(pairId: string): Promise<ValidationResultDto | undefined> {
+  const cdpUrl = (document.getElementById("config-chatgpt-url") as HTMLInputElement | null)?.value
+    ?.trim()
+    || "http://127.0.0.1:9222";
+  try {
+    const test = await runAction(() => window.desktop.testPlannerEndpoint({ cdpUrl }));
+    if (test?.ok) {
+      return await runAction(() => window.desktop.initializePair(pairId));
+    }
+    // Endpoint not reachable: auto-launch the dedicated automation browser, then retry validation.
+    const launched = await startPlannerBrowser({ cdpUrl });
+    if (!launched?.ok) {
+      toast(`Cannot start automation browser: ${launched?.message ?? "unknown error"}`, "error");
+      return undefined;
+    }
+    return await runAction(() => window.desktop.initializePair(pairId));
+  } catch (error) {
+    const message = errorMessage(error);
+    if (/not reachable|ECONNREFUSED|Endpoint/i.test(message)) {
+      throw new Error(`Automation browser is not reachable at ${cdpUrl}. Click "Start Browser" first, then Initialize.`);
+    }
+    throw error;
+  }
+}
+
+async function startPlannerBrowser(input?: { cdpUrl?: string }): Promise<ToolLaunchResultDto | undefined> {
+  return runAction(() => window.desktop.startPlannerBrowser(input));
 }
 
 async function useActiveOpenCodeSession(): Promise<void> {
