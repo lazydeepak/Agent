@@ -4407,7 +4407,10 @@ html[data-theme="light"] .browser-pairing-error { background: #fff5f5; color: #b
 .logs-file {
   text-align: left;
   font: 12px/1.4 var(--font-mono, monospace);
-  padding: 8px 10px;
+  min-height: 42px;
+  padding: 11px 12px;
+  display: flex;
+  align-items: center;
   border: 0;
   background: transparent;
   color: var(--text-muted, #94a3b8);
@@ -4426,7 +4429,7 @@ html[data-theme="light"] .browser-pairing-error { background: #fff5f5; color: #b
   border: 1px solid var(--line, #1e293b);
   border-radius: var(--radius-md, 8px);
   padding: 12px;
-  font: 12px/1.55 var(--font-mono, monospace);
+  font: 12px/1.7 var(--font-mono, monospace);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: var(--text-muted, #94a3b8);
