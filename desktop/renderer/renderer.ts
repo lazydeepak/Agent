@@ -71,6 +71,7 @@ import {
   buildIdentityBlock,
   el,
   errorMessage,
+  formatDurationMs,
   formatTime,
   healthBadgeClass,
   identityRow,
@@ -1368,6 +1369,15 @@ function projectDisplayName(pair: ProjectPairDto): string {
   return pair.projectName?.trim() || repoBasename(pair.worker.repoPath) || pair.planner.projectName || pair.projectPairId;
 }
 
+function pairWorkDurationMs(pairId: string): number {
+  const status = state.statuses.get(pairId);
+  if (!status) return 0;
+  const active = status.lastRuntimeStartAt && status.runtimeState !== "STOPPED" && status.runtimeState !== "ERROR"
+    ? Math.max(0, Date.now() - Date.parse(status.lastRuntimeStartAt))
+    : 0;
+  return (status.cumulativeRuntimeMs ?? 0) + (Number.isFinite(active) ? active : 0);
+}
+
 function projectPairGroups(): Array<{ title: string; primary: ProjectPairDto; members: ProjectPairDto[] }> {
   const grouped = new Map<string, ProjectPairDto[]>();
   for (const pair of state.projectPairs) {
@@ -1423,7 +1433,8 @@ function renderProjectPairCard(pair: ProjectPairDto, members: ProjectPairDto[] =
   );
   if (sessions.length > 0) {
     const head = el("div", "detail");
-    head.textContent = `Relay pairs for this project (${sessions.length})`;
+    const projectWorkMs = sessions.reduce((total, session) => total + pairWorkDurationMs(session.pairId), 0);
+    head.textContent = `Relay pairs for this project (${sessions.length}) · Total work ${formatDurationMs(projectWorkMs)}`;
     body.push(head);
     const sessionList = el("div", "project-session-list");
     for (const session of sessions) {

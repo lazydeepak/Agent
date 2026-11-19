@@ -71,6 +71,7 @@ export interface PeerHealthDto {
   stateChangedAt?: string;
   /** When the pair's runtime last started (real relay uptime evidence). */
   lastRuntimeStartAt?: string;
+  cumulativeRuntimeMs?: number;
   /** Latest relay cycle evidence for the turn progression stepper. */
   latestCycleStatus?: "DISCOVERED" | "DISPATCHED" | "WORKER_RESPONDED" | "DELIVERED" | "FAILED" | string;
   latestCycleDispatchedAt?: string;

@@ -451,6 +451,13 @@ CREATE TABLE IF NOT EXISTS runtime_state (
 );
 `;
 
+const RUNTIME_WORK_SCHEMA = `
+CREATE TABLE IF NOT EXISTS runtime_work (
+  pair_id TEXT PRIMARY KEY,
+  cumulative_runtime_ms INTEGER NOT NULL DEFAULT 0
+);
+`;
+
 const RELAY_CYCLE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS relay_cycles (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -516,6 +523,9 @@ export class SqliteRelayStore implements RelayStore {
       if (current < 4) {
         this.db.exec(RUNTIME_SCHEMA);
       }
+      // Kept as a separate additive table so existing runtime metadata remains
+      // backward-compatible while cumulative work time survives every restart.
+      this.db.exec(RUNTIME_WORK_SCHEMA);
       if (current < 5) {
         this.db.exec(RELAY_CYCLE_SCHEMA);
         for (const column of RUNTIME_SCHEDULER_COLUMNS) {
@@ -1300,6 +1310,18 @@ export class SqliteRelayStore implements RelayStore {
   }
 
   touchRuntimeState(state: Partial<Omit<RuntimeMetadata, "pairId">> & { pairId: string }): void {
+    const existing = this.getRuntimeState(state.pairId);
+    if (state.lastRuntimeStopAt && existing?.runtimeEnabled) {
+      const started = existing.lastRuntimeStartAt ? Date.parse(existing.lastRuntimeStartAt) : NaN;
+      const stopped = Date.parse(state.lastRuntimeStopAt);
+      if (Number.isFinite(started) && Number.isFinite(stopped) && stopped >= started) {
+        const prior = existing.cumulativeRuntimeMs ?? 0;
+        this.db.prepare(
+          `INSERT INTO runtime_work (pair_id, cumulative_runtime_ms) VALUES (?, ?)
+           ON CONFLICT(pair_id) DO UPDATE SET cumulative_runtime_ms = ?`
+        ).run(state.pairId, prior + (stopped - started), prior + (stopped - started));
+      }
+    }
     this.db
       .prepare(
         `INSERT INTO runtime_state (
@@ -1509,11 +1531,13 @@ export class SqliteRelayStore implements RelayStore {
     if (!row) {
       return undefined;
     }
+    const work = this.db.prepare("SELECT cumulative_runtime_ms FROM runtime_work WHERE pair_id = ?").get(pairId) as { cumulative_runtime_ms?: number } | undefined;
     return {
       pairId: String(row.pair_id),
       runtimeEnabled: Number(row.runtime_enabled ?? 0) === 1,
       lastRuntimeStartAt: nullableString(row.last_runtime_start_at),
       lastRuntimeStopAt: nullableString(row.last_runtime_stop_at),
+      cumulativeRuntimeMs: Number(work?.cumulative_runtime_ms ?? 0),
       lastRuntimeError: nullableString(row.last_runtime_error),
       schedulerMode: nullableSchedulerMode(row.scheduler_mode),
       schedulerModeChangedAt: nullableString(row.scheduler_mode_changed_at),
@@ -1527,11 +1551,14 @@ export class SqliteRelayStore implements RelayStore {
     const rows = this.db.prepare("SELECT * FROM runtime_state ORDER BY pair_id").all();
     return rows.map((row) => {
       const record = row as Record<string, unknown>;
+      const work = this.db.prepare("SELECT cumulative_runtime_ms FROM runtime_work WHERE pair_id = ?")
+        .get(String(record.pair_id)) as { cumulative_runtime_ms?: number } | undefined;
       return {
         pairId: String(record.pair_id),
         runtimeEnabled: Number(record.runtime_enabled ?? 0) === 1,
         lastRuntimeStartAt: nullableString(record.last_runtime_start_at),
         lastRuntimeStopAt: nullableString(record.last_runtime_stop_at),
+        cumulativeRuntimeMs: Number(work?.cumulative_runtime_ms ?? 0),
         lastRuntimeError: nullableString(record.last_runtime_error),
         schedulerMode: nullableSchedulerMode(record.scheduler_mode),
         schedulerModeChangedAt: nullableString(record.scheduler_mode_changed_at),

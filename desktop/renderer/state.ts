@@ -7,6 +7,9 @@ export interface PairCardModel {
   hasRelayHistory: boolean;
   paused: boolean;
   lastObservedAt?: string;
+  lastRuntimeStartAt?: string;
+  cumulativeRuntimeMs: number;
+  latestCycleStatus?: string;
   lastError?: string;
   workerSessionId: string;
   repoPath: string;
@@ -36,6 +39,9 @@ export function toPairCard(pair: PairIdentityDto, status: PeerHealthDto | undefi
     hasRelayHistory: status?.hasRelayHistory ?? false,
     paused: status?.paused ?? false,
     lastObservedAt: status?.lastObservedAt,
+    lastRuntimeStartAt: status?.lastRuntimeStartAt,
+    cumulativeRuntimeMs: status?.cumulativeRuntimeMs ?? 0,
+    latestCycleStatus: status?.latestCycleStatus,
     lastError: status?.lastError,
     workerSessionId: pair.worker.sessionId,
     repoPath: pair.worker.repoPath,

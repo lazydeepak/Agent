@@ -1354,6 +1354,7 @@ export class DesktopApplicationService {
   private cycleEvidence(pairId: string): {
     stateChangedAt?: string;
     lastRuntimeStartAt?: string;
+    cumulativeRuntimeMs?: number;
     latestCycleStatus?: string;
     latestCycleDispatchedAt?: string;
     latestCycleWorkerCompletedAt?: string;
@@ -1366,16 +1367,22 @@ export class DesktopApplicationService {
     const latest = cycles.length > 0 ? cycles[cycles.length - 1] : undefined;
     let stateChangedAt: string | undefined;
     let lastRuntimeStartAt: string | undefined;
+    let cumulativeRuntimeMs = 0;
     let incidentDisposition: string | undefined;
     try {
       const continuity = this.store.getSupervisorState(pairId);
       stateChangedAt = continuity?.stateChangedAt;
       incidentDisposition = continuity?.incidentDisposition;
     } catch { /* best-effort */ }
-    try { lastRuntimeStartAt = this.store.getRuntimeState(pairId)?.lastRuntimeStartAt; } catch { /* best-effort */ }
+    try {
+      const runtime = this.store.getRuntimeState(pairId);
+      lastRuntimeStartAt = runtime?.lastRuntimeStartAt;
+      cumulativeRuntimeMs = runtime?.cumulativeRuntimeMs ?? 0;
+    } catch { /* best-effort */ }
     return {
       ...(stateChangedAt ? { stateChangedAt } : {}),
       ...(lastRuntimeStartAt ? { lastRuntimeStartAt } : {}),
+      cumulativeRuntimeMs,
       ...(latest?.cycleStatus ? { latestCycleStatus: latest.cycleStatus } : {}),
       ...(latest?.dispatchedAt ? { latestCycleDispatchedAt: latest.dispatchedAt } : {}),
       ...(latest?.workerCompletedAt ? { latestCycleWorkerCompletedAt: latest.workerCompletedAt } : {}),

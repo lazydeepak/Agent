@@ -6,6 +6,7 @@ import {
   buildExpandableToggle,
   buildIdentityBlock,
   el,
+  formatDurationMs,
   formatTime,
   healthBadgeClass,
   toast
@@ -169,7 +170,15 @@ function renderPairCard(card: PairCardModel, pair: PairIdentityDto): HTMLElement
 
   const compact = el("div", "pair-card-compact");
   const activity = el("span", "pair-activity");
-  activity.textContent = `Last active ${card.lastObservedAt ? formatTime(card.lastObservedAt) : "—"}`;
+  const activeRuntimeMs = card.lastRuntimeStartAt && card.runtimeState !== "STOPPED" && card.runtimeState !== "ERROR"
+    ? Math.max(0, Date.now() - Date.parse(card.lastRuntimeStartAt))
+    : 0;
+  const totalRuntime = formatDurationMs(card.cumulativeRuntimeMs + (Number.isFinite(activeRuntimeMs) ? activeRuntimeMs : 0));
+  activity.textContent = [
+    `Last active ${card.lastObservedAt ? formatTime(card.lastObservedAt) : "—"}`,
+    `Last turn ${card.latestCycleStatus ?? "—"}`,
+    `Total work ${totalRuntime}`
+  ].join(" · ");
   compact.appendChild(activity);
 
   const actions = el("div", "pair-actions");

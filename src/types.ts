@@ -398,6 +398,8 @@ export interface RuntimeMetadata {
   runtimeEnabled: boolean;
   lastRuntimeStartAt?: string;
   lastRuntimeStopAt?: string;
+  /** Cumulative runtime across all completed starts, in milliseconds. */
+  cumulativeRuntimeMs?: number;
   lastRuntimeError?: string;
   schedulerMode?: SchedulerMode;
   schedulerModeChangedAt?: string;
