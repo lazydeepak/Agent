@@ -4320,45 +4320,63 @@ html[data-theme="light"] .browser-pairing-error { background: #fff5f5; color: #b
 /* Logs view */
 .logs-layout {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: minmax(210px, 280px) minmax(0, 1fr);
   gap: 12px;
-  min-height: 320px;
-  max-height: 62vh;
+  height: min(62vh, 720px);
+  min-height: 360px;
+  min-width: 0;
+  overflow: hidden;
 }
 .logs-list {
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 4px;
   border: 1px solid var(--line, #1e293b);
   border-radius: var(--radius-md, 8px);
   padding: 6px;
+  min-height: 0;
+  min-width: 0;
+  background: var(--inset-bg);
 }
 .logs-file {
   text-align: left;
-  font: 12px/1.4 var(--mono, monospace);
+  font: 12px/1.4 var(--font-mono, monospace);
   padding: 8px 10px;
   border: 0;
   background: transparent;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-muted, #94a3b8);
   border-radius: 6px;
   cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.logs-file:hover { background: rgba(148, 163, 184, 0.08); color: var(--text-primary, #e2e8f0); }
+.logs-file:hover { background: var(--card-hover); color: var(--text); }
 .logs-file.active { background: rgba(56, 189, 248, 0.12); color: var(--accent, #38bdf8); }
 .logs-viewer {
   overflow: auto;
+  min-height: 0;
+  min-width: 0;
   border: 1px solid var(--line, #1e293b);
   border-radius: var(--radius-md, 8px);
   padding: 12px;
-  font: 11px/1.55 var(--mono, monospace);
-  white-space: pre;
-  color: var(--text-secondary, #94a3b8);
+  font: 12px/1.55 var(--font-mono, monospace);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text-muted, #94a3b8);
+  background: var(--inset-bg);
 }
 .logs-empty { padding: 16px; color: var(--text-muted, #64748b); font-size: 13px; }
+
+@media (max-width: 760px) {
+  .logs-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(150px, 30%) minmax(260px, 1fr);
+    height: 70vh;
+  }
+}
 
 /* Settings — Permissions card */
 .permissions-grant-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; align-items: end; margin-bottom: 10px; }
