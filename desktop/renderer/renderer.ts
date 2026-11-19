@@ -727,6 +727,7 @@ export function setView(view: ViewMode): void {
   const projectPairsList = document.getElementById("project-pairs-list");
   const noProjectPairs = document.getElementById("no-project-pairs");
   const layout = document.querySelector(".layout");
+  layout?.classList.remove("view-source");
 
   navHome?.classList.toggle("active", view === "home");
   navAllSessions?.classList.toggle("active", view === "sessions");
@@ -786,6 +787,7 @@ export function setView(view: ViewMode): void {
 
   if (view === "source") {
     layout?.classList.remove("view-home", "view-sessions", "view-activity");
+    layout?.classList.add("view-source");
     logsPanel?.classList.add("hidden");
     dashboardPanel?.classList.add("hidden");
     projectPairsPanel?.classList.add("hidden");
