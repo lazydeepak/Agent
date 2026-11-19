@@ -25,6 +25,10 @@
         <span class="brand-name">Agent</span>
       </div>
       <div class="global-actions">
+        <label class="global-search" for="global-search-input">
+          <span aria-hidden="true">⌕</span>
+          <input id="global-search-input" type="search" placeholder="Search all pages and logs…" autocomplete="off" />
+        </label>
         <button id="add-pair" class="btn btn-primary btn-sm">+ Add Pair</button>
         <button id="add-project-pair" class="btn btn-ghost btn-sm">+ Add Project</button>
         <button id="refresh" class="btn" title="Refresh status">Refresh</button>
@@ -32,6 +36,7 @@
         <button id="stop-all" class="btn btn-danger" title="Block all relay transport for every pair (one-time command). Bot-owned Worker terminations are requested but unverified; Auto Resume is disabled for every pair. Not a persistent lock.">Stop All</button>
       </div>
     </header>
+    <div id="global-search-results" class="global-search-results hidden" role="region" aria-label="Global search results"></div>
 
     <div class="app-workspace">
       <aside class="sidebar-nav">

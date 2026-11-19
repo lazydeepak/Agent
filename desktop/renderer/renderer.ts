@@ -309,6 +309,70 @@ function renderPairsPanel(): void {
 
 type ViewMode = "sessions" | "home" | "activity" | "recovery" | "pairs" | "models" | "modules" | "logs" | "config" | "devices" | "health" | "developer" | "setup" | "source";
 let currentView: ViewMode = "home";
+let globalSearchTimer: ReturnType<typeof setTimeout> | undefined;
+
+async function runGlobalSearch(query: string): Promise<void> {
+  const results = document.getElementById("global-search-results");
+  if (!results) return;
+  const needle = query.trim().toLocaleLowerCase();
+  if (!needle) {
+    results.replaceChildren();
+    results.classList.add("hidden");
+    return;
+  }
+
+  results.replaceChildren();
+  results.classList.remove("hidden");
+  const matches: Array<{ source: string; text: string }> = [];
+  const add = (source: string, value: unknown): void => {
+    const text = String(value ?? "");
+    const index = text.toLocaleLowerCase().indexOf(needle);
+    if (index < 0) return;
+    const start = Math.max(0, index - 90);
+    const end = Math.min(text.length, index + needle.length + 140);
+    matches.push({ source, text: `${start > 0 ? "…" : ""}${text.slice(start, end)}${end < text.length ? "…" : ""}` });
+  };
+
+  // Search every rendered page, including hidden page panels, plus structured pair data.
+  document.querySelectorAll<HTMLElement>(".page-panel, #sidebar-projects-list, #pairs-list").forEach((node) => {
+    add("Page", node.textContent);
+  });
+  state.pairs.forEach((pair) => add(`Pair · ${pair.pairId}`, JSON.stringify(pair)));
+  state.statuses.forEach((status) => add(`Status · ${status.pairId}`, JSON.stringify(status)));
+
+  const timeline = await runAction(() => window.desktop.getTimeline(undefined, 500));
+  timeline?.forEach((event) => add(`Activity · ${event.type}`, JSON.stringify(event)));
+
+  const files = await runAction(() => window.desktop.listLogs());
+  if (files) {
+    for (const file of files.slice(0, 20)) {
+      const log = await runAction(() => window.desktop.readLogFile(file.id));
+      if (log) add(`Log · ${file.name}`, log.lines.join("\n"));
+    }
+  }
+
+  const unique = matches.filter((match, index) =>
+    matches.findIndex((candidate) => candidate.source === match.source && candidate.text === match.text) === index
+  ).slice(0, 40);
+  if (unique.length === 0) {
+    const empty = el("div", "global-search-empty");
+    empty.textContent = `No results for “${query.trim()}”.`;
+    results.appendChild(empty);
+  } else {
+    const heading = el("div", "global-search-heading");
+    heading.textContent = `${unique.length}${unique.length === 40 ? "+" : ""} result${unique.length === 1 ? "" : "s"}`;
+    results.appendChild(heading);
+    unique.forEach((match) => {
+      const row = el("div", "global-search-result");
+      const source = el("strong", "global-search-result-source");
+      source.textContent = match.source;
+      const text = el("span", "global-search-result-text");
+      text.textContent = match.text;
+      row.append(source, text);
+      results.appendChild(row);
+    });
+  }
+}
 
 function closeMobileSidebar(): void {
   const sidebar = document.querySelector(".sidebar-nav");
@@ -2179,6 +2243,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const addPairBtn = document.getElementById("add-pair");
   const addProjectPairBtn = document.getElementById("add-project-pair");
+  document.getElementById("global-search-input")?.addEventListener("input", (event) => {
+    const query = (event.target as HTMLInputElement).value;
+    if (globalSearchTimer) clearTimeout(globalSearchTimer);
+    globalSearchTimer = setTimeout(() => { void runGlobalSearch(query); }, 180);
+  });
   addPairBtn?.addEventListener("click", closeMobileSidebar);
   addProjectPairBtn?.addEventListener("click", closeMobileSidebar);
 

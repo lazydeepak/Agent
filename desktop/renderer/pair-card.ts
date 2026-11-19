@@ -142,8 +142,6 @@ function renderPairCard(card: PairCardModel, pair: PairIdentityDto): HTMLElement
   plannerEndpoint.append(plannerRole, plannerConv, plannerType);
 
   bridge.append(workerEndpoint, connector, plannerEndpoint);
-  body.push(bridge);
-
   // v1.1 §7.3–7.4 — both peers busy with pending work and no starting side selected: offer the operator the choice.
   if (status?.awaitingStartingSideSelection) {
     const selectPanel = el("div", "starting-side-panel");
@@ -219,7 +217,9 @@ function renderPairCard(card: PairCardModel, pair: PairIdentityDto): HTMLElement
   scheduleSync();
 
   if (expanded) {
-    body.push(renderPairDetails(card, pair, controls, card.runtimeState !== "STOPPED" && card.runtimeState !== "ERROR"));
+    const details = renderPairDetails(card, pair, controls, card.runtimeState !== "STOPPED" && card.runtimeState !== "ERROR");
+    details.insertBefore(bridge, details.firstChild);
+    body.push(details);
   }
 
   return buildCard({
@@ -399,4 +399,3 @@ function renderHealthStatus(card: PairCardModel, running: boolean): HTMLElement 
 
   return container;
 }
-

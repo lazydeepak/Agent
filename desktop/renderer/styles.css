@@ -229,6 +229,65 @@ body {
   flex-shrink: 0;
 }
 
+.global-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.global-search input {
+  width: 100%;
+  min-width: 180px;
+  padding: 7px 10px;
+  color: var(--text);
+  background: var(--input-bg, var(--card));
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+}
+
+.global-search-results {
+  position: fixed;
+  z-index: 50;
+  top: 58px;
+  right: 18px;
+  width: min(680px, calc(100vw - 36px));
+  max-height: min(70vh, 620px);
+  overflow: auto;
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.global-search-heading,
+.global-search-empty {
+  padding: 6px 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.global-search-result {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px;
+  border-top: 1px solid var(--panel-border);
+}
+
+.global-search-result-source {
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.global-search-result-text {
+  color: var(--text);
+  font: 11px/1.4 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
 .pref-toggle {
   display: inline-flex;
   align-items: center;
