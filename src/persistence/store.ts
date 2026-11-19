@@ -327,8 +327,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_proposal_identity
 CREATE INDEX IF NOT EXISTS idx_proposal_pair ON ai_proposals (pair_id, status);
 `;
 
-export const EXPECTED_SCHEMA_VERSION = 18;
-const SCHEMA_VERSION = EXPECTED_SCHEMA_VERSION;  // v18: permission_grants widen to global scope + shared-service-restart action; v17: permission_grants (project/pair-scoped)
+export const EXPECTED_SCHEMA_VERSION = 19;
+const SCHEMA_VERSION = EXPECTED_SCHEMA_VERSION;  // v19: read-only project catalog and cumulative runtime work tracking
 
 // v17: original single-action table. Kept for exact migration replay on fresh v18 databases.
 const PERMISSION_GRANTS_SCHEMA = `
@@ -537,10 +537,6 @@ export class SqliteRelayStore implements RelayStore {
       if (current < 4) {
         this.db.exec(RUNTIME_SCHEMA);
       }
-      // Kept as a separate additive table so existing runtime metadata remains
-      // backward-compatible while cumulative work time survives every restart.
-      this.db.exec(RUNTIME_WORK_SCHEMA);
-      this.db.exec(PROJECT_CATALOG_SCHEMA);
       if (current < 5) {
         this.db.exec(RELAY_CYCLE_SCHEMA);
         for (const column of RUNTIME_SCHEDULER_COLUMNS) {
@@ -639,6 +635,12 @@ export class SqliteRelayStore implements RelayStore {
       }
       if (current >= 17 && current < 18) {
         this.db.exec(PERMISSION_GRANTS_V18_MIGRATION);
+      }
+      if (current < 19) {
+        // v19 adds the read-only development project catalog and cumulative
+        // runtime accounting without changing relay identity/history tables.
+        this.db.exec(RUNTIME_WORK_SCHEMA);
+        this.db.exec(PROJECT_CATALOG_SCHEMA);
       }
       if (row === undefined) {
         this.db.prepare("INSERT INTO schema_version (version) VALUES (?)").run(SCHEMA_VERSION);

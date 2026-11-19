@@ -48,12 +48,12 @@ const makePair = (pairId: string, overrides: Partial<SessionPair> = {}): Session
 
 describe("SqliteRelayStore — v17 permission_grants", () => {
   it("advances the schema to v17 and creates permission_grants", async () => {
-    expect(EXPECTED_SCHEMA_VERSION).toBe(18);
+    expect(EXPECTED_SCHEMA_VERSION).toBe(19);
     const { dbPath } = await freshStore();
     const store = new SqliteRelayStore(dbPath);
     await store.init();
     const snapshot = store.diagnosticsSnapshot();
-    expect(snapshot.schemaVersion).toBe(18);
+    expect(snapshot.schemaVersion).toBe(19);
     const counts = store.tableCounts();
     expect(counts).toHaveProperty("permission_grants", 0);
     store.close();
@@ -87,7 +87,7 @@ describe("SqliteRelayStore — v17 permission_grants", () => {
     const store = new SqliteRelayStore(dbPath);
     await store.init();
     const check = new DatabaseSync(dbPath);
-    expect((check.prepare("SELECT version FROM schema_version").get() as { version: number }).version).toBe(18);
+    expect((check.prepare("SELECT version FROM schema_version").get() as { version: number }).version).toBe(19);
     check.close();
     expect(store.tableCounts()).toHaveProperty("permission_grants", 1);
     const grants = store.listPermissionGrants();
