@@ -5,6 +5,7 @@ coverage/
 .DS_Store
 .env
 .opencode/
+.attic/
 config/pairs.local.json
 config/projects.local.json
 data/*

@@ -16,14 +16,9 @@ This document records how features from sibling projects (`Bot`, `RelayX`, `Term
 |---|---|
 | TerminalBot/RelayLoop writing_block extraction | `src/adapters/chatgpt/index.ts`, `src/relay/planner-prompt.ts` |
 | TerminalBot/RelayLoop receipt verification | `src/relay/receipt-verification.ts` |
-| TerminalBot/RelayLoop process lock | `src/util/process-lock.ts` |
 | TerminalBot/RelayLoop composer readiness + 10-min windows | `src/relay/composer-readiness.ts`, `src/relay/composer-polling.ts` |
-| RelayX diagnostics telemetry buffer | `src/application/diagnostics-buffer.ts` |
 | RelayX health monitors | `src/application/health-monitors.ts` |
 | RelayX engine invariant guard (UI) | `desktop/renderer/index.html` panel |
-| Bot plugin registry | `src/application/plugin-registry.ts` |
-| Bot APNs sender | `src/application/apns.ts` |
-| Bot read-only diagnostics capability | `src/application/diagnostics-capability.ts` |
 | Bot Relay Beacon theme | `desktop/renderer/styles.css` (cascade overrides) |
 
 ## Desktop
@@ -32,6 +27,11 @@ This document records how features from sibling projects (`Bot`, `RelayX`, `Term
 - IPC whitelist updated; `adapterSettings` channel added.
 
 ## Deferred
+- Unused sibling-project prototype modules (AI advisor/governor, Ollama adapter,
+  plugin registry, APNs sender, diagnostics capability/buffer, worker attention
+  protocol, and process lock) are preserved locally under the ignored
+  `.attic/consolidation-candidates/` directory. They are not part of the
+  production source graph until a feature explicitly adopts them.
 - Native mobile clients (iOS/Android): consume the remote HTTP API (`agent service start`).
 - Terminal packaging binaries: covered by `npm run service:bundle` / `service:binary`.
 - UI: Electron desktop only (with cascade overrides). No external UI framework dependency.

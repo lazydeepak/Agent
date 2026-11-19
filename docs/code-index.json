@@ -1,11 +1,11 @@
 {
   "schema": "agent-code-index-v1",
-  "generated": "2026-11-14T07:43:11.364Z",
+  "generated": "2026-11-19T15:07:58.065Z",
   "scope": "file/module + symbol index",
-  "source": "src/**/*.ts (104 modules)",
+  "source": "src/**/*.ts (95 modules)",
   "totals": {
-    "modules": 104,
-    "symbols": 620,
+    "modules": 95,
+    "symbols": 627,
     "modulesMissingHeader": 0
   },
   "categories": [
@@ -15,7 +15,7 @@
     },
     {
       "category": "contracts",
-      "modules": 9
+      "modules": 7
     },
     {
       "category": "adapters",
@@ -55,7 +55,7 @@
     },
     {
       "category": "application",
-      "modules": 31
+      "modules": 25
     },
     {
       "category": "remote",
@@ -63,7 +63,7 @@
     },
     {
       "category": "util",
-      "modules": 13
+      "modules": 12
     },
     {
       "category": "core",
@@ -77,84 +77,96 @@
       "category": "adapter-chatgpt",
       "purpose": "ChatGPT browser adapter exports.",
       "hasHeader": true,
-      "symbolCount": 13,
+      "symbolCount": 15,
       "symbols": [
         {
           "name": "ChatGPTBrowserAdapter",
           "kind": "interface",
-          "line": 29,
+          "line": 30,
           "signature": "export interface ChatGPTBrowserAdapter"
         },
         {
           "name": "PlannerSessionEvent",
           "kind": "interface",
-          "line": 45,
+          "line": 46,
           "signature": "export interface PlannerSessionEvent"
         },
         {
           "name": "FakeChatGPTBrowserAdapter",
           "kind": "class",
-          "line": 51,
+          "line": 52,
           "signature": "export class FakeChatGPTBrowserAdapter implements ChatGPTBrowserAdapter"
         },
         {
           "name": "ChatGPTReadinessSnapshot",
           "kind": "interface",
-          "line": 113,
+          "line": 114,
           "signature": "export interface ChatGPTReadinessSnapshot"
         },
         {
           "name": "ChatGPTReadinessProbe",
           "kind": "interface",
-          "line": 123,
+          "line": 124,
           "signature": "export interface ChatGPTReadinessProbe"
         },
         {
           "name": "ChatGPTBrowserDriver",
           "kind": "interface",
-          "line": 127,
+          "line": 128,
           "signature": "export interface ChatGPTBrowserDriver extends ChatGPTReadinessProbe"
         },
         {
           "name": "LiveChatGPTBrowserOptions",
           "kind": "interface",
-          "line": 143,
+          "line": 144,
           "signature": "export interface LiveChatGPTBrowserOptions extends ChatGPTBrowserConfig"
         },
         {
           "name": "DEFAULT_CHATGPT_RATE_LIMIT_BACKOFF_MS",
           "kind": "const",
-          "line": 149,
+          "line": 150,
           "signature": "export const DEFAULT_CHATGPT_RATE_LIMIT_BACKOFF_MS = 5 * 60_000"
         },
         {
           "name": "LiveChatGPTBrowserAdapter",
           "kind": "class",
-          "line": 151,
+          "line": 152,
           "signature": "export class LiveChatGPTBrowserAdapter implements ChatGPTBrowserAdapter"
         },
         {
           "name": "disposeManagedBrowsers",
           "kind": "function",
-          "line": 276,
+          "line": 277,
           "signature": "export async function disposeManagedBrowsers(): Promise<void>"
         },
         {
           "name": "PlaywrightChatGPTBrowserDriver",
           "kind": "class",
-          "line": 287,
+          "line": 288,
           "signature": "export class PlaywrightChatGPTBrowserDriver implements ChatGPTBrowserDriver"
+        },
+        {
+          "name": "gotoPlannerPage",
+          "kind": "function",
+          "line": 633,
+          "signature": "export async function gotoPlannerPage(page: Page, url: string, timeoutMs: number): Promise<void>"
+        },
+        {
+          "name": "isTransientGotoAbort",
+          "kind": "function",
+          "line": 649,
+          "signature": "export function isTransientGotoAbort(error: unknown): boolean"
         },
         {
           "name": "shouldNavigatePlannerPage",
           "kind": "function",
-          "line": 631,
+          "line": 653,
           "signature": "export function shouldNavigatePlannerPage(currentUrl: string, conversationId: string): boolean"
         },
         {
           "name": "ChatGPTTemporaryLimitError",
           "kind": "class",
-          "line": 639,
+          "line": 661,
           "signature": "export class ChatGPTTemporaryLimitError extends Error"
         }
       ],
@@ -181,6 +193,10 @@
         },
         {
           "spec": "../../util/readiness.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../../util/chatgpt-url.js",
           "kind": "internal"
         },
         {
@@ -246,25 +262,25 @@
         {
           "name": "normalizeChatGptProject",
           "kind": "function",
-          "line": 43,
+          "line": 42,
           "signature": "export function normalizeChatGptProject(input: string):"
         },
         {
           "name": "listCdpTargets",
           "kind": "function",
-          "line": 82,
+          "line": 92,
           "signature": "export async function listCdpTargets( cdpUrl: string, fetchImpl: typeof fetch = fetch ): Promise<CdpListTarget[]>"
         },
         {
           "name": "groupChatGptProjects",
           "kind": "function",
-          "line": 110,
+          "line": 120,
           "signature": "export function groupChatGptProjects(targets: CdpListTarget[]): ChatGptProjectDiscovery[]"
         },
         {
           "name": "discoverChatGptProjects",
           "kind": "function",
-          "line": 159,
+          "line": 169,
           "signature": "export async function discoverChatGptProjects( cdpUrl: string, fetchImpl: typeof fetch = fetch ): Promise<ChatGptProjectDiscovery[]>"
         }
       ],
@@ -544,7 +560,7 @@
         {
           "name": "OpenCodeWriteUnsupportedError",
           "kind": "class",
-          "line": 925,
+          "line": 916,
           "signature": "export class OpenCodeWriteUnsupportedError extends Error"
         }
       ],
@@ -648,7 +664,7 @@
         {
           "name": "StaticOpenCodeAdapter",
           "kind": "class",
-          "line": 473,
+          "line": 472,
           "signature": "export class StaticOpenCodeAdapter extends FakeOpenCodeAdapter implements OpenCodeSessionManager"
         }
       ],
@@ -676,68 +692,6 @@
         {
           "spec": "./event-source.js",
           "kind": "internal"
-        }
-      ]
-    },
-    {
-      "path": "src/application/advisor-provider.ts",
-      "dir": "src/application",
-      "category": "application",
-      "purpose": "Source module for advisor-provider.ts.",
-      "hasHeader": true,
-      "symbolCount": 1,
-      "symbols": [
-        {
-          "name": "AttentionAdvisorProvider",
-          "kind": "interface",
-          "line": 11,
-          "signature": "export interface AttentionAdvisorProvider"
-        }
-      ],
-      "dependencies": [
-        {
-          "spec": "../contracts/ai-proposal.js",
-          "kind": "internal"
-        }
-      ]
-    },
-    {
-      "path": "src/application/apns.ts",
-      "dir": "src/application",
-      "category": "application",
-      "purpose": "APNs alert sender — JWT-based HTTP/2 push to Apple Push Notification service; opt-in via APNS_* env vars. Ported from Bot (relay-beacon).",
-      "hasHeader": true,
-      "symbolCount": 2,
-      "symbols": [
-        {
-          "name": "apnsConfigured",
-          "kind": "function",
-          "line": 50,
-          "signature": "export function apnsConfigured(): boolean"
-        },
-        {
-          "name": "sendApnsAlert",
-          "kind": "function",
-          "line": 54,
-          "signature": "export function sendApnsAlert(deviceToken: string, title: string, body: string): Promise<"
-        }
-      ],
-      "dependencies": [
-        {
-          "spec": "node:fs",
-          "kind": "node"
-        },
-        {
-          "spec": "node:path",
-          "kind": "node"
-        },
-        {
-          "spec": "node:http2",
-          "kind": "node"
-        },
-        {
-          "spec": "node:crypto",
-          "kind": "node"
         }
       ]
     },
@@ -820,73 +774,113 @@
       ]
     },
     {
-      "path": "src/application/automation-governor.ts",
+      "path": "src/application/config-file-store.ts",
       "dir": "src/application",
       "category": "application",
-      "purpose": "Source module for automation-governor.ts.",
+      "purpose": "Shared machinery for the pair-config and project-pair-config file repositories.",
       "hasHeader": true,
-      "symbolCount": 3,
+      "symbolCount": 4,
       "symbols": [
         {
-          "name": "AutomationGovernorOptions",
-          "kind": "interface",
-          "line": 11,
-          "signature": "export interface AutomationGovernorOptions"
+          "name": "isNodeError",
+          "kind": "function",
+          "line": 12,
+          "signature": "export function isNodeError(error: unknown): error is NodeJS.ErrnoException"
         },
         {
-          "name": "AutomationGovernorState",
-          "kind": "interface",
-          "line": 18,
-          "signature": "export interface AutomationGovernorState"
+          "name": "messageOf",
+          "kind": "function",
+          "line": 16,
+          "signature": "export function messageOf(error: unknown): string"
         },
         {
-          "name": "AutomationGovernor",
+          "name": "MutationQueue",
           "kind": "class",
-          "line": 27,
-          "signature": "export class AutomationGovernor"
+          "line": 24,
+          "signature": "export class MutationQueue"
+        },
+        {
+          "name": "atomicWriteJson",
+          "kind": "function",
+          "line": 41,
+          "signature": "export async function atomicWriteJson(configPath: string, value: unknown, tempPrefix: string): Promise<void>"
         }
       ],
       "dependencies": [
         {
-          "spec": "./attention-service.js",
-          "kind": "internal"
+          "spec": "node:fs/promises",
+          "kind": "node"
         },
         {
-          "spec": "../application/advisor-provider.js",
-          "kind": "internal"
+          "spec": "node:path",
+          "kind": "node"
         },
         {
-          "spec": "../contracts/ai-automation.js",
-          "kind": "internal"
-        },
-        {
-          "spec": "../contracts/attention.js",
-          "kind": "internal"
+          "spec": "node:crypto",
+          "kind": "node"
         }
       ]
     },
     {
-      "path": "src/application/bounded-context-assembler.ts",
+      "path": "src/application/continuation-briefing.ts",
       "dir": "src/application",
       "category": "application",
-      "purpose": "Source module for bounded-context-assembler.ts.",
+      "purpose": "v1.1 §7.5 — decide whether a Resume may use direct continuation",
       "hasHeader": true,
-      "symbolCount": 1,
+      "symbolCount": 8,
       "symbols": [
         {
-          "name": "buildBoundedContext",
+          "name": "ResumeEvidence",
+          "kind": "interface",
+          "line": 15,
+          "signature": "export interface ResumeEvidence"
+        },
+        {
+          "name": "ResumeConsistency",
+          "kind": "type",
+          "line": 34,
+          "signature": "export type ResumeConsistency = \"proven\" | \"unproven\""
+        },
+        {
+          "name": "ResumeDecision",
+          "kind": "interface",
+          "line": 36,
+          "signature": "export interface ResumeDecision"
+        },
+        {
+          "name": "RESUME_DIRECT_VERSION",
+          "kind": "const",
+          "line": 47,
+          "signature": "export const RESUME_DIRECT_VERSION = \"resume-direct-1\""
+        },
+        {
+          "name": "RESUME_BRIEFING_VERSION",
+          "kind": "const",
+          "line": 48,
+          "signature": "export const RESUME_BRIEFING_VERSION = \"resume-briefing-1\""
+        },
+        {
+          "name": "collectResumeEvidence",
           "kind": "function",
-          "line": 9,
-          "signature": "export function buildBoundedContext( service: DesktopApplicationService, pairId: string, attentionKind: \"question\" | \"blocked\", attentionId?: string, boundedWor"
+          "line": 50,
+          "signature": "export function collectResumeEvidence(store: RelayStore, pairId: string): ResumeEvidence"
+        },
+        {
+          "name": "classifyResumeConsistency",
+          "kind": "function",
+          "line": 87,
+          "signature": "export function classifyResumeConsistency(evidence: ResumeEvidence):"
+        },
+        {
+          "name": "buildResumeDecision",
+          "kind": "function",
+          "line": 132,
+          "signature": "export function buildResumeDecision(evidence: ResumeEvidence): ResumeDecision"
         }
       ],
       "dependencies": [
         {
-          "spec": "./desktop-service.js",
-          "kind": "internal"
-        },
-        {
-          "spec": "../contracts/ai-proposal.js",
+          "spec": "../persistence/index.js",
           "kind": "internal"
         }
       ]
@@ -1016,67 +1010,67 @@
         {
           "name": "DesktopServiceOptions",
           "kind": "interface",
-          "line": 39,
+          "line": 44,
           "signature": "export interface DesktopServiceOptions"
         },
         {
           "name": "DesktopEventRecord",
           "kind": "type",
-          "line": 72,
+          "line": 82,
           "signature": "export type DesktopEventRecord = EventRecord"
         },
         {
           "name": "ProjectLifecycleSummary",
           "kind": "interface",
-          "line": 74,
+          "line": 84,
           "signature": "export interface ProjectLifecycleSummary extends RuntimeStatusSummary"
         },
         {
           "name": "(anonymous)",
           "kind": "type",
-          "line": 102,
+          "line": 112,
           "signature": "export type"
         },
         {
           "name": "DesktopApplicationError",
           "kind": "class",
-          "line": 126,
+          "line": 136,
           "signature": "export class DesktopApplicationError extends Error"
         },
         {
           "name": "toDesktopApplicationError",
           "kind": "function",
-          "line": 138,
+          "line": 148,
           "signature": "export function toDesktopApplicationError(error: unknown): DesktopApplicationError"
         },
         {
           "name": "RecentEventsFilter",
           "kind": "interface",
-          "line": 163,
+          "line": 173,
           "signature": "export interface RecentEventsFilter"
         },
         {
           "name": "DesktopApplicationService",
           "kind": "class",
-          "line": 170,
+          "line": 180,
           "signature": "export class DesktopApplicationService"
         },
         {
           "name": "fingerprintPairs",
           "kind": "function",
-          "line": 1480,
+          "line": 2046,
           "signature": "export function fingerprintPairs(pairs: SessionPair[]): string"
         },
         {
           "name": "ManagedState",
           "kind": "type",
-          "line": 1520,
+          "line": 2086,
           "signature": "export type ManagedState = \"RUNNING\" | \"ARMED\" | \"FAILED\" | \"STOPPED\""
         },
         {
           "name": "deriveManagedState",
           "kind": "function",
-          "line": 1522,
+          "line": 2088,
           "signature": "export function deriveManagedState(summary: RuntimeStatusSummary): ManagedState"
         }
       ],
@@ -1138,6 +1132,10 @@
           "kind": "internal"
         },
         {
+          "spec": "../contracts/desktop.js",
+          "kind": "internal"
+        },
+        {
           "spec": "../sessions/pairs.js",
           "kind": "internal"
         },
@@ -1147,6 +1145,18 @@
         },
         {
           "spec": "../validator/readiness.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../util/canonical.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../util/net.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./permission-service.js",
           "kind": "internal"
         },
         {
@@ -1171,10 +1181,6 @@
         },
         {
           "spec": "./opencode-desktop.js",
-          "kind": "internal"
-        },
-        {
-          "spec": "../contracts/desktop.js",
           "kind": "internal"
         }
       ]
@@ -1254,69 +1260,6 @@
         {
           "spec": "node:path",
           "kind": "node"
-        }
-      ]
-    },
-    {
-      "path": "src/application/diagnostics-buffer.ts",
-      "dir": "src/application",
-      "category": "application",
-      "purpose": "Bounded diagnostics telemetry buffer (500 samples) — per-operation metrics, component health, plain-text report. Consolidated from RelayX.",
-      "hasHeader": true,
-      "symbolCount": 4,
-      "symbols": [
-        {
-          "name": "DiagnosticSample",
-          "kind": "interface",
-          "line": 7,
-          "signature": "export interface DiagnosticSample"
-        },
-        {
-          "name": "OperationMetrics",
-          "kind": "interface",
-          "line": 15,
-          "signature": "export interface OperationMetrics"
-        },
-        {
-          "name": "ComponentHealth",
-          "kind": "interface",
-          "line": 24,
-          "signature": "export interface ComponentHealth"
-        },
-        {
-          "name": "DiagnosticsBuffer",
-          "kind": "class",
-          "line": 30,
-          "signature": "export class DiagnosticsBuffer"
-        }
-      ],
-      "dependencies": []
-    },
-    {
-      "path": "src/application/diagnostics-capability.ts",
-      "dir": "src/application",
-      "category": "application",
-      "purpose": "Read-only diagnostics capability gated by a permission (Bot (relay-beacon) parity).",
-      "hasHeader": true,
-      "symbolCount": 2,
-      "symbols": [
-        {
-          "name": "DiagnosticsPermissionChecker",
-          "kind": "interface",
-          "line": 9,
-          "signature": "export interface DiagnosticsPermissionChecker"
-        },
-        {
-          "name": "DiagnosticsCapability",
-          "kind": "class",
-          "line": 13,
-          "signature": "export class DiagnosticsCapability"
-        }
-      ],
-      "dependencies": [
-        {
-          "spec": "./diagnostics-buffer.js",
-          "kind": "internal"
         }
       ]
     },
@@ -1503,38 +1446,6 @@
       "dependencies": []
     },
     {
-      "path": "src/application/ollama-adapter.ts",
-      "dir": "src/application",
-      "category": "application",
-      "purpose": "Source module for ollama-adapter.ts.",
-      "hasHeader": true,
-      "symbolCount": 2,
-      "symbols": [
-        {
-          "name": "OllamaAdvisorOptions",
-          "kind": "interface",
-          "line": 9,
-          "signature": "export interface OllamaAdvisorOptions"
-        },
-        {
-          "name": "OllamaAdvisorProvider",
-          "kind": "class",
-          "line": 16,
-          "signature": "export class OllamaAdvisorProvider implements AttentionAdvisorProvider"
-        }
-      ],
-      "dependencies": [
-        {
-          "spec": "../contracts/ai-proposal.js",
-          "kind": "internal"
-        },
-        {
-          "spec": "../application/advisor-provider.js",
-          "kind": "internal"
-        }
-      ]
-    },
-    {
       "path": "src/application/opencode-desktop.ts",
       "dir": "src/application",
       "category": "application",
@@ -1611,11 +1522,65 @@
           "kind": "node"
         },
         {
-          "spec": "node:crypto",
-          "kind": "node"
+          "spec": "../sessions/pairs.js",
+          "kind": "internal"
         },
         {
-          "spec": "../sessions/pairs.js",
+          "spec": "./config-file-store.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../types.js",
+          "kind": "internal"
+        }
+      ]
+    },
+    {
+      "path": "src/application/permission-service.ts",
+      "dir": "src/application",
+      "category": "application",
+      "purpose": "v1.1 §11.5 — least-privilege, project/pair-scoped permission grants with",
+      "hasHeader": true,
+      "symbolCount": 5,
+      "symbols": [
+        {
+          "name": "GLOBAL_SCOPE_REF",
+          "kind": "const",
+          "line": 20,
+          "signature": "export const GLOBAL_SCOPE_REF = \"shared-opencode\""
+        },
+        {
+          "name": "GlobalAuthorization",
+          "kind": "interface",
+          "line": 23,
+          "signature": "export interface GlobalAuthorization"
+        },
+        {
+          "name": "PermissionServiceContext",
+          "kind": "interface",
+          "line": 28,
+          "signature": "export interface PermissionServiceContext"
+        },
+        {
+          "name": "scopeKeysForPair",
+          "kind": "function",
+          "line": 43,
+          "signature": "export function scopeKeysForPair(pair: SessionPair): Array<"
+        },
+        {
+          "name": "PermissionService",
+          "kind": "class",
+          "line": 58,
+          "signature": "export class PermissionService"
+        }
+      ],
+      "dependencies": [
+        {
+          "spec": "./desktop-service.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../persistence/index.js",
           "kind": "internal"
         },
         {
@@ -1635,13 +1600,13 @@
         {
           "name": "PlannerSeedingContext",
           "kind": "interface",
-          "line": 26,
+          "line": 30,
           "signature": "export interface PlannerSeedingContext"
         },
         {
           "name": "PlannerSeedingService",
           "kind": "class",
-          "line": 43,
+          "line": 47,
           "signature": "export class PlannerSeedingService"
         }
       ],
@@ -1677,47 +1642,6 @@
       ]
     },
     {
-      "path": "src/application/plugin-registry.ts",
-      "dir": "src/application",
-      "category": "application",
-      "purpose": "Declarative plugin registry: validate manifests, install/config/persist, disabled-by-default, incompatible on entrypoint. Consolidated from Bot (relay-beacon).",
-      "hasHeader": true,
-      "symbolCount": 5,
-      "symbols": [
-        {
-          "name": "PluginManifest",
-          "kind": "interface",
-          "line": 7,
-          "signature": "export interface PluginManifest"
-        },
-        {
-          "name": "PluginState",
-          "kind": "type",
-          "line": 15,
-          "signature": "export type PluginState = \"installed-disabled\" | \"installed-enabled\" | \"incompatible\""
-        },
-        {
-          "name": "PluginRecord",
-          "kind": "interface",
-          "line": 17,
-          "signature": "export interface PluginRecord"
-        },
-        {
-          "name": "PluginRegistryStore",
-          "kind": "interface",
-          "line": 24,
-          "signature": "export interface PluginRegistryStore"
-        },
-        {
-          "name": "PluginRegistry",
-          "kind": "class",
-          "line": 29,
-          "signature": "export class PluginRegistry"
-        }
-      ],
-      "dependencies": []
-    },
-    {
       "path": "src/application/project-pair-repository.ts",
       "dir": "src/application",
       "category": "application",
@@ -1728,19 +1652,19 @@
         {
           "name": "ProjectPairConfigErrorCode",
           "kind": "type",
-          "line": 12,
+          "line": 11,
           "signature": "export type ProjectPairConfigErrorCode = | \"CONFIG_UNREADABLE\" | \"CONFIG_INVALID\" | \"CONFIG_UNWRITABLE\" | \"PROJECT_PAIR_NOT_FOUND\" | \"PROJECT_PAIR_ALREADY_EXIST"
         },
         {
           "name": "ProjectPairRepositoryError",
           "kind": "class",
-          "line": 20,
+          "line": 19,
           "signature": "export class ProjectPairRepositoryError extends Error"
         },
         {
           "name": "ProjectPairRepository",
           "kind": "class",
-          "line": 38,
+          "line": 37,
           "signature": "export class ProjectPairRepository"
         }
       ],
@@ -1750,15 +1674,11 @@
           "kind": "node"
         },
         {
-          "spec": "node:path",
-          "kind": "node"
-        },
-        {
-          "spec": "node:crypto",
-          "kind": "node"
-        },
-        {
           "spec": "../sessions/project-pairs.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./config-file-store.js",
           "kind": "internal"
         },
         {
@@ -1778,31 +1698,31 @@
         {
           "name": "ProjectPairServiceOptions",
           "kind": "interface",
-          "line": 29,
+          "line": 30,
           "signature": "export interface ProjectPairServiceOptions"
         },
         {
           "name": "CreateProjectPairInput",
           "kind": "type",
-          "line": 38,
+          "line": 39,
           "signature": "export type CreateProjectPairInput = CreateProjectPairDto"
         },
         {
           "name": "OpenCodeProjectDiscovery",
           "kind": "type",
-          "line": 39,
+          "line": 40,
           "signature": "export type OpenCodeProjectDiscovery = OpenCodeProjectDto"
         },
         {
           "name": "ProjectPairService",
           "kind": "class",
-          "line": 50,
+          "line": 51,
           "signature": "export class ProjectPairService"
         },
         {
           "name": "suggestProjectPairId",
           "kind": "function",
-          "line": 256,
+          "line": 272,
           "signature": "export function suggestProjectPairId(repoPath: string, projectSlug: string): string"
         }
       ],
@@ -1813,6 +1733,10 @@
         },
         {
           "spec": "../adapters/opencode/index.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../adapters/opencode/http.js",
           "kind": "internal"
         },
         {
@@ -1886,7 +1810,7 @@
         {
           "name": "writeSettings",
           "kind": "function",
-          "line": 32,
+          "line": 38,
           "signature": "export function writeSettings(input: SettingsDto): SettingsDto"
         }
       ],
@@ -1921,36 +1845,13 @@
           "name": "UNIVERSAL_PLANNER_PROMPT_VERSION",
           "kind": "const",
           "line": 6,
-          "signature": "export const UNIVERSAL_PLANNER_PROMPT_VERSION = \"1\""
+          "signature": "export const UNIVERSAL_PLANNER_PROMPT_VERSION = \"2\""
         },
         {
           "name": "UNIVERSAL_PLANNER_PROMPT",
           "kind": "const",
           "line": 8,
           "signature": "export const UNIVERSAL_PLANNER_PROMPT = `You are the autonomous planning and supervision agent for this software project. An OpenCode worker executes your instr"
-        }
-      ],
-      "dependencies": []
-    },
-    {
-      "path": "src/application/worker-attention-protocol.ts",
-      "dir": "src/application",
-      "category": "application",
-      "purpose": "Source module for worker-attention-protocol.ts.",
-      "hasHeader": true,
-      "symbolCount": 2,
-      "symbols": [
-        {
-          "name": "ATTENTION_PROTOCOL_VERSION",
-          "kind": "const",
-          "line": 12,
-          "signature": "export const ATTENTION_PROTOCOL_VERSION = \"1\""
-        },
-        {
-          "name": "ATTENTION_PROTOCOL_INSTRUCTION",
-          "kind": "const",
-          "line": 14,
-          "signature": "export const ATTENTION_PROTOCOL_INSTRUCTION = ` Agent attention protocol (v${ATTENTION_PROTOCOL_VERSION}): When your response requires planner input, is blocked"
         }
       ],
       "dependencies": []
@@ -2032,13 +1933,13 @@
         {
           "name": "WorkerSessionContext",
           "kind": "interface",
-          "line": 34,
+          "line": 35,
           "signature": "export interface WorkerSessionContext"
         },
         {
           "name": "WorkerSessionService",
           "kind": "class",
-          "line": 68,
+          "line": 71,
           "signature": "export class WorkerSessionService"
         }
       ],
@@ -2073,6 +1974,10 @@
         },
         {
           "spec": "./approved-models.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "./permission-service.js",
           "kind": "internal"
         }
       ]
@@ -2247,64 +2152,6 @@
           "kind": "internal"
         }
       ]
-    },
-    {
-      "path": "src/contracts/ai-automation.ts",
-      "dir": "src/contracts",
-      "category": "contracts",
-      "purpose": "Source module for ai-automation.ts.",
-      "hasHeader": true,
-      "symbolCount": 2,
-      "symbols": [
-        {
-          "name": "AiAutomationMode",
-          "kind": "type",
-          "line": 12,
-          "signature": "export type AiAutomationMode = | \"off\" | \"manual\" | \"auto_propose\""
-        },
-        {
-          "name": "AiAutomationPolicy",
-          "kind": "interface",
-          "line": 17,
-          "signature": "export interface AiAutomationPolicy"
-        }
-      ],
-      "dependencies": []
-    },
-    {
-      "path": "src/contracts/ai-proposal.ts",
-      "dir": "src/contracts",
-      "category": "contracts",
-      "purpose": "Source module for ai-proposal.ts.",
-      "hasHeader": true,
-      "symbolCount": 4,
-      "symbols": [
-        {
-          "name": "ProposalDisposition",
-          "kind": "type",
-          "line": 14,
-          "signature": "export type ProposalDisposition = | \"propose_answer\" | \"needs_human\" | \"no_action\""
-        },
-        {
-          "name": "AttentionAdvisorInput",
-          "kind": "interface",
-          "line": 19,
-          "signature": "export interface AttentionAdvisorInput"
-        },
-        {
-          "name": "BoundedContext",
-          "kind": "interface",
-          "line": 28,
-          "signature": "export interface BoundedContext"
-        },
-        {
-          "name": "AttentionAdvisorResult",
-          "kind": "interface",
-          "line": 37,
-          "signature": "export interface AttentionAdvisorResult"
-        }
-      ],
-      "dependencies": []
     },
     {
       "path": "src/contracts/attention.ts",
@@ -2544,7 +2391,7 @@
       "category": "contracts",
       "purpose": "Source module for desktop.ts.",
       "hasHeader": true,
-      "symbolCount": 57,
+      "symbolCount": 67,
       "symbols": [
         {
           "name": "CheckStatusDto",
@@ -2591,302 +2438,362 @@
         {
           "name": "StatusSummaryDto",
           "kind": "interface",
-          "line": 71,
+          "line": 89,
           "signature": "export interface StatusSummaryDto"
         },
         {
           "name": "PairIdentityDto",
           "kind": "interface",
-          "line": 80,
+          "line": 98,
           "signature": "export interface PairIdentityDto"
         },
         {
           "name": "OpenCodeSessionInfoDto",
           "kind": "interface",
-          "line": 102,
+          "line": 120,
           "signature": "export interface OpenCodeSessionInfoDto"
         },
         {
           "name": "OpenCodeEndpointDto",
           "kind": "interface",
-          "line": 109,
+          "line": 127,
           "signature": "export interface OpenCodeEndpointDto"
         },
         {
           "name": "OpenCodeEndpointTestDto",
           "kind": "interface",
-          "line": 113,
+          "line": 131,
           "signature": "export interface OpenCodeEndpointTestDto extends OpenCodeEndpointDto"
         },
         {
           "name": "CreateOpenCodeSessionDto",
           "kind": "interface",
-          "line": 118,
+          "line": 136,
           "signature": "export interface CreateOpenCodeSessionDto extends OpenCodeEndpointDto"
         },
         {
           "name": "StartOpenCodeServerDto",
           "kind": "interface",
-          "line": 123,
+          "line": 141,
           "signature": "export interface StartOpenCodeServerDto extends OpenCodeEndpointDto"
         },
         {
           "name": "ToolLaunchResultDto",
           "kind": "interface",
-          "line": 128,
+          "line": 146,
           "signature": "export interface ToolLaunchResultDto"
         },
         {
           "name": "ToolActionResultDto",
           "kind": "interface",
-          "line": 135,
+          "line": 153,
           "signature": "export interface ToolActionResultDto"
         },
         {
           "name": "WorkerSessionOpenResultDto",
           "kind": "interface",
-          "line": 140,
+          "line": 158,
           "signature": "export interface WorkerSessionOpenResultDto"
         },
         {
           "name": "WorkerModelDto",
           "kind": "interface",
-          "line": 147,
+          "line": 165,
           "signature": "export interface WorkerModelDto"
         },
         {
           "name": "SwitchWorkerModelDto",
           "kind": "interface",
-          "line": 154,
+          "line": 172,
           "signature": "export interface SwitchWorkerModelDto"
         },
         {
           "name": "WorkerModelSwitchResultDto",
           "kind": "interface",
-          "line": 160,
+          "line": 178,
           "signature": "export interface WorkerModelSwitchResultDto extends WorkerModelDto"
         },
         {
           "name": "ParsedChatGptUrlDto",
           "kind": "interface",
-          "line": 166,
+          "line": 184,
           "signature": "export interface ParsedChatGptUrlDto"
         },
         {
           "name": "PlannerEndpointDto",
           "kind": "interface",
-          "line": 172,
+          "line": 190,
           "signature": "export interface PlannerEndpointDto"
         },
         {
           "name": "EndpointTestResultDto",
           "kind": "interface",
-          "line": 177,
+          "line": 195,
           "signature": "export interface EndpointTestResultDto"
         },
         {
           "name": "PairStartPriming",
           "kind": "type",
-          "line": 183,
-          "signature": "export type PairStartPriming = \"from-worker\" | \"from-planner\" | \"from-trigger\""
+          "line": 201,
+          "signature": "export type PairStartPriming = \"from-worker\" | \"from-planner\" | \"from-trigger\" | \"resume\""
         },
         {
           "name": "AutomationInfoDto",
           "kind": "interface",
-          "line": 185,
+          "line": 203,
           "signature": "export interface AutomationInfoDto"
         },
         {
           "name": "PlannerSeedResultDto",
           "kind": "interface",
-          "line": 191,
+          "line": 209,
           "signature": "export interface PlannerSeedResultDto"
         },
         {
           "name": "LocalAgentFeedResultDto",
           "kind": "interface",
-          "line": 197,
+          "line": 219,
           "signature": "export interface LocalAgentFeedResultDto"
         },
         {
           "name": "CandidatePairDto",
           "kind": "interface",
-          "line": 204,
+          "line": 226,
           "signature": "export interface CandidatePairDto"
         },
         {
           "name": "SettingsDto",
           "kind": "interface",
-          "line": 222,
+          "line": 244,
           "signature": "export interface SettingsDto"
+        },
+        {
+          "name": "SyncedProjectDto",
+          "kind": "interface",
+          "line": 253,
+          "signature": "export interface SyncedProjectDto"
         },
         {
           "name": "AutoResumeStateDto",
           "kind": "interface",
-          "line": 227,
+          "line": 262,
           "signature": "export interface AutoResumeStateDto"
         },
         {
           "name": "UpdatePairDto",
           "kind": "interface",
-          "line": 232,
+          "line": 267,
           "signature": "export interface UpdatePairDto"
         },
         {
           "name": "ProjectPairDto",
           "kind": "interface",
-          "line": 245,
+          "line": 280,
           "signature": "export interface ProjectPairDto"
         },
         {
           "name": "CreateProjectPairDto",
           "kind": "interface",
-          "line": 257,
+          "line": 294,
           "signature": "export interface CreateProjectPairDto"
         },
         {
           "name": "OpenCodeProjectDto",
           "kind": "interface",
-          "line": 269,
+          "line": 308,
           "signature": "export interface OpenCodeProjectDto"
         },
         {
           "name": "ChatGptProjectDto",
           "kind": "interface",
-          "line": 275,
+          "line": 314,
           "signature": "export interface ChatGptProjectDto"
         },
         {
           "name": "ChatGptProjectsDiscoveryInput",
           "kind": "interface",
-          "line": 283,
+          "line": 322,
           "signature": "export interface ChatGptProjectsDiscoveryInput"
         },
         {
           "name": "ArchivedPairSummaryDto",
           "kind": "interface",
-          "line": 287,
+          "line": 326,
           "signature": "export interface ArchivedPairSummaryDto"
         },
         {
           "name": "WorkerModelInfo",
           "kind": "interface",
-          "line": 296,
+          "line": 335,
           "signature": "export interface WorkerModelInfo extends OpenCodeModelInfo"
         },
         {
           "name": "WorkerSessionDesktopAlignmentDto",
           "kind": "interface",
-          "line": 300,
+          "line": 339,
           "signature": "export interface WorkerSessionDesktopAlignmentDto"
         },
         {
           "name": "ChatGptUrlInputDto",
           "kind": "interface",
-          "line": 308,
+          "line": 347,
           "signature": "export interface ChatGptUrlInputDto"
         },
         {
           "name": "PairDetail",
           "kind": "type",
-          "line": 313,
+          "line": 352,
           "signature": "export type PairDetail = PairIdentityDto"
         },
         {
           "name": "OpenCodeSessionInfo",
           "kind": "type",
-          "line": 314,
+          "line": 353,
           "signature": "export type OpenCodeSessionInfo = OpenCodeSessionInfoDto"
         },
         {
           "name": "OpenCodeEndpointInput",
           "kind": "type",
-          "line": 315,
+          "line": 354,
           "signature": "export type OpenCodeEndpointInput = OpenCodeEndpointDto"
         },
         {
           "name": "OpenCodeEndpointTestInput",
           "kind": "type",
-          "line": 316,
+          "line": 355,
           "signature": "export type OpenCodeEndpointTestInput = OpenCodeEndpointTestDto"
         },
         {
           "name": "CreateOpenCodeSessionInput",
           "kind": "type",
-          "line": 317,
+          "line": 356,
           "signature": "export type CreateOpenCodeSessionInput = CreateOpenCodeSessionDto"
         },
         {
           "name": "ChatGptUrlInput",
           "kind": "type",
-          "line": 318,
+          "line": 357,
           "signature": "export type ChatGptUrlInput = ChatGptUrlInputDto"
         },
         {
           "name": "ParsedChatGptUrl",
           "kind": "type",
-          "line": 319,
+          "line": 358,
           "signature": "export type ParsedChatGptUrl = ParsedChatGptUrlDto"
         },
         {
           "name": "PlannerEndpointInput",
           "kind": "type",
-          "line": 320,
+          "line": 359,
           "signature": "export type PlannerEndpointInput = PlannerEndpointDto"
         },
         {
           "name": "StartOpenCodeServerInput",
           "kind": "type",
-          "line": 321,
+          "line": 360,
           "signature": "export type StartOpenCodeServerInput = StartOpenCodeServerDto"
         },
         {
           "name": "EndpointTestResult",
           "kind": "type",
-          "line": 322,
+          "line": 361,
           "signature": "export type EndpointTestResult = EndpointTestResultDto"
         },
         {
           "name": "WorkerSessionDesktopAlignment",
           "kind": "type",
-          "line": 323,
+          "line": 362,
           "signature": "export type WorkerSessionDesktopAlignment = WorkerSessionDesktopAlignmentDto"
         },
         {
           "name": "AutomationInfo",
           "kind": "type",
-          "line": 324,
+          "line": 363,
           "signature": "export type AutomationInfo = AutomationInfoDto"
         },
         {
           "name": "PlannerSeedResult",
           "kind": "type",
-          "line": 325,
+          "line": 364,
           "signature": "export type PlannerSeedResult = PlannerSeedResultDto"
         },
         {
           "name": "LocalAgentFeedResult",
           "kind": "type",
-          "line": 326,
+          "line": 365,
           "signature": "export type LocalAgentFeedResult = LocalAgentFeedResultDto"
         },
         {
           "name": "CandidatePairInput",
           "kind": "type",
-          "line": 327,
+          "line": 366,
           "signature": "export type CandidatePairInput = CandidatePairDto"
         },
         {
           "name": "UpdatePairInput",
           "kind": "type",
-          "line": 328,
+          "line": 367,
           "signature": "export type UpdatePairInput = UpdatePairDto"
         },
         {
           "name": "ValidatedPair",
           "kind": "type",
-          "line": 329,
+          "line": 368,
           "signature": "export type ValidatedPair = ValidationResultDto"
+        },
+        {
+          "name": "DiagnosticsSnapshotDto",
+          "kind": "interface",
+          "line": 371,
+          "signature": "export interface DiagnosticsSnapshotDto"
+        },
+        {
+          "name": "DatabaseSettingsInfoDto",
+          "kind": "interface",
+          "line": 390,
+          "signature": "export interface DatabaseSettingsInfoDto"
+        },
+        {
+          "name": "DatabaseBackupEntryDto",
+          "kind": "interface",
+          "line": 402,
+          "signature": "export interface DatabaseBackupEntryDto"
+        },
+        {
+          "name": "DatabaseRestoreResultDto",
+          "kind": "interface",
+          "line": 408,
+          "signature": "export interface DatabaseRestoreResultDto"
+        },
+        {
+          "name": "PermissionGrantAction",
+          "kind": "type",
+          "line": 413,
+          "signature": "export type PermissionGrantAction = \"model-switch-outside-approved\" | \"shared-service-restart\""
+        },
+        {
+          "name": "PermissionGrantMode",
+          "kind": "type",
+          "line": 414,
+          "signature": "export type PermissionGrantMode = \"one-time\" | \"permanent\""
+        },
+        {
+          "name": "PermissionGrantScopeType",
+          "kind": "type",
+          "line": 416,
+          "signature": "export type PermissionGrantScopeType = \"project\" | \"pair\" | \"global\""
+        },
+        {
+          "name": "PermissionGrantDto",
+          "kind": "interface",
+          "line": 418,
+          "signature": "export interface PermissionGrantDto"
+        },
+        {
+          "name": "PermissionGrantInputDto",
+          "kind": "interface",
+          "line": 431,
+          "signature": "export interface PermissionGrantInputDto"
         }
       ],
       "dependencies": [
@@ -3176,8 +3083,15 @@
       "category": "persistence",
       "purpose": "Persistence / SQLite store exports.",
       "hasHeader": true,
-      "symbolCount": 14,
+      "symbolCount": 16,
       "symbols": [
+        {
+          "name": "EXPECTED_SCHEMA_VERSION",
+          "kind": "re-export",
+          "line": 6,
+          "signature": "export {",
+          "from": "./store.js"
+        },
         {
           "name": "RelayStoreError",
           "kind": "re-export",
@@ -3214,65 +3128,72 @@
           "from": "./store.js"
         },
         {
+          "name": "PermissionGrantRow",
+          "kind": "re-export",
+          "line": 6,
+          "signature": "export {",
+          "from": "./store.js"
+        },
+        {
           "name": "canonicalRelayIdentity",
           "kind": "re-export",
-          "line": 13,
+          "line": 15,
           "signature": "export { canonicalRelayIdentity, canonicalizeText, hashText } from \"./canonical.js\"",
           "from": "./canonical.js"
         },
         {
           "name": "canonicalizeText",
           "kind": "re-export",
-          "line": 13,
+          "line": 15,
           "signature": "export { canonicalRelayIdentity, canonicalizeText, hashText } from \"./canonical.js\"",
           "from": "./canonical.js"
         },
         {
           "name": "hashText",
           "kind": "re-export",
-          "line": 13,
+          "line": 15,
           "signature": "export { canonicalRelayIdentity, canonicalizeText, hashText } from \"./canonical.js\"",
           "from": "./canonical.js"
         },
         {
           "name": "ArchiveError",
           "kind": "re-export",
-          "line": 14,
+          "line": 16,
           "signature": "export {",
           "from": "./archive.js"
         },
         {
           "name": "PairArchive",
           "kind": "re-export",
-          "line": 14,
+          "line": 16,
           "signature": "export {",
           "from": "./archive.js"
         },
         {
           "name": "ArchiveStore",
           "kind": "re-export",
-          "line": 14,
+          "line": 16,
           "signature": "export {",
           "from": "./archive.js"
         },
         {
           "name": "ArchivedConfigSnapshot",
           "kind": "re-export",
-          "line": 14,
+          "line": 16,
           "signature": "export {",
           "from": "./archive.js"
         },
         {
           "name": "ArchivedPairPayload",
           "kind": "re-export",
-          "line": 14,
+          "line": 16,
           "signature": "export {",
           "from": "./archive.js"
         },
         {
           "name": "ArchivedPairSummary",
           "kind": "re-export",
-          "line": 14,
+          "line": 16,
           "signature": "export {",
           "from": "./archive.js"
         }
@@ -3298,36 +3219,60 @@
       "category": "persistence",
       "purpose": "Source module for store.ts.",
       "hasHeader": true,
-      "symbolCount": 5,
+      "symbolCount": 9,
       "symbols": [
+        {
+          "name": "StoreDiagnosticsSnapshot",
+          "kind": "interface",
+          "line": 29,
+          "signature": "export interface StoreDiagnosticsSnapshot"
+        },
+        {
+          "name": "PermissionGrantAction",
+          "kind": "type",
+          "line": 40,
+          "signature": "export type PermissionGrantAction = \"model-switch-outside-approved\" | \"shared-service-restart\""
+        },
+        {
+          "name": "PermissionGrantRow",
+          "kind": "interface",
+          "line": 42,
+          "signature": "export interface PermissionGrantRow"
+        },
         {
           "name": "RelayStore",
           "kind": "interface",
-          "line": 28,
+          "line": 78,
           "signature": "export interface RelayStore"
         },
         {
           "name": "RelayStoreError",
           "kind": "class",
-          "line": 175,
+          "line": 261,
           "signature": "export class RelayStoreError extends Error"
+        },
+        {
+          "name": "EXPECTED_SCHEMA_VERSION",
+          "kind": "const",
+          "line": 330,
+          "signature": "export const EXPECTED_SCHEMA_VERSION = 19"
         },
         {
           "name": "SqliteRelayStore",
           "kind": "class",
-          "line": 345,
+          "line": 499,
           "signature": "export class SqliteRelayStore implements RelayStore"
         },
         {
           "name": "resolveDbPath",
           "kind": "function",
-          "line": 1420,
+          "line": 1911,
           "signature": "export function resolveDbPath(configuredPath?: string): string"
         },
         {
           "name": "ensureDbParent",
           "kind": "function",
-          "line": 1427,
+          "line": 1918,
           "signature": "export async function ensureDbParent(dbPath: string): Promise<void>"
         }
       ],
@@ -3452,7 +3397,7 @@
       "category": "recovery",
       "purpose": "Source module for engine.ts.",
       "hasHeader": true,
-      "symbolCount": 5,
+      "symbolCount": 6,
       "symbols": [
         {
           "name": "RecoveryEngineDeps",
@@ -3463,25 +3408,31 @@
         {
           "name": "RecoveryRunResult",
           "kind": "interface",
-          "line": 47,
+          "line": 55,
           "signature": "export interface RecoveryRunResult"
         },
         {
           "name": "RECOVERY_CORRECTIVE_BUDGET",
           "kind": "const",
-          "line": 66,
+          "line": 74,
           "signature": "export const RECOVERY_CORRECTIVE_BUDGET = 3"
         },
         {
           "name": "RECOVERY_DURATION_LIMIT_MS",
           "kind": "const",
-          "line": 68,
+          "line": 76,
           "signature": "export const RECOVERY_DURATION_LIMIT_MS = 10 * 60_000"
+        },
+        {
+          "name": "RECOVERY_SIGNATURE_WINDOW_MS",
+          "kind": "const",
+          "line": 78,
+          "signature": "export const RECOVERY_SIGNATURE_WINDOW_MS = RECOVERY_DURATION_LIMIT_MS"
         },
         {
           "name": "RecoveryEngine",
           "kind": "class",
-          "line": 70,
+          "line": 80,
           "signature": "export class RecoveryEngine"
         }
       ],
@@ -3763,19 +3714,19 @@
         {
           "name": "OpenCodeStartOutcome",
           "kind": "interface",
-          "line": 43,
+          "line": 55,
           "signature": "export interface OpenCodeStartOutcome"
         },
         {
           "name": "OpenCodeRecoveryOutcome",
           "kind": "type",
-          "line": 49,
+          "line": 61,
           "signature": "export type OpenCodeRecoveryOutcome = |"
         },
         {
           "name": "recoverOpenCode",
           "kind": "function",
-          "line": 53,
+          "line": 65,
           "signature": "export async function recoverOpenCode( input: OpenCodeRecoveryInput ): Promise<OpenCodeRecoveryOutcome>"
         }
       ],
@@ -4032,25 +3983,25 @@
         {
           "name": "relayWorkerToPlanner",
           "kind": "function",
-          "line": 323,
+          "line": 334,
           "signature": "export async function relayWorkerToPlanner( pair: SessionPair, adapters: RelayAdapters, options: RelayOptions = {} ): Promise<RelayResult>"
         },
         {
           "name": "relayPlannerToWorker",
           "kind": "function",
-          "line": 343,
+          "line": 354,
           "signature": "export async function relayPlannerToWorker( pair: SessionPair, adapters: RelayAdapters, options: RelayOptions = {} ): Promise<RelayResult>"
         },
         {
           "name": "extractModelInstruction",
           "kind": "function",
-          "line": 509,
+          "line": 520,
           "signature": "export function extractModelInstruction(text: string):"
         },
         {
           "name": "formatRelayResult",
           "kind": "function",
-          "line": 519,
+          "line": 530,
           "signature": "export function formatRelayResult(result: RelayResult): string"
         }
       ],
@@ -4717,13 +4668,13 @@
         {
           "name": "isHealthyRuntime",
           "kind": "function",
-          "line": 327,
+          "line": 337,
           "signature": "export function isHealthyRuntime(status: RuntimePairStatus): boolean"
         },
         {
           "name": "isFailedRuntime",
           "kind": "function",
-          "line": 338,
+          "line": 348,
           "signature": "export function isFailedRuntime(status: RuntimePairStatus): boolean"
         }
       ],
@@ -4781,19 +4732,19 @@
         {
           "name": "PairRuntimeOptions",
           "kind": "interface",
-          "line": 28,
+          "line": 29,
           "signature": "export interface PairRuntimeOptions"
         },
         {
           "name": "PairRuntimeStatusSet",
           "kind": "interface",
-          "line": 50,
+          "line": 51,
           "signature": "export interface PairRuntimeStatusSet"
         },
         {
           "name": "PairRuntime",
           "kind": "class",
-          "line": 59,
+          "line": 60,
           "signature": "export class PairRuntime"
         }
       ],
@@ -4832,6 +4783,10 @@
         },
         {
           "spec": "./wake-bus.js",
+          "kind": "internal"
+        },
+        {
+          "spec": "../adapters/opencode/event-source.js",
           "kind": "internal"
         }
       ]
@@ -5033,13 +4988,13 @@
         {
           "name": "ProjectPairConfigError",
           "kind": "class",
-          "line": 79,
+          "line": 86,
           "signature": "export class ProjectPairConfigError extends Error"
         },
         {
           "name": "parseProjectPairsConfig",
           "kind": "function",
-          "line": 89,
+          "line": 96,
           "signature": "export function parseProjectPairsConfig(input: unknown): ProjectPairsConfig"
         }
       ],
@@ -5085,31 +5040,31 @@
         {
           "name": "ClassifyOptions",
           "kind": "interface",
-          "line": 30,
+          "line": 32,
           "signature": "export interface ClassifyOptions"
         },
         {
           "name": "ClassifyInput",
           "kind": "interface",
-          "line": 34,
+          "line": 36,
           "signature": "export interface ClassifyInput"
         },
         {
           "name": "Classification",
           "kind": "interface",
-          "line": 41,
+          "line": 43,
           "signature": "export interface Classification"
         },
         {
           "name": "emptyCycleContext",
           "kind": "function",
-          "line": 46,
+          "line": 48,
           "signature": "export function emptyCycleContext(): CycleContext"
         },
         {
           "name": "classify",
           "kind": "function",
-          "line": 53,
+          "line": 55,
           "signature": "export function classify(input: ClassifyInput): Classification"
         }
       ],
@@ -5530,37 +5485,37 @@
         {
           "name": "SupervisorDeps",
           "kind": "interface",
-          "line": 60,
+          "line": 68,
           "signature": "export interface SupervisorDeps"
         },
         {
           "name": "SupervisorReport",
           "kind": "interface",
-          "line": 78,
+          "line": 86,
           "signature": "export interface SupervisorReport"
         },
         {
           "name": "Supervisor",
           "kind": "class",
-          "line": 103,
+          "line": 111,
           "signature": "export class Supervisor"
         },
         {
           "name": "buildCycle",
           "kind": "function",
-          "line": 837,
+          "line": 849,
           "signature": "export function buildCycle( store: RelayStore, pairId: string, snapshot: ObservationSnapshot, continuity: SupervisorContinuity ): CycleContext"
         },
         {
           "name": "WorkerRelayStability",
           "kind": "interface",
-          "line": 882,
+          "line": 896,
           "signature": "export interface WorkerRelayStability"
         },
         {
           "name": "computeWorkerRelayStability",
           "kind": "function",
-          "line": 889,
+          "line": 903,
           "signature": "export function computeWorkerRelayStability(input: { continuity: SupervisorContinuity; snapshot: ObservationSnapshot; nowIso: string; stabilityMs: number; }): W"
         }
       ],
@@ -5625,7 +5580,7 @@
       "category": "core",
       "purpose": "Source module for types.ts.",
       "hasHeader": true,
-      "symbolCount": 47,
+      "symbolCount": 49,
       "symbols": [
         {
           "name": "WorkerAdapterType",
@@ -5720,193 +5675,205 @@
         {
           "name": "ProjectPairsConfig",
           "kind": "interface",
-          "line": 108,
+          "line": 111,
           "signature": "export interface ProjectPairsConfig"
         },
         {
           "name": "PairReadinessReport",
           "kind": "interface",
-          "line": 112,
+          "line": 115,
           "signature": "export interface PairReadinessReport"
         },
         {
           "name": "RelayableMessage",
           "kind": "interface",
-          "line": 119,
+          "line": 122,
           "signature": "export interface RelayableMessage"
         },
         {
           "name": "RelayReceipt",
           "kind": "interface",
-          "line": 134,
+          "line": 137,
           "signature": "export interface RelayReceipt"
         },
         {
           "name": "WorkerPromptState",
           "kind": "type",
-          "line": 147,
+          "line": 150,
           "signature": "export type WorkerPromptState = \"PERSISTED\" | \"ADMITTED\" | \"PROMOTED\" | \"COMPLETED\""
         },
         {
           "name": "RelayDirection",
           "kind": "type",
-          "line": 149,
+          "line": 152,
           "signature": "export type RelayDirection = \"worker-to-planner\" | \"planner-to-worker\""
         },
         {
           "name": "DeliveryStatus",
           "kind": "type",
-          "line": 151,
+          "line": 154,
           "signature": "export type DeliveryStatus = \"DISCOVERED\" | \"DELIVERING\" | \"DELIVERED\" | \"FAILED\""
         },
         {
           "name": "WorkerMessageClassification",
           "kind": "type",
-          "line": 154,
+          "line": 157,
           "signature": "export type WorkerMessageClassification = \"report\" | \"question\""
         },
         {
           "name": "WorkerQuestionNature",
           "kind": "type",
-          "line": 157,
+          "line": 160,
           "signature": "export type WorkerQuestionNature = \"planner_input_required\""
         },
         {
           "name": "CanonicalRelayIdentity",
           "kind": "interface",
-          "line": 159,
+          "line": 162,
           "signature": "export interface CanonicalRelayIdentity"
         },
         {
           "name": "RelayRecord",
           "kind": "interface",
-          "line": 166,
+          "line": 169,
           "signature": "export interface RelayRecord"
         },
         {
           "name": "StartupOperationStatus",
           "kind": "type",
-          "line": 187,
+          "line": 194,
           "signature": "export type StartupOperationStatus = \"pending\" | \"stabilized\" | \"hold\" | \"aborted\""
         },
         {
           "name": "StartupOperation",
           "kind": "interface",
-          "line": 189,
+          "line": 196,
           "signature": "export interface StartupOperation"
         },
         {
           "name": "PairRelayState",
           "kind": "interface",
-          "line": 205,
+          "line": 212,
           "signature": "export interface PairRelayState"
         },
         {
           "name": "SupervisorState",
           "kind": "type",
-          "line": 215,
+          "line": 226,
           "signature": "export type SupervisorState = | \"READY\" | \"WORKING\" | \"WAITING_PLANNER\" | \"WAITING_WORKER\" | \"IDLE\" | \"COMPLETED\" | \"WAITING_INPUT\" | \"STUCK\" | \"FAILED\" | \"DISC"
         },
         {
           "name": "WorkerObservation",
           "kind": "interface",
-          "line": 228,
+          "line": 239,
           "signature": "export interface WorkerObservation"
         },
         {
           "name": "PlannerObservation",
           "kind": "interface",
-          "line": 244,
+          "line": 255,
           "signature": "export interface PlannerObservation"
         },
         {
           "name": "ObservationSnapshot",
           "kind": "interface",
-          "line": 257,
+          "line": 268,
           "signature": "export interface ObservationSnapshot"
         },
         {
           "name": "SupervisorContinuity",
           "kind": "interface",
-          "line": 264,
+          "line": 275,
           "signature": "export interface SupervisorContinuity"
+        },
+        {
+          "name": "IncidentDisposition",
+          "kind": "type",
+          "line": 314,
+          "signature": "export type IncidentDisposition = | \"resolved\" | \"held\" | \"awaiting_operator\" | \"authorized_abandonment\" | \"terminated_verified\" | \"terminated_unverified\" | \"un"
         },
         {
           "name": "RecoveryPolicy",
           "kind": "type",
-          "line": 294,
+          "line": 323,
           "signature": "export type RecoveryPolicy = \"none\" | \"safe\""
         },
         {
           "name": "RecoveryErrorCode",
           "kind": "type",
-          "line": 296,
+          "line": 325,
           "signature": "export type RecoveryErrorCode = | \"OPENCODE_UNREACHABLE\" | \"OPENCODE_SESSION_MISSING\" | \"OPENCODE_REPO_MISMATCH\" | \"OPENCODE_TIMEOUT\" | \"CHATGPT_CDP_UNREACHABLE"
         },
         {
           "name": "BrowserOwnership",
           "kind": "type",
-          "line": 311,
+          "line": 340,
           "signature": "export type BrowserOwnership = \"external\" | \"managed\""
         },
         {
           "name": "RecoveryMetadata",
           "kind": "interface",
-          "line": 313,
+          "line": 342,
           "signature": "export interface RecoveryMetadata"
         },
         {
           "name": "PairRuntimeState",
           "kind": "type",
-          "line": 324,
+          "line": 353,
           "signature": "export type PairRuntimeState = \"STOPPED\" | \"STARTING\" | \"RUNNING\" | \"PAUSED\" | \"STOPPING\" | \"ERROR\""
         },
         {
           "name": "PeerHealth",
           "kind": "type",
-          "line": 326,
+          "line": 355,
           "signature": "export type PeerHealth = \"connected\" | \"degraded\" | \"failed\" | \"unknown\""
         },
         {
           "name": "PeerActivity",
           "kind": "type",
-          "line": 329,
+          "line": 358,
           "signature": "export type PeerActivity = \"idle\" | \"working\""
         },
         {
           "name": "PeerFailureReason",
           "kind": "type",
-          "line": 336,
+          "line": 365,
           "signature": "export type PeerFailureReason = \"transport\" | \"session\""
         },
         {
           "name": "RuntimePairStatus",
           "kind": "interface",
-          "line": 338,
+          "line": 367,
           "signature": "export interface RuntimePairStatus"
         },
         {
           "name": "SchedulerMode",
           "kind": "type",
-          "line": 365,
+          "line": 394,
           "signature": "export type SchedulerMode = \"ACTIVE\" | \"DORMANT_WATCH\""
         },
         {
           "name": "RuntimeMetadata",
           "kind": "interface",
-          "line": 367,
+          "line": 396,
           "signature": "export interface RuntimeMetadata"
+        },
+        {
+          "name": "SyncedProject",
+          "kind": "interface",
+          "line": 412,
+          "signature": "export interface SyncedProject"
         },
         {
           "name": "RelayCycleStatus",
           "kind": "type",
-          "line": 381,
+          "line": 421,
           "signature": "export type RelayCycleStatus = | \"DISPATCHED\" | \"WORKER_RESPONDED\" | \"DELIVERED\" | \"FAILED\""
         },
         {
           "name": "RelayCycle",
           "kind": "interface",
-          "line": 387,
+          "line": 427,
           "signature": "export interface RelayCycle"
         }
       ],
@@ -6027,7 +5994,7 @@
         {
           "name": "conversationUrlMatchesId",
           "kind": "function",
-          "line": 87,
+          "line": 90,
           "signature": "export function conversationUrlMatchesId(input: string, conversationId: string): boolean"
         }
       ],
@@ -6210,40 +6177,6 @@
         }
       ],
       "dependencies": []
-    },
-    {
-      "path": "src/util/process-lock.ts",
-      "dir": "src/util",
-      "category": "util",
-      "purpose": "Advisory file-based process lock for one-runner ownership — PID liveness, stale-lock clearing, LockHeldError. Consolidated from TerminalBot/RelayLoop.",
-      "hasHeader": true,
-      "symbolCount": 3,
-      "symbols": [
-        {
-          "name": "LockHeldError",
-          "kind": "class",
-          "line": 9,
-          "signature": "export class LockHeldError extends Error"
-        },
-        {
-          "name": "ProcessLockOptions",
-          "kind": "interface",
-          "line": 16,
-          "signature": "export interface ProcessLockOptions"
-        },
-        {
-          "name": "ProcessLock",
-          "kind": "class",
-          "line": 21,
-          "signature": "export class ProcessLock"
-        }
-      ],
-      "dependencies": [
-        {
-          "spec": "node:fs",
-          "kind": "node"
-        }
-      ]
     },
     {
       "path": "src/util/readiness.ts",

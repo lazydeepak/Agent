@@ -67,8 +67,6 @@ and never weakens existing invariants.
 - Import new helpers:
   - `src/relay/planner-prompt.ts`
   - `src/relay/receipt-verification.ts`
-  - `src/util/process-lock.ts`
-  - `src/application/diagnostics-buffer.ts`
 - Re-exported from `src/relay/index.ts`: planner-prompt + receipt-verification.
 
 ## Phase 6 — Duplication reconciliation & consolidation (this pass)
@@ -92,6 +90,9 @@ Notes / discrepancies:
 See `docs/migration-notes.md`.
 
 ## Status
+- Unused prototype modules from the deferred consolidation work are kept outside
+  the production source graph under the ignored `.attic/consolidation-candidates/`
+  directory. They are not compiled, indexed, or shipped.
 - Phase 1 (partial):
   - `writingBlocks?: string[]` added to `RelayableMessage`.
   - Playwright ChatGPT adapter now extracts structured `writing_block` payloads from each
@@ -100,8 +101,6 @@ See `docs/migration-notes.md`.
     `WORKER_PROMPT_NOT_AVAILABLE` added in `src/relay/planner-prompt.ts` with tests.
   - Pure receipt-verification helpers (`normalizeReceiptText`, `collapseWhitespace`,
     `matchPlannerReceipt`, `countFreshMatches`) added in `src/relay/receipt-verification.ts` with tests.
-  - Advisory file-based `ProcessLock` (PID liveness, stale-lock clearing, `LockHeldError`)
-    added in `src/util/process-lock.ts` with tests.
 - Phase 1 (partial, continued):
   - `src/relay/composer-readiness.ts`: `isComposerReady` + 10-min window constants.
   - `src/relay/composer-polling.ts`: `waitForComposerReady` (injectable clock/sleep/AbortSignal).
@@ -110,10 +109,9 @@ See `docs/migration-notes.md`.
     monitors + overallHealth.
   - Engine Invariant Guard panel added to desktop dashboard (index.html).
 - Phase 3 (partial):
-  - `src/application/plugin-registry.ts`: declarative plugin registry (validate/install/enable/
-    disable/list, disabled-by-default, incompatible on entrypoint).
-  - `src/application/apns.ts`: APNs alert sender (ported from Bot).
-  - `src/application/diagnostics-capability.ts`: read-only diagnostics capability gated by permission.
+  - Plugin registry, APNs sender, diagnostics capability, and related AI
+    advisor prototypes are preserved in `.attic/consolidation-candidates/`
+    until explicitly adopted by a production feature.
 - Phase 4: terminal distribution is covered by `npm run service:bundle` / `service:binary`
   (bundles `src/service-entry.ts` into `dist/service/`). Mobile (iOS/Android) scaffold added
   under `mobile/` (README + `client.ts` TypeScript client) consuming the remote HTTP API.
