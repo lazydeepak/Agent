@@ -57,7 +57,7 @@ export function controlsFor(state: string, paused: boolean, enabled: boolean): P
     canStart: !running && enabled,
     canStop: running || state === "PAUSED",
     canPause: running && !paused,
-    canResume: running && paused
+    canResume: paused
   };
 }
 
@@ -70,8 +70,6 @@ export function stateDotClass(runtimeState: string, paused: boolean): string {
       return "dot-ok";
     case "STARTING":
     case "STOPPING":
-      return "dot-warn";
-    case "PAUSED":
       return "dot-warn";
     case "ERROR":
       return "dot-danger";

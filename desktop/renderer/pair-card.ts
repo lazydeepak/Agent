@@ -94,11 +94,10 @@ function pairCardBadges(card: PairCardModel): Array<{ cssClass: string; text: st
   const badges: Array<{ cssClass: string; text: string }> = [];
   if (card.runtimeState === "RUNNING") {
     badges.push({ cssClass: "badge-ok", text: "ACTIVE" });
+  } else if (card.paused) {
+    badges.push({ cssClass: "badge-paused", text: "PAUSED" });
   } else {
     badges.push({ cssClass: "badge-neutral", text: "STOPPED" });
-  }
-  if (card.paused) {
-    badges.push({ cssClass: "badge-paused", text: "PAUSED" });
   }
   return badges;
 }
@@ -170,22 +169,20 @@ function renderPairCard(card: PairCardModel, pair: PairIdentityDto): HTMLElement
   compact.appendChild(activity);
 
   const actions = el("div", "pair-actions");
-  if (controls.canStart) {
-    actions.appendChild(
-      actionButton("Start Relay", "btn-sm btn-primary", true, () => startPair(card.pairId, selectedStartPriming(card.pairId, card.hasRelayHistory)))
-    );
-  }
-  if (controls.canResume) {
-    actions.appendChild(actionButton("Start Relay", "btn-sm btn-primary", true, () => resumePair(card.pairId)));
-  }
-  if (controls.canPause) {
-    const graceful = actionButton("Graceful Pause", "btn-sm", true, () => pausePair(card.pairId));
-    graceful.title = "Let the current worker operation finish, then pause before another dispatch.";
-    actions.appendChild(graceful);
-  }
-  if (controls.canStop) {
-    actions.appendChild(actionButton("Stop Relay", "btn-sm btn-danger", true, () => stopPair(card.pairId)));
-  }
+  // Always render all four action buttons (Start/Stop/Pause/Resume) so the operator
+  // sees the full control surface regardless of state. Disabled buttons are inert.
+  actions.appendChild(
+    actionButton("Start Relay", "btn-sm btn-primary", controls.canStart, () => startPair(card.pairId, selectedStartPriming(card.pairId, card.hasRelayHistory)))
+  );
+  actions.appendChild(
+    actionButton("Resume Relay", "btn-sm btn-primary", controls.canResume, () => resumePair(card.pairId))
+  );
+  actions.appendChild(
+    actionButton("Pause Relay", "btn-sm", controls.canPause, () => pausePair(card.pairId))
+  );
+  actions.appendChild(
+    actionButton("Stop Relay", "btn-sm btn-danger", controls.canStop, () => stopPair(card.pairId))
+  );
   actions.appendChild(actionButton("Open Worker Agent", "btn-sm", true, () => openWorkerSession(card.pairId)));
   // Initialize also appears in compact mode for the dashboard.
   const notRunning = card.runtimeState !== "RUNNING" && card.runtimeState !== "STARTING";
