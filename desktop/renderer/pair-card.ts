@@ -28,9 +28,15 @@ async function syncAutoResumeToggles(): Promise<void> {
   try {
     const rows = await window.desktop.getAutoResumeState();
     autoResumeSnapshot = new Map(rows.map((row) => [row.pairId, row.autoResumeAfterRestart]));
-    for (const input of document.querySelectorAll<HTMLInputElement>(".auto-resume-toggle-input[data-pair-id]")) {
-      const pairId = input.dataset.pairId;
-      if (pairId) input.checked = autoResumeSnapshot.get(pairId) ?? false;
+    for (const button of document.querySelectorAll<HTMLButtonElement>(".auto-resume-toggle[data-pair-id]")) {
+      const pairId = button.dataset.pairId;
+      if (pairId) {
+        const enabled = autoResumeSnapshot.get(pairId) ?? false;
+        button.setAttribute("aria-pressed", String(enabled));
+        button.classList.toggle("is-on", enabled);
+        const text = button.querySelector<HTMLElement>(".auto-resume-toggle-text");
+        if (text) text.textContent = `Auto Resume ${enabled ? "On" : "Off"}`;
+      }
     }
   } catch {
     // Leave toggles unchecked rather than fabricate operator intent.
@@ -186,33 +192,41 @@ function renderPairCard(card: PairCardModel, pair: PairIdentityDto): HTMLElement
   const notRunning = card.runtimeState !== "RUNNING" && card.runtimeState !== "STARTING";
   actions.appendChild(actionButton("Initialize", "btn-sm", notRunning, () => initializePair(card.pairId)));
   compact.appendChild(actions);
-  const autoResumeLabel = el("label", "auto-resume-toggle");
-  autoResumeLabel.title = "Resume this pair automatically after an engine/computer restart (Rule 15). Default: off. An Emergency Stop always takes precedence.";
-  const autoResumeInput = el("input", "auto-resume-toggle-input") as HTMLInputElement;
-  autoResumeInput.type = "checkbox";
-  autoResumeInput.dataset.pairId = card.pairId;
-  autoResumeInput.checked = autoResumeSnapshot?.get(card.pairId) ?? false;
-  autoResumeInput.addEventListener("change", () => {
-    const enabled = autoResumeInput.checked;
+  const autoResumeButton = el("button", "btn btn-sm auto-resume-toggle") as HTMLButtonElement;
+  autoResumeButton.type = "button";
+  autoResumeButton.dataset.pairId = card.pairId;
+  autoResumeButton.title = "Resume this pair automatically after an engine/computer restart (Rule 15). Default: off. An Emergency Stop always takes precedence.";
+  const autoResumeEnabled = autoResumeSnapshot?.get(card.pairId) ?? false;
+  autoResumeButton.setAttribute("aria-pressed", String(autoResumeEnabled));
+  autoResumeButton.classList.toggle("is-on", autoResumeEnabled);
+  const autoResumeSwitch = el("span", "auto-resume-switch");
+  autoResumeSwitch.setAttribute("aria-hidden", "true");
+  const autoResumeText = el("span", "auto-resume-toggle-text");
+  autoResumeText.textContent = `Auto Resume ${autoResumeEnabled ? "On" : "Off"}`;
+  autoResumeButton.append(autoResumeSwitch, autoResumeText);
+  autoResumeButton.addEventListener("click", () => {
+    const enabled = autoResumeButton.getAttribute("aria-pressed") !== "true";
+    autoResumeButton.disabled = true;
     void (async () => {
       if (typeof window.desktop?.setAutoResumeAfterRestart !== "function") return;
       try {
         await window.desktop.setAutoResumeAfterRestart(card.pairId, enabled);
         autoResumeSnapshot?.set(card.pairId, enabled);
-        for (const input of document.querySelectorAll<HTMLInputElement>(`.auto-resume-toggle-input[data-pair-id="${CSS.escape(card.pairId)}"]`)) {
-          input.checked = enabled;
+        for (const button of document.querySelectorAll<HTMLButtonElement>(`.auto-resume-toggle[data-pair-id="${CSS.escape(card.pairId)}"]`)) {
+          button.setAttribute("aria-pressed", String(enabled));
+          button.classList.toggle("is-on", enabled);
+          const text = button.querySelector<HTMLElement>(".auto-resume-toggle-text");
+          if (text) text.textContent = `Auto Resume ${enabled ? "On" : "Off"}`;
         }
         toast(enabled ? "Auto-resume after restart enabled for this pair." : "Auto-resume after restart disabled for this pair.", "ok");
       } catch (error) {
-        autoResumeInput.checked = !enabled;
         toast(error instanceof Error ? error.message : String(error), "error");
+      } finally {
+        autoResumeButton.disabled = false;
       }
     })();
   });
-  const autoResumeText = el("span", "auto-resume-toggle-text");
-  autoResumeText.textContent = "Auto-resume after restart";
-  autoResumeLabel.append(autoResumeInput, autoResumeText);
-  compact.appendChild(autoResumeLabel);
+  actions.appendChild(autoResumeButton);
   body.push(compact);
   scheduleSync();
 
