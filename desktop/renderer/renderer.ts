@@ -840,7 +840,6 @@ function renderDashboard(): void {
   const failed = document.getElementById("stat-failed");
   const total = document.getElementById("stat-total");
   const historyContainer = document.getElementById("dashboard-history");
-  const agentHealthContainer = document.getElementById("dashboard-agent-health-list");
   const gettingStarted = document.getElementById("dashboard-getting-started");
 
   const statuses = Array.from(state.statuses.values());
@@ -878,9 +877,7 @@ function renderDashboard(): void {
     diagReport.classList.toggle("health-warning", overall === "warning");
   }
 
-  if (agentHealthContainer) {
-    renderDashboardAgentHealth(agentHealthContainer);
-  }
+  // Dashboard agent health section has been removed - pairs are shown on the pairs page only
 
   void updateBackendHealthStatus();
 
@@ -904,24 +901,7 @@ function renderDashboard(): void {
   }
 }
 
-function renderDashboardAgentHealth(container: HTMLElement): void {
-  if (state.pairs.length === 0) {
-    const empty = el("div", "empty-state agent-empty");
-    empty.innerHTML = `<svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true"><circle cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="2" stroke-opacity="0.4"/><path d="M24 8 L36 24 L24 40 L12 24 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2"/><circle cx="24" cy="24" r="4" fill="currentColor"/></svg><span><strong>No agent pairs yet.</strong><br/>Click <em>+ Add Pair</em> to create your first Planner ↔ Worker relay.</span>`;
-    container.replaceChildren(empty);
-    return;
-  }
 
-  const fragment = document.createDocumentFragment();
-
-  for (const pair of state.pairs) {
-    // Single source of truth: the dashboard and the pairs panel render the exact same
-    // pair card component (desktop/renderer/pair-card.ts). No parallel card markup.
-    appendPairCard(fragment, pair);
-  }
-
-  container.replaceChildren(fragment);
-}
 
 /** Format a millisecond duration as HH:MM:SS for uptime tiles. */
 function formatElapsed(elapsedMs: number): string {
