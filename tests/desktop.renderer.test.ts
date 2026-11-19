@@ -108,9 +108,10 @@ describe("renderer visibility styles", () => {
     expect(renderer).toMatch(/showWorkerOnStartPref\(\)/);
   });
 
-  it("uses explicit Start Relay and Stop Relay labels", async () => {
+  it("uses concise Start and Stop labels", async () => {
     const pairCard = await readFile(new URL("../desktop/renderer/pair-card.ts", import.meta.url), "utf8");
-    expect(pairCard).toMatch(/Start Relay/);
-    expect(pairCard).toMatch(/Stop Relay/);
+    expect(pairCard).toMatch(/actionButton\("Start"/);
+    expect(pairCard).toMatch(/actionButton\("Stop"/);
+    expect(pairCard).not.toMatch(/Start Relay|Stop Relay|Pause Relay|Resume Relay/);
   });
 });

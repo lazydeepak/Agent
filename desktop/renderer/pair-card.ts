@@ -176,16 +176,16 @@ function renderPairCard(card: PairCardModel, pair: PairIdentityDto): HTMLElement
   // Always render all four action buttons (Start/Stop/Pause/Resume) so the operator
   // sees the full control surface regardless of state. Disabled buttons are inert.
   actions.appendChild(
-    actionButton("Start Relay", "btn-sm btn-primary", controls.canStart, () => startPair(card.pairId, selectedStartPriming(card.pairId, card.hasRelayHistory)))
+    actionButton("Start", "btn-sm btn-primary", controls.canStart, () => startPair(card.pairId, selectedStartPriming(card.pairId, card.hasRelayHistory)))
   );
   actions.appendChild(
-    actionButton("Resume Relay", "btn-sm btn-primary", controls.canResume, () => resumePair(card.pairId))
+    actionButton("Resume", "btn-sm btn-primary", controls.canResume, () => resumePair(card.pairId))
   );
   actions.appendChild(
-    actionButton("Pause Relay", "btn-sm", controls.canPause, () => pausePair(card.pairId))
+    actionButton("Pause", "btn-sm", controls.canPause, () => pausePair(card.pairId))
   );
   actions.appendChild(
-    actionButton("Stop Relay", "btn-sm btn-danger", controls.canStop, () => stopPair(card.pairId))
+    actionButton("Stop", "btn-sm btn-danger", controls.canStop, () => stopPair(card.pairId))
   );
   actions.appendChild(actionButton("Open Worker Agent", "btn-sm", true, () => openWorkerSession(card.pairId)));
   // Initialize also appears in compact mode for the dashboard.

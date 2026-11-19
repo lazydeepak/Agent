@@ -1449,7 +1449,7 @@ function renderProjectPairCard(pair: ProjectPairDto, members: ProjectPairDto[] =
   });
   const projectActions = el("div", "project-actions");
   if (members.length === 1 && hasEligiblePair) {
-    projectActions.appendChild(actionButton("Start Relay", "btn-sm btn-primary", true, () => {
+    projectActions.appendChild(actionButton("Start", "btn-sm btn-primary", true, () => {
       void (async () => {
         const status = await runAction(async () => window.desktop.startProject?.(pair.projectPairId));
         if (status) setStatuses(status);
@@ -1458,7 +1458,7 @@ function renderProjectPairCard(pair: ProjectPairDto, members: ProjectPairDto[] =
     }));
   }
   if (members.length === 1 && hasActivePair) {
-    projectActions.appendChild(actionButton("Stop Relay", "btn-sm", true, () => {
+    projectActions.appendChild(actionButton("Stop", "btn-sm", true, () => {
       void (async () => {
         const status = await runAction(async () => window.desktop.pauseProject?.(pair.projectPairId));
         if (status) setStatuses(status);
